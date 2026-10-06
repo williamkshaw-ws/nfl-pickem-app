@@ -348,101 +348,62 @@ export function PickMatrix({
         </button>
       </div>
 
-      {/* Celebratory Winner Podium Banner when week is final */}
-      {isWeekFinished && primaryWinner && (
-        <div className="relative overflow-hidden bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-teal-500/15 border-2 border-amber-500/30 dark:border-amber-500/20 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-                <Crown className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    Week {activeWeek} Winner
-                  </span>
-                  {weeklyWinners.length > 1 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                      Co-Winners
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                  {weeklyWinners.map((w) => w.user.name).join(" & ")}
-                </h3>
-                <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5">
-                  <span>
-                    <strong>{primaryWinner.correctCount}</strong> of {totalGamesCount} Correct ({Math.round((primaryWinner.correctCount / totalGamesCount) * 100)}%)
-                  </span>
-                  {primaryWinner.tiebreakerExplanation && (
-                    <span className="text-amber-700 dark:text-amber-400 ml-1.5 font-bold">
-                      · {primaryWinner.tiebreakerExplanation}
-                    </span>
-                  )}
-                </div>
-              </div>
+      {/* Games Summary & Legend Bar */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <span>
+                <strong>{completedCount}</strong> of {totalGamesCount} games final
+                {liveCount > 0
+                  ? ` (${liveCount} live, ${remainingCount - liveCount} upcoming)`
+                  : remainingCount > 0
+                  ? ` (${remainingCount} left)`
+                  : " (Final)"}
+              </span>
             </div>
 
-            <button
-              onClick={triggerConfetti}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer self-start sm:self-auto"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Celebrate!</span>
-            </button>
+            {isWeekFinished && primaryWinner ? (
+              <button
+                onClick={triggerConfetti}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 transition-all cursor-pointer active:scale-95"
+                title="Celebrate Weekly Winner!"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Celebrate Winner</span>
+              </button>
+            ) : completedCount > 0 && remainingCount > 0 ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <Check className="w-3 h-3" />
+                  {inContentionCount} in contention
+                </span>
+                {eliminatedCount > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                    <X className="w-3 h-3" />
+                    {eliminatedCount} eliminated
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
+            <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
+            </span>
+            <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+              <span className="w-2 h-2 rounded-full bg-rose-500" /> Incorrect
+            </span>
+            {eliminatorEnabled && (
+              <span className="flex items-center gap-1 text-purple-700 dark:text-purple-400">
+                <span className="w-2 h-2 rounded-full bg-purple-500" /> Survivor Pick
+              </span>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Live Contention & Games Summary Card (during or before completion) */}
-      {!isWeekFinished && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span>
-                  <strong>{completedCount}</strong> of {totalGamesCount} games final
-                  {liveCount > 0
-                    ? ` (${liveCount} live, ${remainingCount - liveCount} upcoming)`
-                    : remainingCount > 0
-                    ? ` (${remainingCount} left)`
-                    : " (Complete)"}
-                </span>
-              </div>
-
-              {completedCount > 0 && remainingCount > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    <Check className="w-3 h-3" />
-                    {inContentionCount} in contention
-                  </span>
-                  {eliminatedCount > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
-                      <X className="w-3 h-3" />
-                      {eliminatedCount} eliminated
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
-              <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
-              </span>
-              <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                <span className="w-2 h-2 rounded-full bg-rose-500" /> Incorrect
-              </span>
-              {eliminatorEnabled && (
-                <span className="flex items-center gap-1 text-purple-700 dark:text-purple-400">
-                  <span className="w-2 h-2 rounded-full bg-purple-500" /> Survivor Pick
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* ================= COMPACT LEAGUE PICKS GRID ================= */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
