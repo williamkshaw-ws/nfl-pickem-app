@@ -41,6 +41,9 @@ export async function POST(request: Request) {
       );
       if (match) {
         const userData = match.data();
+        if (userData.banned) {
+          throw new HttpError(403, "This account has been disabled");
+        }
         if (userData.email) {
           return NextResponse.json({ email: userData.email });
         }
@@ -52,6 +55,9 @@ export async function POST(request: Request) {
     }
 
     const userData = snapshot.docs[0].data();
+    if (userData.banned) {
+      throw new HttpError(403, "This account has been disabled");
+    }
     if (!userData.email) {
       throw new HttpError(404, "Account does not have an associated email address");
     }

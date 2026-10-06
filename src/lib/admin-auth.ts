@@ -2,9 +2,23 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { HttpError } from "./server-auth";
 
-export const ADMIN_USERNAME = "admin";
-export const ADMIN_PASSWORD = "AdminPass123!";
+export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "AdminPass123!";
 export const ADMIN_COOKIE_NAME = "pp_admin_session";
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+export function timingSafeStringEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Perform dummy timing safe equal to equalize execution path
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 const ADMIN_SECRET =
   process.env.ADMIN_SESSION_SECRET ||

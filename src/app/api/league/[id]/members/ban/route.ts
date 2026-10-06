@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireUser, requireCommissioner, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import {
+  requireUser,
+  requireCommissioner,
+  adminDb,
+  errorResponse,
+  HttpError,
+  reassignLeagueCommissioner,
+} from "@/lib/server-auth";
 import { adminAuth } from "@/lib/firebase-admin";
 
 export async function POST(
@@ -24,7 +31,17 @@ export async function POST(
 
     const db = adminDb();
 
-    // 1. Disable user in Firebase Auth so their email cannot be used to log in
+    // 1. If this user is commissioner of any leagues, reassign commissioner to the next eligible member
+    const commishLeaguesSnap = await db
+      .collection("leagues")
+      .where("commissionerId", "==", userId)
+      .get();
+
+    for (const lDoc of commishLeaguesSnap.docs) {
+      await reassignLeagueCommissioner(db, lDoc.id, userId);
+    }
+
+    // 2. Disable user in Firebase Auth so their email cannot be used to log in
     try {
       await adminAuth.updateUser(userId, { disabled: true });
       await adminAuth.revokeRefreshTokens(userId);

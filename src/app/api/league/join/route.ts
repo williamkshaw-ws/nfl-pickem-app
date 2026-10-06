@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { timingSafeStringEqual } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     // Check league password if one is required
     if (requiredPassword && typeof requiredPassword === "string" && requiredPassword.trim() !== "") {
       const providedPassword = typeof password === "string" ? password.trim() : "";
-      if (providedPassword !== requiredPassword.trim()) {
+      if (!timingSafeStringEqual(providedPassword, requiredPassword.trim())) {
         throw new HttpError(403, "Incorrect league password");
       }
     }

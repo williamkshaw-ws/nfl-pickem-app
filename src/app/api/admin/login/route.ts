@@ -4,6 +4,7 @@ import {
   ADMIN_PASSWORD,
   ADMIN_COOKIE_NAME,
   createAdminToken,
+  timingSafeStringEqual,
 } from "@/lib/admin-auth";
 import { errorResponse, HttpError } from "@/lib/server-auth";
 
@@ -21,8 +22,10 @@ export async function POST(request: Request) {
       throw new HttpError(400, "Username and password are required");
     }
 
-    // Check credentials against the specified admin credentials
-    if (username.trim() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    // Check credentials against the specified admin credentials in constant time
+    const userMatches = timingSafeStringEqual(username.trim(), ADMIN_USERNAME);
+    const passMatches = timingSafeStringEqual(password, ADMIN_PASSWORD);
+    if (!userMatches || !passMatches) {
       throw new HttpError(401, "Invalid admin username or password");
     }
 
