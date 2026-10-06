@@ -58,6 +58,34 @@ interface CommissionerHubProps {
   onTransferCommissioner?: (newCommissionerId: string) => Promise<void>;
 }
 
+function checkGameLocked(
+  game: Game,
+  weekGames: Game[],
+  lockPolicy: string = "game",
+  now: number = Date.now()
+): boolean {
+  if (
+    game.status?.completed ||
+    game.status?.state === "in" ||
+    new Date(game.date).getTime() <= now
+  ) {
+    return true;
+  }
+  if (lockPolicy === "week") {
+    const firstGame = Math.min(...weekGames.map((g) => new Date(g.date).getTime()));
+    return now >= firstGame;
+  }
+  if (lockPolicy === "day") {
+    const gameDay = new Date(game.date).toDateString();
+    const sameDayGames = weekGames.filter(
+      (g) => new Date(g.date).toDateString() === gameDay
+    );
+    const firstGame = Math.min(...sameDayGames.map((g) => new Date(g.date).getTime()));
+    return now >= firstGame;
+  }
+  return false;
+}
+
 export function CommissionerHub({
   leagueId,
   games,
@@ -119,6 +147,7 @@ export function CommissionerHub({
 
   // Compute submission statistics per user for active week
   const memberStatuses = useMemo(() => {
+    const now = Date.now();
     return users.map((u) => {
       const userPickObj = allPicks?.find(
         (p) => p.userId === u.id && p.week === activeWeek
@@ -133,12 +162,27 @@ export function CommissionerHub({
         typeof userPickObj.tiebreaker.totalScore === "number" &&
         userPickObj.tiebreaker.totalScore > 0;
 
-      const hasSurvivor =
-        !!userPickObj?.eliminatorPick && userPickObj.eliminatorPick !== "HIDDEN";
+      const elimPick = userPickObj?.eliminatorPick;
+      const hasSurvivor = !!elimPick;
 
-      const pickedTeam = userPickObj?.eliminatorPick
-        ? teamsMap.get(userPickObj.eliminatorPick)
-        : undefined;
+      const elimGame =
+        elimPick && elimPick !== "HIDDEN"
+          ? games.find(
+              (g) => g.homeTeam.id === elimPick || g.awayTeam.id === elimPick
+            )
+          : undefined;
+
+      const isElimGameLocked = elimGame
+        ? checkGameLocked(elimGame, games, settings.lockPolicy, now)
+        : false;
+
+      const pickedTeam =
+        elimPick && elimPick !== "HIDDEN" ? teamsMap.get(elimPick) : undefined;
+
+      // Only reveal the actual team name if that specific game has kicked off or if it is the commissioner's own account
+      const isSurvivorRevealed =
+        elimPick !== "HIDDEN" &&
+        (isElimGameLocked || u.id === settings.commissionerId);
 
       const pickemDone =
         settings.pickemEnabled !== false
@@ -155,14 +199,26 @@ export function CommissionerHub({
         validPicksCount,
         hasTiebreaker,
         hasSurvivor,
-        survivorPick: userPickObj?.eliminatorPick,
+        survivorPick: elimPick,
         survivorTeam: pickedTeam,
+        isSurvivorRevealed,
         isComplete,
         isPartial,
         isMissing,
       };
     });
-  }, [users, allPicks, activeWeek, totalGames, teamsMap, settings.pickemEnabled, settings.eliminatorEnabled]);
+  }, [
+    users,
+    allPicks,
+    activeWeek,
+    totalGames,
+    teamsMap,
+    games,
+    settings.lockPolicy,
+    settings.commissionerId,
+    settings.pickemEnabled,
+    settings.eliminatorEnabled,
+  ]);
 
   const completeCount = memberStatuses.filter((s) => s.isComplete).length;
   const missingCount = memberStatuses.filter((s) => s.isMissing).length;
@@ -547,15 +603,12 @@ export function CommissionerHub({
                     hasSurvivor,
                     survivorPick,
                     survivorTeam,
+                    isSurvivorRevealed,
                     isComplete,
                     isPartial,
                     isMissing,
                   }) => {
                     const isCommish = settings.commissionerId === u.id;
-
-                    const survivorDisplayName = survivorPick === "HIDDEN"
-                      ? "Hidden"
-                      : survivorTeam?.abbreviation || survivorTeam?.name || (hasSurvivor ? "Picked" : "Missing");
 
                     return (
                       <div
@@ -623,18 +676,22 @@ export function CommissionerHub({
                                   />
                                   <span>Survivor:</span>
                                   {hasSurvivor ? (
-                                    <>
-                                      {survivorTeam?.logo && (
-                                        <img
-                                          src={survivorTeam.logo}
-                                          alt=""
-                                          className="w-3.5 h-3.5 object-contain"
-                                        />
-                                      )}
-                                      <span className="font-extrabold">
-                                        {survivorDisplayName}
-                                      </span>
-                                    </>
+                                    isSurvivorRevealed ? (
+                                      <>
+                                        {survivorTeam?.logo && (
+                                          <img
+                                            src={survivorTeam.logo}
+                                            alt=""
+                                            className="w-3.5 h-3.5 object-contain"
+                                          />
+                                        )}
+                                        <span className="font-extrabold">
+                                          {survivorTeam?.abbreviation || survivorTeam?.name || "Picked"}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="font-extrabold">Hidden</span>
+                                    )
                                   ) : (
                                     <span>Missing</span>
                                   )}
