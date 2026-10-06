@@ -232,7 +232,7 @@ export function PickMatrix({
       {/* Header */}
       <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-lg font-black text-slate-900 dark:text-white">Week {activeWeek} Pick Matrix</h2>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white">Week {activeWeek} League Picks</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
             Compare all players&apos; picks, live scores, and contention status.
           </p>

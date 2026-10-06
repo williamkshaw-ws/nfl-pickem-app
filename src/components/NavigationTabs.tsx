@@ -40,6 +40,12 @@ export function NavigationTabs({
       badgeColor: !pickemEnabled ? (picksCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700") : (picksCount < totalGames ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"),
     },
     {
+      id: "matrix",
+      label: "League Picks",
+      shortLabel: "League",
+      icon: Grid,
+    },
+    {
       id: "weekly",
       label: "Weekly Results",
       shortLabel: "Results",
@@ -48,42 +54,31 @@ export function NavigationTabs({
       badgeColor: hasWeeklyWinner ? "bg-slate-100 text-slate-600" : "bg-red-500 text-white animate-pulse shadow-sm",
     },
     {
+      id: "eliminator",
+      label: "Survivor",
+      shortLabel: "Survivor",
+      icon: Target,
+    },
+    {
       id: "season",
       label: "Season Standings",
       shortLabel: "Season",
       icon: Trophy,
     },
     {
-      id: "matrix",
-      label: "Pick Matrix",
-      shortLabel: "Matrix",
-      icon: Grid,
-      desktopOnlyLabel: true,
-    }
-  ];
-
-  const tabs = allTabs.filter(tab => {
-    if (!pickemEnabled && (tab.id === "weekly" || tab.id === "matrix" || tab.id === "season")) return false; // Hide Pickem specific tabs
-    return true;
-  });
-
-  if (eliminatorEnabled) {
-    tabs.push({
-      id: "eliminator",
-      label: "Survivor",
-      shortLabel: "Survivor",
-      icon: Target,
-    });
-  }
-
-  if (isCommissioner) {
-    tabs.push({
       id: "commissioner",
       label: "Commissioner Hub",
       shortLabel: "Admin",
       icon: SlidersHorizontal,
-    });
-  }
+    },
+  ];
+
+  const tabs = allTabs.filter((tab) => {
+    if (!pickemEnabled && (tab.id === "matrix" || tab.id === "weekly" || tab.id === "season")) return false;
+    if (!eliminatorEnabled && tab.id === "eliminator") return false;
+    if (!isCommissioner && tab.id === "commissioner") return false;
+    return true;
+  });
 
   return (
     <>
