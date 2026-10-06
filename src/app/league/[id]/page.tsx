@@ -316,24 +316,6 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
             />
           )}
 
-          {activeTab === "weekly" && (
-            <WeeklyLeaderboard 
-              weeklyResults={data.weeklyResults} 
-              activeWeek={activeWeek}
-              games={data.gamesByWeek[activeWeek] || []}
-              currentUserId={user.id}
-            />
-          )}
-
-          {activeTab === "season" && (
-            <OverallStandings 
-              standings={data.seasonStandings} 
-              seasonYear={data.settings.seasonYear || 2026}
-              currentUserId={user.id}
-              isSeasonOver={data.isSeasonOver}
-            />
-          )}
-
           {activeTab === "matrix" && (
             <PickMatrix
               games={data.gamesByWeek[activeWeek] || []}
@@ -344,6 +326,16 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               lockPolicy={data.settings.lockPolicy}
               eliminatorEnabled={data.settings.eliminatorEnabled}
               eliminatorStatus={data.eliminatorStatus}
+              weeklyResults={data.weeklyResults}
+            />
+          )}
+
+          {activeTab === "season" && (
+            <OverallStandings 
+              standings={data.seasonStandings} 
+              seasonYear={data.settings.seasonYear || 2026}
+              currentUserId={user.id}
+              isSeasonOver={data.isSeasonOver}
             />
           )}
 

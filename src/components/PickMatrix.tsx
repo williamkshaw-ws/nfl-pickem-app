@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Game, User, UserPicks, Team, EliminatorStatus } from "@/types/nfl";
-import { Check, X, Clock, Trophy, Target } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import confetti from "canvas-confetti";
+import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult } from "@/types/nfl";
+import { Check, X, Clock, Trophy, Target, Crown, Sparkles, HelpCircle } from "lucide-react";
 import Image from "next/image";
 
 interface PickMatrixProps {
@@ -14,6 +15,7 @@ interface PickMatrixProps {
   lockPolicy?: "week" | "day" | "game";
   eliminatorEnabled?: boolean;
   eliminatorStatus?: EliminatorStatus[];
+  weeklyResults?: WeeklyPlayerResult[];
 }
 
 function checkIsGameLocked(
@@ -48,7 +50,22 @@ export function PickMatrix({
   lockPolicy = "game",
   eliminatorEnabled = false,
   eliminatorStatus,
+  weeklyResults,
 }: PickMatrixProps) {
+  const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+
+  const triggerConfetti = () => {
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch {
+      // Ignore if confetti not supported
+    }
+  };
+
   const {
     sortedGames,
     tbGame,
@@ -81,6 +98,13 @@ export function PickMatrix({
       isWeekFinished: sorted.length > 0 && remaining.length === 0,
     };
   }, [games]);
+
+  const tbFinal =
+    tbGame &&
+    tbGame.status.completed &&
+    typeof tbGame.homeScore === "number" &&
+    typeof tbGame.awayScore === "number";
+  const actualTbTotal = tbFinal ? tbGame.homeScore! + tbGame.awayScore! : undefined;
 
   // Compute stats for each player
   const playerStats = useMemo(() => {
@@ -131,11 +155,18 @@ export function PickMatrix({
         }
       }
 
+      // Tiebreaker difference if available
+      let tbDiff: number | undefined = undefined;
+      if (tb && typeof tb.totalScore === "number" && actualTbTotal !== undefined) {
+        tbDiff = Math.abs(tb.totalScore - actualTbTotal);
+      }
+
       return {
         user,
         userPickRecord,
         userPicksMap,
         tb,
+        tbDiff,
         correctCount,
         incorrectCount,
         maxPossible,
@@ -145,172 +176,300 @@ export function PickMatrix({
         isElimGameLocked,
       };
     });
-  }, [allPicks, activeWeek, users, completedGames, remainingCount, sortedGames, games, lockPolicy]);
+  }, [allPicks, activeWeek, users, completedGames, remainingCount, sortedGames, games, lockPolicy, actualTbTotal]);
 
   // Highest current score
   const maxCurrentCorrect = useMemo(() => {
     return Math.max(...playerStats.map((p) => p.correctCount), 0);
   }, [playerStats]);
 
-  // Compute live contention status for each player
-  const playerContention = useMemo(() => {
-    return playerStats.map((p) => {
+  // Add gamesBack and sort players by rank
+  const rankedPlayers = useMemo(() => {
+    const weeklyResultMap = new Map<string, WeeklyPlayerResult>();
+    (weeklyResults || []).forEach((r) => weeklyResultMap.set(r.userId, r));
+
+    const enhanced = playerStats.map((p) => {
+      const gamesBack = Math.max(0, maxCurrentCorrect - p.correctCount);
+      const wr = weeklyResultMap.get(p.user.id);
+      return {
+        ...p,
+        gamesBack,
+        weeklyResult: wr,
+        isWeeklyWinner: wr?.isWeeklyWinner ?? false,
+        tiebreakerExplanation: wr?.tiebreakerExplanation,
+      };
+    });
+
+    // Sort: 1. Most correct picks, 2. Lowest tiebreaker diff if finished, 3. User name
+    enhanced.sort((a, b) => {
+      if (b.correctCount !== a.correctCount) {
+        return b.correctCount - a.correctCount;
+      }
+      if (a.weeklyResult && b.weeklyResult) {
+        return a.weeklyResult.rank - b.weeklyResult.rank;
+      }
+      if (a.tbDiff !== undefined && b.tbDiff !== undefined) {
+        return a.tbDiff - b.tbDiff;
+      }
+      return a.user.name.localeCompare(b.user.name);
+    });
+
+    // Compute ranks with "T-" tie prefix
+    let currentRank = 1;
+    return enhanced.map((p, idx) => {
+      if (idx > 0) {
+        const prev = enhanced[idx - 1];
+        if (prev.correctCount !== p.correctCount) {
+          currentRank = idx + 1;
+        }
+      }
+      const tiedWithOthers =
+        enhanced.filter((other) => other.correctCount === p.correctCount).length > 1;
+      const rankLabel = tiedWithOthers ? `T-${currentRank}` : `#${currentRank}`;
+
+      return {
+        ...p,
+        rank: currentRank,
+        rankLabel,
+      };
+    });
+  }, [playerStats, maxCurrentCorrect, weeklyResults]);
+
+  // Contention status for each ranked player
+  const playerContentionMap = useMemo(() => {
+    const map = new Map<string, { status: string; label: string; detail: string; badgeColor: string }>();
+
+    rankedPlayers.forEach((p) => {
       if (completedCount === 0) {
-        return {
-          status: "contending" as const,
+        map.set(p.user.id, {
+          status: "contending",
           label: "In Contention",
           detail: `${totalGamesCount} to play`,
-          badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
-        };
+          badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+        });
+        return;
       }
 
       if (isWeekFinished) {
-        if (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0) {
-          return {
-          status: "winner" as const,
-          label: "Weekly Winner",
+        if (p.isWeeklyWinner || (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0)) {
+          map.set(p.user.id, {
+            status: "winner",
+            label: "Weekly Winner",
+            detail: `${p.correctCount} pts`,
+            badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
+          });
+          return;
+        }
+        map.set(p.user.id, {
+          status: "finished",
+          label: "Finished",
           detail: `${p.correctCount} pts`,
-          badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
-        };
+          badgeColor: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+        });
+        return;
       }
-      return {
-        status: "finished" as const,
-        label: "Finished",
-        detail: `${p.correctCount} pts`,
-        badgeColor: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
-      };
-    }
 
-    // Mid-week elimination math:
-    // If the player cannot even tie the leader's CURRENT score with all remaining games, they are eliminated!
-    if (p.maxPossible < maxCurrentCorrect) {
-      return {
-        status: "eliminated" as const,
-        label: "Eliminated",
+      if (p.maxPossible < maxCurrentCorrect) {
+        map.set(p.user.id, {
+          status: "eliminated",
+          label: "Eliminated",
+          detail: `Max: ${p.maxPossible} pts`,
+          badgeColor: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900",
+        });
+        return;
+      }
+
+      if (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0) {
+        const others = rankedPlayers.filter((o) => o.user.id !== p.user.id);
+        const maxOther = Math.max(...others.map((o) => o.maxPossible), 0);
+        if (p.correctCount > maxOther) {
+          map.set(p.user.id, {
+            status: "clinched",
+            label: "Clinched 1st",
+            detail: `${p.correctCount} pts (Uncatchable)`,
+            badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
+          });
+          return;
+        }
+        map.set(p.user.id, {
+          status: "leader",
+          label: "Leader",
+          detail: `${p.correctCount} pts (Max: ${p.maxPossible})`,
+          badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
+        });
+        return;
+      }
+
+      map.set(p.user.id, {
+        status: "contending",
+        label: "In Contention",
         detail: `Max: ${p.maxPossible} pts`,
-        badgeColor: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900",
-      };
-    }
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800",
+      });
+    });
 
-    if (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0) {
-      const otherPlayers = playerStats.filter((other) => other.user.id !== p.user.id);
-      const maxOtherPossible = Math.max(...otherPlayers.map((o) => o.maxPossible), 0);
+    return map;
+  }, [rankedPlayers, completedCount, isWeekFinished, maxCurrentCorrect, totalGamesCount]);
 
-      if (p.correctCount > maxOtherPossible) {
-        return {
-          status: "clinched" as const,
-          label: "Clinched 1st",
-          detail: `${p.correctCount} pts (Uncatchable)`,
-          badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
-        };
-      }
+  const inContentionCount = useMemo(() => {
+    return Array.from(playerContentionMap.values()).filter(
+      (c) => c.status === "contending" || c.status === "leader" || c.status === "clinched"
+    ).length;
+  }, [playerContentionMap]);
 
-      return {
-        status: "leader" as const,
-        label: "Leader",
-        detail: `${p.correctCount} pts (Max: ${p.maxPossible})`,
-        badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
-      };
-    }
+  const eliminatedCount = useMemo(() => {
+    return Array.from(playerContentionMap.values()).filter((c) => c.status === "eliminated").length;
+  }, [playerContentionMap]);
 
-    return {
-      status: "contending" as const,
-      label: "In Contention",
-      detail: `Max: ${p.maxPossible} pts`,
-      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800",
-    };
-  });
-}, [playerStats, completedCount, isWeekFinished, maxCurrentCorrect, totalGamesCount]);
-
-  const inContentionCount = playerContention.filter(
-    (c) => c.status === "contending" || c.status === "leader" || c.status === "clinched"
-  ).length;
-  const eliminatedCount = playerContention.filter((c) => c.status === "eliminated").length;
+  // Identify weekly winners for the banner
+  const weeklyWinners = useMemo(() => {
+    return rankedPlayers.filter((p) => p.isWeeklyWinner);
+  }, [rankedPlayers]);
+  const primaryWinner = weeklyWinners[0];
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Header */}
+      {/* Header and Controls */}
       <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h2 className="text-lg font-black text-slate-900 dark:text-white">Week {activeWeek} League Picks</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-            Compare all players&apos; picks, live scores, and contention status.
+            Compare all league picks, live scores, points, and games back.
           </p>
         </div>
+
+        <button
+          onClick={() => setShowRulesModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer"
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+          <span>Tiebreaker Rules</span>
+        </button>
       </div>
 
-      {/* Live Contention Summary Card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-              <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              <span>
-                <strong>{completedCount}</strong> of {totalGamesCount} games final
-                {liveCount > 0
-                  ? ` (${liveCount} live, ${remainingCount - liveCount} upcoming)`
-                  : remainingCount > 0
-                  ? ` (${remainingCount} left)`
-                  : " (Complete)"}
-              </span>
+      {/* Celebratory Winner Podium Banner when week is final */}
+      {isWeekFinished && primaryWinner && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-teal-500/15 border-2 border-amber-500/30 dark:border-amber-500/20 rounded-2xl p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+                <Crown className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Week {activeWeek} Winner
+                  </span>
+                  {weeklyWinners.length > 1 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                      Co-Winners
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                  {weeklyWinners.map((w) => w.user.name).join(" & ")}
+                </h3>
+                <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5">
+                  <span>
+                    <strong>{primaryWinner.correctCount}</strong> of {totalGamesCount} Correct ({Math.round((primaryWinner.correctCount / totalGamesCount) * 100)}%)
+                  </span>
+                  {primaryWinner.tiebreakerExplanation && (
+                    <span className="text-amber-700 dark:text-amber-400 ml-1.5 font-bold">
+                      · {primaryWinner.tiebreakerExplanation}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {completedCount > 0 && remainingCount > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  <Check className="w-3 h-3" />
-                  {inContentionCount} in contention
-                </span>
-                {eliminatedCount > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
-                    <X className="w-3 h-3" />
-                    {eliminatedCount} eliminated
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
-            <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
-            </span>
-            <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-              <span className="w-2 h-2 rounded-full bg-rose-500" /> Incorrect
-            </span>
-            {eliminatorEnabled && (
-              <span className="flex items-center gap-1 text-purple-700 dark:text-purple-400">
-                <span className="text-[9px] font-black px-1 rounded bg-purple-100 dark:bg-purple-950 border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300">S</span> Survivor Pick
-              </span>
-            )}
+            <button
+              onClick={triggerConfetti}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer self-start sm:self-auto"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Celebrate!</span>
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ================= COMPACT GRID ================= */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+      {/* Live Contention & Games Summary Card (during or before completion) */}
+      {!isWeekFinished && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span>
+                  <strong>{completedCount}</strong> of {totalGamesCount} games final
+                  {liveCount > 0
+                    ? ` (${liveCount} live, ${remainingCount - liveCount} upcoming)`
+                    : remainingCount > 0
+                    ? ` (${remainingCount} left)`
+                    : " (Complete)"}
+                </span>
+              </div>
+
+              {completedCount > 0 && remainingCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    <Check className="w-3 h-3" />
+                    {inContentionCount} in contention
+                  </span>
+                  {eliminatedCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                      <X className="w-3 h-3" />
+                      {eliminatedCount} eliminated
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
+              <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
+              </span>
+              <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                <span className="w-2 h-2 rounded-full bg-rose-500" /> Incorrect
+              </span>
+              {eliminatorEnabled && (
+                <span className="flex items-center gap-1 text-purple-700 dark:text-purple-400">
+                  <span className="text-[9px] font-black px-1 rounded bg-purple-100 dark:bg-purple-950 border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300">S</span> Survivor Pick
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= COMPACT LEAGUE PICKS GRID ================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-center border-collapse">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 select-none">
               <tr>
-                {/* Sticky Score Header */}
-                <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 p-1.5 text-center border-r border-slate-200 dark:border-slate-700/80 min-w-[50px] max-w-[56px] shadow-xs">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 leading-tight">
-                    Pts
+                {/* Sticky PTS & GB Header */}
+                <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 p-1.5 text-center border-r border-slate-200 dark:border-slate-700/80 min-w-[70px] max-w-[80px] shadow-xs">
+                  <div className="flex items-center justify-around text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 leading-tight">
+                    <span>PTS</span>
+                    <span className="text-slate-400 dark:text-slate-500">|</span>
+                    <span>GB</span>
                   </div>
-                  <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 leading-tight">
-                    Score
+                  <div className="flex items-center justify-around text-[8px] font-bold text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
+                    <span>Score</span>
+                    <span>Back</span>
                   </div>
                 </th>
 
-                {/* Narrow Matchup Headers */}
+                {/* Matchup Columns */}
                 {sortedGames.map((game) => {
                   const isFinal = game.status.completed;
                   const isLive = game.status.state === "in";
                   return (
                     <th
                       key={game.id}
-                      className={`p-1 text-center border-r border-slate-200 dark:border-slate-800 min-w-[44px] max-w-[50px] ${
+                      className={`p-1 text-center border-r border-slate-200 dark:border-slate-800 min-w-[46px] max-w-[54px] ${
                         game.isTiebreakerGame
                           ? "bg-amber-50/60 dark:bg-amber-950/30"
                           : "bg-slate-50 dark:bg-slate-800/80"
@@ -347,12 +506,12 @@ export function PickMatrix({
 
                 {/* TB Column Header */}
                 {tbGame && (
-                  <th className="p-1 text-center min-w-[46px] max-w-[52px] bg-slate-50 dark:bg-slate-800/80 border-l border-slate-200 dark:border-slate-800">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 leading-tight">
-                      TB
+                  <th className="p-1 text-center min-w-[52px] max-w-[60px] bg-slate-50 dark:bg-slate-800/80 border-l border-slate-200 dark:border-slate-800">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 leading-tight">
+                      TB PTS
                     </div>
                     <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 leading-tight">
-                      Pred
+                      {tbFinal ? `Act: ${actualTbTotal}` : "Pred"}
                     </div>
                   </th>
                 )}
@@ -360,49 +519,60 @@ export function PickMatrix({
             </thead>
 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
-              {users.map((user, idx) => {
-                const stat = playerStats[idx];
-                const contention = playerContention[idx];
+              {rankedPlayers.map((stat) => {
+                const user = stat.user;
+                const contention = playerContentionMap.get(user.id) || {
+                  status: "contending",
+                  label: "In Contention",
+                  detail: "",
+                  badgeColor: "bg-slate-100 text-slate-700",
+                };
                 const totalCols = sortedGames.length + (tbGame ? 2 : 1);
 
                 return (
                   <React.Fragment key={user.id}>
-                    {/* Player Full-Width Subheader Row */}
+                    {/* Player Subheader Row */}
                     <tr className="bg-slate-50/90 dark:bg-slate-800/80 border-t-2 border-slate-200/90 dark:border-slate-700/80">
                       <td
                         colSpan={totalCols}
-                        className="sticky left-0 py-1 px-2.5 z-10 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs text-left"
+                        className="sticky left-0 py-1.5 px-3 z-10 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs text-left"
                       >
                         <div className="flex items-center justify-between gap-2 max-w-full">
-                          {/* Left: Name & Contention Badge */}
+                          {/* Left: Rank, Name, Contention, Points, Games Back */}
                           <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[11px] font-mono font-black text-slate-500 dark:text-slate-400 w-7 shrink-0">
+                              {stat.rankLabel}
+                            </span>
                             <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">
                               {user.name}
                             </span>
                             <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${contention.badgeColor}`}
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${contention.badgeColor}`}
                               title={contention.detail}
                             >
                               {contention.status === "winner" ||
                               contention.status === "clinched" ||
                               contention.status === "leader" ? (
-                                <Trophy className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                                <Trophy className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
                               ) : contention.status === "contending" ? (
-                                <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                               ) : (
-                                <X className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+                                <X className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400 shrink-0" />
                               )}
                               <span>{contention.label}</span>
                             </span>
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 hidden sm:inline ml-1">
+                              · <strong>{stat.correctCount}</strong> pts {stat.gamesBack === 0 ? "(Leader)" : `(${stat.gamesBack} GB)`}
+                            </span>
                           </div>
 
-                          {/* Right: Survivor Pick Info */}
+                          {/* Right: Survivor Pick */}
                           {eliminatorEnabled && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold flex-shrink-0">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold shrink-0">
                               <span className="text-slate-400 dark:text-slate-500 hidden xs:inline">Survivor:</span>
                               {user.id !== currentUserId && !stat.isElimGameLocked ? (
                                 stat.elimPickTeamId ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-400 font-bold text-[9px]">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 font-bold text-[9px]">
                                     <Clock className="w-2.5 h-2.5 text-slate-400" />
                                     Hidden until kickoff
                                   </span>
@@ -410,42 +580,28 @@ export function PickMatrix({
                                   <span className="text-slate-300 dark:text-slate-600 text-[10px]">No pick</span>
                                 )
                               ) : stat.elimTeam ? (
-                                <>
-                                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
-                                    {stat.elimTeam.logo && (
-                                      <Image
-                                        src={stat.elimTeam.logo}
-                                        alt={stat.elimTeam.abbreviation}
-                                        width={12}
-                                        height={12}
-                                        className="w-3 h-3 object-contain"
-                                        unoptimized
-                                      />
-                                    )}
-                                    <span className="font-black text-slate-900 dark:text-white">
-                                      {stat.elimTeam.abbreviation}
-                                    </span>
-                                  </div>
-                                  <span
-                                    className={`text-[8.5px] px-1 py-0.2 rounded font-black uppercase ${
-                                      stat.elimResult === "won"
-                                        ? "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70"
-                                        : stat.elimResult === "lost"
-                                        ? "text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/70"
-                                        : stat.elimResult === "in_play"
-                                        ? "text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 animate-pulse font-black"
-                                        : "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800"
-                                    }`}
-                                  >
-                                    {stat.elimResult === "won"
-                                      ? "Survived"
+                                <div
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border shadow-2xs ${
+                                    stat.elimResult === "won"
+                                      ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
                                       : stat.elimResult === "lost"
-                                      ? "Elim"
-                                      : stat.elimResult === "in_play"
-                                      ? "Live"
-                                      : "Upcoming"}
-                                  </span>
-                                </>
+                                      ? "bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700"
+                                  }`}
+                                >
+                                  {stat.elimTeam.logo && (
+                                    <Image
+                                      src={stat.elimTeam.logo}
+                                      alt={stat.elimTeam.abbreviation}
+                                      width={12}
+                                      height={12}
+                                      className="w-3 h-3 object-contain shrink-0"
+                                    />
+                                  )}
+                                  <span>{stat.elimTeam.abbreviation}</span>
+                                  {stat.elimResult === "won" && <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />}
+                                  {stat.elimResult === "lost" && <X className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400" />}
+                                </div>
                               ) : (
                                 <span className="text-slate-300 dark:text-slate-600 text-[10px]">No pick</span>
                               )}
@@ -455,118 +611,73 @@ export function PickMatrix({
                       </td>
                     </tr>
 
-                    {/* Picks Row */}
-                    <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-200/60 dark:border-slate-800/60">
-                      {/* Sticky Left Score Cell */}
-                      <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-1 text-center border-r border-slate-200 dark:border-slate-800 shadow-xs">
-                        <div className="font-black text-amber-600 dark:text-amber-400 text-sm leading-none">
-                          {stat.correctCount}
-                        </div>
-                        <div className="text-[9px] font-bold text-amber-600/90 dark:text-amber-400/90 leading-tight">
-                          pts
-                        </div>
-                        <div
-                          className="text-[8px] text-slate-400 dark:text-slate-500 font-semibold leading-none mt-0.5"
-                          title={`Max possible: ${stat.maxPossible}`}
-                        >
-                          Max {stat.maxPossible}
+                    {/* Picks Data Row */}
+                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      {/* Sticky PTS & GB Column */}
+                      <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-1 text-center border-r border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center justify-around">
+                          <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+                            {stat.correctCount}
+                          </span>
+                          <span className="text-[10px] text-slate-300 dark:text-slate-700">|</span>
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
+                            {stat.gamesBack === 0 ? "—" : `-${stat.gamesBack}`}
+                          </span>
                         </div>
                       </td>
 
-                      {/* Matchups Pick Cells */}
+                      {/* Pick Cells */}
                       {sortedGames.map((game) => {
-                        const isGameLocked = checkIsGameLocked(game, games, lockPolicy);
-                        const isRevealed = isGameLocked || user.id === currentUserId;
                         const pickedTeamId = stat.userPicksMap[game.id];
-                        const isCorrect = game.status.completed && game.winnerTeamId === pickedTeamId;
-                        const isIncorrect =
-                          game.status.completed &&
-                          game.winnerTeamId !== undefined &&
-                          game.winnerTeamId !== pickedTeamId;
+                        const isFinal = game.status.completed;
+                        const isLocked = checkIsGameLocked(game, games, lockPolicy);
+                        const isHidden = pickedTeamId === "HIDDEN" || (!isLocked && user.id !== currentUserId);
 
-                        const pickedTeam =
-                          pickedTeamId === game.awayTeam.id
-                            ? game.awayTeam
-                            : pickedTeamId === game.homeTeam.id
-                            ? game.homeTeam
-                            : null;
+                        let pickedTeam: Team | undefined;
+                        let isCorrect = false;
+                        let isIncorrect = false;
 
-                        const isSurvivorChoice =
-                          stat.elimPickTeamId &&
-                          pickedTeamId === stat.elimPickTeamId &&
-                          isRevealed;
+                        if (pickedTeamId && pickedTeamId !== "HIDDEN") {
+                          pickedTeam = game.homeTeam.id === pickedTeamId ? game.homeTeam : game.awayTeam;
+                          if (isFinal && game.winnerTeamId) {
+                            if (pickedTeamId === game.winnerTeamId) isCorrect = true;
+                            else isIncorrect = true;
+                          }
+                        }
+
+                        const isSurvivorPick = eliminatorEnabled && stat.elimPickTeamId === pickedTeamId && !isHidden;
 
                         return (
                           <td
                             key={game.id}
-                            className={`p-1 text-center border-r border-slate-100 dark:border-slate-800/60 whitespace-nowrap min-w-[44px] max-w-[50px] ${
-                              isSurvivorChoice
-                                ? "bg-purple-50/70 dark:bg-purple-950/40 ring-1 ring-inset ring-purple-300/90 dark:ring-purple-700/80"
-                                : game.isTiebreakerGame
-                                ? "bg-amber-50/15 dark:bg-amber-950/20"
-                                : ""
+                            className={`p-0.5 text-center border-r border-slate-100 dark:border-slate-800/80 min-w-[46px] max-w-[54px] ${
+                              game.isTiebreakerGame ? "bg-amber-50/20 dark:bg-amber-950/10" : ""
                             }`}
                           >
-                            {pickedTeam ? (
-                              !isGameLocked && user.id !== currentUserId ? (
-                                <div
-                                  className="flex flex-col items-center justify-center py-1 text-slate-300 dark:text-slate-600"
-                                  title="Pick hidden until kickoff"
-                                >
-                                  <Clock className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
-                                  <span className="text-[8px] font-bold text-slate-300 dark:text-slate-600 mt-0.5">•••</span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center justify-center py-1">
-                                  {/* Team Logo (Unobstructed & Clean) */}
-                                  {pickedTeam.logo ? (
-                                    <Image
-                                      src={pickedTeam.logo}
-                                      alt={pickedTeam.abbreviation}
-                                      width={20}
-                                      height={20}
-                                      className={`w-5 h-5 object-contain ${
-                                        isIncorrect ? "opacity-35 grayscale" : ""
-                                      }`}
-                                      onError={(e) => {
-                                        (e.target as HTMLElement).style.display = "none";
-                                      }}
-                                      unoptimized
-                                    />
-                                  ) : (
-                                    <div className="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700" />
-                                  )}
-
-                                  {/* Team Abbreviation with colored status */}
-                                  <div className="flex items-center justify-center gap-0.5 mt-0.5 leading-none">
-                                    <span
-                                      className={`relative inline-flex items-center justify-center text-[10px] font-black tracking-tight ${
-                                        isCorrect
-                                          ? "text-emerald-600 dark:text-emerald-400 font-black"
-                                          : isIncorrect
-                                          ? "text-rose-500 dark:text-rose-400 font-bold"
-                                          : "text-slate-800 dark:text-slate-200 font-bold"
-                                      }`}
-                                    >
-                                      {pickedTeam.abbreviation}
-                                      {isIncorrect && (
-                                        <span
-                                          aria-hidden="true"
-                                          className="absolute -inset-x-0.5 top-[46%] -translate-y-1/2 h-[1.5px] bg-rose-500 dark:bg-rose-400 pointer-events-none rounded-full"
-                                        />
-                                      )}
-                                    </span>
-                                    {isSurvivorChoice && (
-                                      <span
-                                        className="text-[7.5px] font-black text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/60 border border-purple-300 dark:border-purple-700 px-0.5 rounded leading-none"
-                                        title="Survivor Pick"
-                                      >
-                                        S
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              )
+                            {isHidden ? (
+                              <span
+                                className="text-[9px] font-bold text-slate-300 dark:text-slate-600"
+                                title="Hidden until kickoff"
+                              >
+                                •••
+                              </span>
+                            ) : pickedTeam ? (
+                              <div
+                                className={`group relative py-1 px-1 rounded flex items-center justify-center gap-0.5 transition-all ${
+                                  isCorrect
+                                    ? "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-black"
+                                    : isIncorrect
+                                    ? "bg-rose-500/10 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold opacity-60"
+                                    : "text-slate-800 dark:text-slate-200 font-bold"
+                                }`}
+                              >
+                                {isSurvivorPick && (
+                                  <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-purple-500" title="Survivor Pick" />
+                                )}
+                                <span className="text-[10px] tracking-tight">{pickedTeam.abbreviation}</span>
+                                {isCorrect && <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                                {isIncorrect && <X className="w-2.5 h-2.5 text-rose-500 shrink-0" />}
+                              </div>
                             ) : (
                               <span className="text-slate-200 dark:text-slate-700 text-xs font-bold">–</span>
                             )}
@@ -574,12 +685,13 @@ export function PickMatrix({
                         );
                       })}
 
-                      {/* Tiebreaker Pick Cell */}
+                      {/* Tiebreaker Cell */}
                       {tbGame && (
-                        <td className="p-1 text-center min-w-[46px] max-w-[52px] border-l border-slate-200 dark:border-slate-800 bg-slate-50/25 dark:bg-slate-800/25">
+                        <td className="p-1 text-center min-w-[52px] max-w-[60px] border-l border-slate-200 dark:border-slate-800 bg-slate-50/25 dark:bg-slate-800/25">
                           {stat.tb ? (
                             (() => {
                               const isTbLocked = checkIsGameLocked(tbGame, games, lockPolicy);
+                              // Hide tiebreaker from other players until the tiebreaker game has kicked off
                               if (!isTbLocked && user.id !== currentUserId) {
                                 return (
                                   <span
@@ -590,10 +702,22 @@ export function PickMatrix({
                                   </span>
                                 );
                               }
+
                               return (
                                 <div className="py-0.5">
                                   <div className="text-[11px] font-black text-slate-800 dark:text-slate-200 leading-tight">
                                     {stat.tb.totalScore}
+                                    {tbFinal && stat.tbDiff !== undefined && (
+                                      <span
+                                        className={`ml-1 text-[9px] font-extrabold ${
+                                          stat.tbDiff === 0
+                                            ? "text-emerald-600 dark:text-emerald-400"
+                                            : "text-slate-400 dark:text-slate-500"
+                                        }`}
+                                      >
+                                        (±{stat.tbDiff})
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[8px] text-slate-400 dark:text-slate-500 font-semibold leading-none mt-0.5">
                                     {stat.tb.awayScore}-{stat.tb.homeScore}
@@ -614,6 +738,70 @@ export function PickMatrix({
           </table>
         </div>
       </div>
+
+      {/* Tiebreaker Rules Explainer Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  3-Tier Tiebreaker Rules
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              When two or more players finish with the same number of correct picks, the tiebreaker game determines the weekly winner:
+            </p>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <span className="font-bold text-amber-600 dark:text-amber-400 block mb-0.5">
+                  Tier 1: Total Combined Points
+                </span>
+                <span className="text-slate-600 dark:text-slate-300">
+                  Closest to the actual combined final score of both teams.
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <span className="font-bold text-blue-600 dark:text-blue-400 block mb-0.5">
+                  Tier 2: Home Team Score
+                </span>
+                <span className="text-slate-600 dark:text-slate-300">
+                  If still tied on total points, closest to the home team&apos;s score.
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                  Tier 3: Away Team Score
+                </span>
+                <span className="text-slate-600 dark:text-slate-300">
+                  If still tied on home score, closest to the away team&apos;s score.
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 text-right">
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -122,11 +122,26 @@ export async function GET(
       gamesForWeek.find((g: any) => g.isTiebreakerGame) ||
       [...gamesForWeek].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-    // Mask picks for unlocked games so other players cannot spy before kickoff (Fix H1)
+    const tbLocked = tbGame ? isGameLocked(tbGame, gamesForWeek, settings.lockPolicy, now) : false;
+
+    // Mask picks for unlocked games and tiebreakers so other players cannot spy before kickoff
     const allPicks = rawAllPicks.map((p) => {
       if (p.userId === caller.uid) return p;
       if (isCommissioner) return p;
-      if (p.week !== activeWeek) return p;
+
+      // Future weeks are completely hidden for other players
+      if (p.week > activeWeek) {
+        return {
+          ...p,
+          picks: {},
+          tiebreaker: undefined,
+          eliminatorPick: undefined,
+        };
+      }
+
+      if (p.week < activeWeek) {
+        return p;
+      }
 
       const maskedPicks: Record<string, string> = { ...(p.picks || {}) };
       for (const game of gamesForWeek) {
@@ -137,7 +152,6 @@ export async function GET(
         }
       }
 
-      const tbLocked = tbGame ? isGameLocked(tbGame, gamesForWeek, settings.lockPolicy, now) : false;
       const maskedTb = tbLocked ? p.tiebreaker : undefined;
 
       let maskedElim = p.eliminatorPick;
@@ -169,6 +183,18 @@ export async function GET(
       rawAllPicks,
       activeWeek
     );
+
+    // Sanitize weekly results so other players' tiebreakers are not revealed before kickoff
+    const sanitizedWeeklyResults = weeklyResults.map((r) => {
+      if (r.userId === caller.uid || isCommissioner || tbLocked) {
+        return r;
+      }
+      return {
+        ...r,
+        tiebreaker: undefined,
+        tiebreakerExplanation: undefined,
+      };
+    });
     const seasonStandings = calculateSeasonStandings(gamesByWeek, users, rawAllPicks);
 
     // Calculate Eliminator / Survivor pool status
@@ -243,7 +269,7 @@ export async function GET(
       currentUserId: caller.uid,
       allPicks,
       activeUserPicks,
-      weeklyResults,
+      weeklyResults: sanitizedWeeklyResults,
       seasonStandings,
       eliminatorStatus,
       availableWeeks,

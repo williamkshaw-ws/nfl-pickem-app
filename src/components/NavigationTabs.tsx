@@ -44,14 +44,8 @@ export function NavigationTabs({
       label: "League Picks",
       shortLabel: "League",
       icon: Grid,
-    },
-    {
-      id: "weekly",
-      label: "Weekly Results",
-      shortLabel: "Results",
-      icon: Award,
-      badge: hasWeeklyWinner ? "Final" : "Live",
-      badgeColor: hasWeeklyWinner ? "bg-slate-100 text-slate-600" : "bg-red-500 text-white animate-pulse shadow-sm",
+      badge: hasWeeklyWinner ? "Final" : undefined,
+      badgeColor: hasWeeklyWinner ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" : undefined,
     },
     {
       id: "eliminator",
@@ -74,7 +68,7 @@ export function NavigationTabs({
   ];
 
   const tabs = allTabs.filter((tab) => {
-    if (!pickemEnabled && (tab.id === "matrix" || tab.id === "weekly" || tab.id === "season")) return false;
+    if (!pickemEnabled && (tab.id === "matrix" || tab.id === "season")) return false;
     if (!eliminatorEnabled && tab.id === "eliminator") return false;
     if (!isCommissioner && tab.id === "commissioner") return false;
     return true;
