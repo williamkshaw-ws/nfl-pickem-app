@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { TeamLogo } from "./TeamLogo";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -424,7 +425,13 @@ export function WeeklyPicks({
                     } ${rowInteractive ? "cursor-pointer" : "cursor-default"}`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Image src={team.logo} alt={team.name} width={28} height={28} className="w-7 h-7 object-contain" unoptimized />
+                      <TeamLogo
+                        src={team.logo}
+                        alt={team.abbreviation || team.name}
+                        width={28}
+                        height={28}
+                        className="w-7 h-7 object-contain shrink-0"
+                      />
                       <div className="text-left min-w-0">
                         <div className={`text-sm font-bold leading-tight truncate ${selected ? selectedTextClass : "text-slate-900 dark:text-white"}`}>
                           {team.displayName}
@@ -481,6 +488,13 @@ export function WeeklyPicks({
             <div className="flex flex-col sm:flex-row items-center gap-3">
               <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
                 <div className="flex items-center gap-2">
+                  <TeamLogo
+                    src={tiebreakerGame.awayTeam.logo}
+                    alt={tiebreakerGame.awayTeam.abbreviation}
+                    width={22}
+                    height={22}
+                    className="w-5.5 h-5.5 object-contain shrink-0"
+                  />
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{tiebreakerGame.awayTeam.abbreviation}</span>
                   <input
                     type="number"
@@ -504,6 +518,13 @@ export function WeeklyPicks({
                     placeholder="0"
                   />
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-8">{tiebreakerGame.homeTeam.abbreviation}</span>
+                  <TeamLogo
+                    src={tiebreakerGame.homeTeam.logo}
+                    alt={tiebreakerGame.homeTeam.abbreviation}
+                    width={22}
+                    height={22}
+                    className="w-5.5 h-5.5 object-contain shrink-0"
+                  />
                 </div>
                 <div className="border-l border-slate-100 dark:border-slate-800 pl-3 ml-1 flex flex-col items-center justify-center min-w-[40px]">
                   <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</span>
@@ -536,6 +557,15 @@ export function WeeklyPicks({
               {isSurvivorOnly ? (
                 <>
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${survivorTeam ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+                  {survivorTeam && (
+                    <TeamLogo
+                      src={survivorTeam.logo}
+                      alt={survivorTeam.abbreviation}
+                      width={18}
+                      height={18}
+                      className="w-4.5 h-4.5 object-contain shrink-0"
+                    />
+                  )}
                   <div className="text-sm font-black text-white leading-tight truncate">
                     {survivorTeam ? `Survivor: ${survivorTeam.displayName}` : "No survivor selected"}
                   </div>

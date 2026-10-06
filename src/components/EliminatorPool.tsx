@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { TeamLogo } from "./TeamLogo";
 
 import React from "react";
 import { User, EliminatorStatus, Game } from "@/types/nfl";
@@ -154,9 +155,13 @@ export function EliminatorPool({
                               pick.result === "lost" ? "text-rose-700 dark:text-rose-300 bg-rose-50/80 dark:bg-rose-950/60" : 
                               "text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800"
                             }`}>
-                              {pick.logo && (
-                                <Image src={pick.logo} alt={pick.abbreviation} width={14} height={14} className="w-3.5 h-3.5 object-contain" onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} unoptimized />
-                              )}
+                              <TeamLogo
+                                src={pick.logo}
+                                alt={pick.abbreviation}
+                                width={14}
+                                height={14}
+                                className="w-3.5 h-3.5 object-contain shrink-0"
+                              />
                               <span className="text-xs">{pick.abbreviation}</span>
                               {pick.result === "won" && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
                               {pick.result === "lost" && <X className="w-3 h-3 text-rose-600 dark:text-rose-400 flex-shrink-0" />}

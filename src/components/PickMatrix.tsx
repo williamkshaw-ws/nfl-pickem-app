@@ -5,6 +5,7 @@ import confetti from "canvas-confetti";
 import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult } from "@/types/nfl";
 import { Check, X, Clock, Trophy, Target, Crown, Sparkles, HelpCircle } from "lucide-react";
 import Image from "next/image";
+import { TeamLogo } from "./TeamLogo";
 
 interface PickMatrixProps {
   games: Game[];
@@ -469,16 +470,25 @@ export function PickMatrix({
                   return (
                     <th
                       key={game.id}
-                      className={`p-1 text-center border-r border-slate-200 dark:border-slate-800 min-w-[46px] max-w-[54px] ${
+                      className={`p-1 text-center border-r border-slate-200 dark:border-slate-800 min-w-[50px] max-w-[58px] ${
                         game.isTiebreakerGame
                           ? "bg-amber-50/60 dark:bg-amber-950/30"
                           : "bg-slate-50 dark:bg-slate-800/80"
                       }`}
                     >
                       <div className="flex flex-col items-center justify-center leading-tight py-1">
-                        <span className="text-[10px] font-black text-slate-900 dark:text-white tracking-tight">
-                          {game.awayTeam.abbreviation}
-                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          <TeamLogo
+                            src={game.awayTeam.logo}
+                            alt={game.awayTeam.abbreviation}
+                            width={13}
+                            height={13}
+                            className="w-3.5 h-3.5 object-contain shrink-0"
+                          />
+                          <span className="text-[10px] font-black text-slate-900 dark:text-white tracking-tight">
+                            {game.awayTeam.abbreviation}
+                          </span>
+                        </div>
                         <span
                           className={`text-[8.5px] font-black my-0.5 leading-none ${
                             isFinal
@@ -496,9 +506,18 @@ export function PickMatrix({
                             ? `${game.odds.spread > 0 ? `+${game.odds.spread}` : game.odds.spread}`
                             : "@"}
                         </span>
-                        <span className="text-[10px] font-black text-slate-900 dark:text-white tracking-tight">
-                          {game.homeTeam.abbreviation}
-                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          <TeamLogo
+                            src={game.homeTeam.logo}
+                            alt={game.homeTeam.abbreviation}
+                            width={13}
+                            height={13}
+                            className="w-3.5 h-3.5 object-contain shrink-0"
+                          />
+                          <span className="text-[10px] font-black text-slate-900 dark:text-white tracking-tight">
+                            {game.homeTeam.abbreviation}
+                          </span>
+                        </div>
                       </div>
                     </th>
                   );
@@ -589,15 +608,13 @@ export function PickMatrix({
                                       : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700"
                                   }`}
                                 >
-                                  {stat.elimTeam.logo && (
-                                    <Image
-                                      src={stat.elimTeam.logo}
-                                      alt={stat.elimTeam.abbreviation}
-                                      width={12}
-                                      height={12}
-                                      className="w-3 h-3 object-contain shrink-0"
-                                    />
-                                  )}
+                                  <TeamLogo
+                                    src={stat.elimTeam.logo}
+                                    alt={stat.elimTeam.abbreviation}
+                                    width={12}
+                                    height={12}
+                                    className="w-3 h-3 object-contain shrink-0"
+                                  />
                                   <span>{stat.elimTeam.abbreviation}</span>
                                   {stat.elimResult === "won" && <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />}
                                   {stat.elimResult === "lost" && <X className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400" />}
@@ -663,7 +680,7 @@ export function PickMatrix({
                               </span>
                             ) : pickedTeam ? (
                               <div
-                                className={`group relative py-1 px-1 rounded flex items-center justify-center gap-0.5 transition-all ${
+                                className={`group relative py-1 px-1 rounded flex flex-col items-center justify-center transition-all ${
                                   isCorrect
                                     ? "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-black"
                                     : isIncorrect
@@ -672,11 +689,25 @@ export function PickMatrix({
                                 }`}
                               >
                                 {isSurvivorPick && (
-                                  <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-purple-500" title="Survivor Pick" />
+                                  <span
+                                    className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-purple-500"
+                                    title="Survivor Pick"
+                                  />
                                 )}
-                                <span className="text-[10px] tracking-tight">{pickedTeam.abbreviation}</span>
-                                {isCorrect && <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                                {isIncorrect && <X className="w-2.5 h-2.5 text-rose-500 shrink-0" />}
+                                <TeamLogo
+                                  src={pickedTeam.logo}
+                                  alt={pickedTeam.abbreviation}
+                                  width={18}
+                                  height={18}
+                                  className={`w-4.5 h-4.5 object-contain shrink-0 ${
+                                    isIncorrect ? "opacity-35 grayscale" : ""
+                                  }`}
+                                />
+                                <div className="flex items-center justify-center gap-0.5 mt-0.5 leading-none">
+                                  <span className="text-[10px] tracking-tight">{pickedTeam.abbreviation}</span>
+                                  {isCorrect && <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                                  {isIncorrect && <X className="w-2.5 h-2.5 text-rose-500 shrink-0" />}
+                                </div>
                               </div>
                             ) : (
                               <span className="text-slate-200 dark:text-slate-700 text-xs font-bold">–</span>
