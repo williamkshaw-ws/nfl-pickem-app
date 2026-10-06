@@ -230,6 +230,26 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     }
   };
 
+  const handleTransferCommissioner = async (newCommissionerId: string) => {
+    try {
+      const res = await authFetch(`/api/league/${leagueId}/members/transfer`, {
+        method: "POST",
+        body: JSON.stringify({ newCommissionerId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to transfer commissioner role");
+      }
+      showToast("Commissioner role successfully transferred!");
+      await loadLeagueData(activeWeek);
+      setActiveTab("picks");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to transfer commissioner role");
+      throw err;
+    }
+  };
+
   const handleAddUser = async (name: string) => {
     alert("Users must join using the 5-character invite code.");
   };
@@ -365,6 +385,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
                 await loadLeagueData();
                 showToast("Member removed from league.");
               }}
+              onTransferCommissioner={handleTransferCommissioner}
               isSyncing={isSyncing}
             />
           )}
