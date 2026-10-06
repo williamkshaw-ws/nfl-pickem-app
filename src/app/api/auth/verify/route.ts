@@ -27,8 +27,22 @@ export async function POST(req: Request) {
     const urlObj = new URL(firebaseLink);
     const oobCode = urlObj.searchParams.get("oobCode");
     
-    // For development we use localhost. In production this should be your real domain.
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    // Determine the base URL dynamically from request headers or environment variable
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+
+    let baseUrl = "https://pocketpicks.app";
+    if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")) {
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    } else if (origin && !origin.includes("localhost")) {
+      baseUrl = origin;
+    } else if (host && !host.includes("localhost")) {
+      baseUrl = `${proto}://${host}`;
+    } else if (process.env.NODE_ENV === "development") {
+      baseUrl = "http://localhost:3000";
+    }
+
     const customLink = `${baseUrl}/auth/verify?oobCode=${oobCode}`;
 
     const safeName = escapeHtml(typeof name === "string" && name.trim() ? name.trim() : "Player");
