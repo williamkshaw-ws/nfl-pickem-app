@@ -31,10 +31,15 @@ export async function GET(
     const detectedWeek = detectCurrentWeek(gamesByWeek);
 
     const rawSettings = league.settings || {};
-    const effectiveCurrentWeek =
-      rawSettings.currentWeek && rawSettings.currentWeek !== 1
-        ? rawSettings.currentWeek
-        : detectedWeek;
+    // Automatically advance to the detected current NFL week as weeks complete
+    const effectiveCurrentWeek = Math.max(detectedWeek, rawSettings.currentWeek || 1);
+
+    // If the week has naturally rolled forward, update Firestore settings in background
+    if (detectedWeek > (rawSettings.currentWeek || 1)) {
+      adminDb().collection("leagues").doc(leagueId).update({
+        "settings.currentWeek": detectedWeek,
+      }).catch((err) => console.warn("Auto-update currentWeek warning:", err));
+    }
 
     const settings = {
       leagueName: league.name || rawSettings.leagueName || "Untitled League",
@@ -57,6 +62,10 @@ export async function GET(
       lastAutoSyncByWeek[activeWeek] = now;
       try {
         await syncWeekFromEspn(activeWeek, settings.seasonYear || 2026);
+        // Also keep prior completed week synced for accurate final scoring
+        if (activeWeek > 1 && !lastAutoSyncByWeek[activeWeek - 1]) {
+          await syncWeekFromEspn(activeWeek - 1, settings.seasonYear || 2026);
+        }
       } catch (syncErr) {
         console.warn("Auto ESPN sync warning:", syncErr);
       }

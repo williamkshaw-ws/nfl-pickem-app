@@ -421,13 +421,41 @@ export async function syncWeekFromEspn(
 /**
  * Automatically detects the current NFL week by finding the first week
  * that has games currently live or scheduled in the future.
+ * 
+ * Once Tuesday arrives and all games of the previous week are concluded,
+ * it automatically advances to the upcoming week (e.g. Week 5).
  */
 export function detectCurrentWeek(gamesByWeek: Record<number, Game[]>): number {
+  const now = Date.now();
+
   for (let w = 1; w <= 18; w++) {
     const games = gamesByWeek[w] || [];
     if (games.length === 0) continue;
-    const hasUnfinished = games.some((g) => !g.status.completed || g.status.state === "in");
-    if (hasUnfinished) return w;
+
+    // 1. If any game in this week is currently in progress, this is the active week
+    const hasLiveGame = games.some((g) => g.status.state === "in");
+    if (hasLiveGame) return w;
+
+    // 2. If all games in this week are completed, this week is over
+    const allCompleted = games.every((g) => g.status.completed);
+    if (allCompleted) {
+      continue;
+    }
+
+    // 3. If every game in this week started in the past (> 8 hours ago),
+    // this week is concluded even if scores are awaiting final wrap-up
+    const allInPast = games.every((g) => {
+      const gameTime = new Date(g.date).getTime();
+      return !isNaN(gameTime) && gameTime + 8 * 60 * 60 * 1000 < now;
+    });
+
+    if (allInPast) {
+      continue;
+    }
+
+    // This week has upcoming future games scheduled, so it is the active week!
+    return w;
   }
+
   return 1;
 }
