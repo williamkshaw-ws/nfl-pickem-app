@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Game, User, UserPicks, Team, EliminatorStatus } from "@/types/nfl";
 import { Check, X, Clock, Trophy, Target } from "lucide-react";
 import Image from "next/image";
@@ -49,95 +49,124 @@ export function PickMatrix({
   eliminatorEnabled = false,
   eliminatorStatus,
 }: PickMatrixProps) {
-  const sortedGames = [...games].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  const tbGame = games.find((g) => g.isTiebreakerGame) || sortedGames[sortedGames.length - 1];
-
-  const completedGames = sortedGames.filter((g) => g.status.completed);
-  const liveGames = sortedGames.filter((g) => g.status.state === "in");
-  const remainingGames = sortedGames.filter((g) => !g.status.completed);
-  const completedCount = completedGames.length;
-  const liveCount = liveGames.length;
-  const remainingCount = remainingGames.length;
-  const totalGamesCount = sortedGames.length;
-  const isWeekFinished = totalGamesCount > 0 && remainingCount === 0;
+  const {
+    sortedGames,
+    tbGame,
+    completedGames,
+    liveGames,
+    remainingGames,
+    completedCount,
+    liveCount,
+    remainingCount,
+    totalGamesCount,
+    isWeekFinished,
+  } = useMemo(() => {
+    const sorted = [...games].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    const tb = games.find((g) => g.isTiebreakerGame) || sorted[sorted.length - 1];
+    const completed = sorted.filter((g) => g.status.completed);
+    const live = sorted.filter((g) => g.status.state === "in");
+    const remaining = sorted.filter((g) => !g.status.completed);
+    return {
+      sortedGames: sorted,
+      tbGame: tb,
+      completedGames: completed,
+      liveGames: live,
+      remainingGames: remaining,
+      completedCount: completed.length,
+      liveCount: live.length,
+      remainingCount: remaining.length,
+      totalGamesCount: sorted.length,
+      isWeekFinished: sorted.length > 0 && remaining.length === 0,
+    };
+  }, [games]);
 
   // Compute stats for each player
-  const playerStats = users.map((user) => {
-    const userPickRecord = allPicks.find(
-      (p) => p.userId === user.id && p.week === activeWeek
-    );
-    const userPicksMap = userPickRecord?.picks || {};
-    const tb = userPickRecord?.tiebreaker;
-    const elimPickTeamId = userPickRecord?.eliminatorPick;
-
-    let correctCount = 0;
-    let incorrectCount = 0;
-    completedGames.forEach((g) => {
-      if (userPicksMap[g.id] === g.winnerTeamId) {
-        correctCount++;
-      } else if (userPicksMap[g.id]) {
-        incorrectCount++;
+  const playerStats = useMemo(() => {
+    const weekPicksMap = new Map<string, UserPicks>();
+    allPicks.forEach((p) => {
+      if (p.week === activeWeek) {
+        weekPicksMap.set(p.userId, p);
       }
     });
 
-    const maxPossible = correctCount + remainingCount;
+    return users.map((user) => {
+      const userPickRecord = weekPicksMap.get(user.id);
+      const userPicksMap = userPickRecord?.picks || {};
+      const tb = userPickRecord?.tiebreaker;
+      const elimPickTeamId = userPickRecord?.eliminatorPick;
 
-    // Survivor result for this week
-    let elimResult: "won" | "lost" | "in_play" | "pending" | "none" = "none";
-    let elimTeam: Team | undefined;
-    let isElimGameLocked = false;
+      let correctCount = 0;
+      let incorrectCount = 0;
+      completedGames.forEach((g) => {
+        if (userPicksMap[g.id] === g.winnerTeamId) {
+          correctCount++;
+        } else if (userPicksMap[g.id]) {
+          incorrectCount++;
+        }
+      });
 
-    if (elimPickTeamId && elimPickTeamId !== "HIDDEN") {
-      const elimGame = sortedGames.find(
-        (g) => g.homeTeam.id === elimPickTeamId || g.awayTeam.id === elimPickTeamId
-      );
-      if (elimGame) {
-        isElimGameLocked = checkIsGameLocked(elimGame, games, lockPolicy);
-        elimTeam = elimGame.homeTeam.id === elimPickTeamId ? elimGame.homeTeam : elimGame.awayTeam;
-        if (elimGame.status.completed) {
-          elimResult = elimGame.winnerTeamId === elimPickTeamId ? "won" : "lost";
-        } else if (elimGame.status.state === "in") {
-          elimResult = "in_play";
-        } else {
-          elimResult = "pending";
+      const maxPossible = correctCount + remainingCount;
+
+      // Survivor result for this week
+      let elimResult: "won" | "lost" | "in_play" | "pending" | "none" = "none";
+      let elimTeam: Team | undefined;
+      let isElimGameLocked = false;
+
+      if (elimPickTeamId && elimPickTeamId !== "HIDDEN") {
+        const elimGame = sortedGames.find(
+          (g) => g.homeTeam.id === elimPickTeamId || g.awayTeam.id === elimPickTeamId
+        );
+        if (elimGame) {
+          isElimGameLocked = checkIsGameLocked(elimGame, games, lockPolicy);
+          elimTeam = elimGame.homeTeam.id === elimPickTeamId ? elimGame.homeTeam : elimGame.awayTeam;
+          if (elimGame.status.completed) {
+            elimResult = elimGame.winnerTeamId === elimPickTeamId ? "won" : "lost";
+          } else if (elimGame.status.state === "in") {
+            elimResult = "in_play";
+          } else {
+            elimResult = "pending";
+          }
         }
       }
-    }
 
-    return {
-      user,
-      userPickRecord,
-      userPicksMap,
-      tb,
-      correctCount,
-      incorrectCount,
-      maxPossible,
-      elimPickTeamId,
-      elimTeam,
-      elimResult,
-      isElimGameLocked,
-    };
-  });
+      return {
+        user,
+        userPickRecord,
+        userPicksMap,
+        tb,
+        correctCount,
+        incorrectCount,
+        maxPossible,
+        elimPickTeamId,
+        elimTeam,
+        elimResult,
+        isElimGameLocked,
+      };
+    });
+  }, [allPicks, activeWeek, users, completedGames, remainingCount, sortedGames, games, lockPolicy]);
 
   // Highest current score
-  const maxCurrentCorrect = Math.max(...playerStats.map((p) => p.correctCount), 0);
+  const maxCurrentCorrect = useMemo(() => {
+    return Math.max(...playerStats.map((p) => p.correctCount), 0);
+  }, [playerStats]);
 
   // Compute live contention status for each player
-  const playerContention = playerStats.map((p) => {
-    if (completedCount === 0) {
-      return {
-        status: "contending" as const,
-        label: "In Contention",
-        detail: `${totalGamesCount} to play`,
-        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
-      };
-    }
-
-    if (isWeekFinished) {
-      if (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0) {
+  const playerContention = useMemo(() => {
+    return playerStats.map((p) => {
+      if (completedCount === 0) {
         return {
+          status: "contending" as const,
+          label: "In Contention",
+          detail: `${totalGamesCount} to play`,
+          badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        };
+      }
+
+      if (isWeekFinished) {
+        if (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0) {
+          return {
           status: "winner" as const,
           label: "Weekly Winner",
           detail: `${p.correctCount} pts`,
@@ -191,6 +220,7 @@ export function PickMatrix({
       badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800",
     };
   });
+}, [playerStats, completedCount, isWeekFinished, maxCurrentCorrect, totalGamesCount]);
 
   const inContentionCount = playerContention.filter(
     (c) => c.status === "contending" || c.status === "leader" || c.status === "clinched"

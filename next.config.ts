@@ -10,7 +10,9 @@ const nextConfig: NextConfig = {
     "192.168.1.4:3000",
     "localhost:3000",
   ],
+  compress: true,
   images: {
+    minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days cache for team logos
     remotePatterns: [
       {
         protocol: "https",

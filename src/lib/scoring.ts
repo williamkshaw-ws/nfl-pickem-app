@@ -47,11 +47,17 @@ export function calculateWeeklyResults(
   );
   const totalCompleted = completedGames.length;
 
+  // Index picks for this week for O(1) lookup
+  const weekPicksMap = new Map<string, UserPicks>();
+  for (const p of allPicks) {
+    if (p.week === weekNumber) {
+      weekPicksMap.set(p.userId, p);
+    }
+  }
+
   // Calculate stats for each user
   const playerStats = users.map((user) => {
-    const userPickRecord = allPicks.find(
-      (p) => p.userId === user.id && p.week === weekNumber
-    );
+    const userPickRecord = weekPicksMap.get(user.id);
 
     let correctCount = 0;
     if (userPickRecord && userPickRecord.picks) {
@@ -271,6 +277,22 @@ export function calculateSeasonStandings(
     weeklyWinnersMap.set(weekNum, winners);
   });
 
+  // Pre-filter completed games by week once
+  const completedGamesByWeek = new Map<number, Game[]>();
+  weekNumbers.forEach((w) => {
+    const games = allWeeksGames[w] || [];
+    const completed = games.filter((g) => g.status.completed && g.winnerTeamId);
+    if (completed.length > 0) {
+      completedGamesByWeek.set(w, completed);
+    }
+  });
+
+  // Pre-index all picks by `${week}_${userId}` for O(1) instant lookup
+  const picksByWeekAndUser = new Map<string, UserPicks>();
+  allPicks.forEach((p) => {
+    picksByWeekAndUser.set(`${p.week}_${p.userId}`, p);
+  });
+
   const standings: SeasonPlayerStanding[] = users.map((user) => {
     let totalCorrect = 0;
     let totalGames = 0;
@@ -279,15 +301,10 @@ export function calculateSeasonStandings(
     const recentWeeklyScores: SeasonPlayerStanding["recentWeeklyScores"] = [];
 
     weekNumbers.forEach((weekNum) => {
-      const games = allWeeksGames[weekNum] || [];
-      const completedGames = games.filter(
-        (g) => g.status.completed && g.winnerTeamId
-      );
-      if (completedGames.length === 0) return;
+      const completedGames = completedGamesByWeek.get(weekNum);
+      if (!completedGames || completedGames.length === 0) return;
 
-      const userPickRecord = allPicks.find(
-        (p) => p.userId === user.id && p.week === weekNum
-      );
+      const userPickRecord = picksByWeekAndUser.get(`${weekNum}_${user.id}`);
 
       let weekCorrect = 0;
       if (userPickRecord && userPickRecord.picks) {

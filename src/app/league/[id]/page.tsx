@@ -65,24 +65,26 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     }
   }, [leagueId]);
 
-  const loadLeagueData = useCallback(async (week?: number) => {
+  const loadLeagueData = useCallback(async (week?: number, isBackground = false) => {
     if (!user) return;
     try {
       const url = week !== undefined
         ? `/api/league/${leagueId}?week=${week}`
         : `/api/league/${leagueId}`;
-      const res = await authFetch(url, {
-        cache: "no-store",
-        headers: { "Pragma": "no-cache" }
-      });
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Failed to fetch league data");
       const json: LeagueApiResponse = await res.json();
       setData(json);
-      setActiveWeek(json.activeWeek);
+      // Only set initial activeWeek if week was not explicitly requested
+      if (week === undefined) {
+        setActiveWeek(json.activeWeek);
+      }
     } catch (err) {
       console.error("Error loading league data:", err);
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, [leagueId, user]);
 
@@ -95,18 +97,18 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     loadLeagueData();
   }, [authLoading, user, router, loadLeagueData]);
 
-  // Silently refresh live scores in the background every 45s
+  // Silently refresh live scores in the background every 45s without flashing loaders
   useEffect(() => {
     if (authLoading || !user) return;
     const interval = setInterval(() => {
-      loadLeagueData(activeWeek);
+      loadLeagueData(activeWeek, true);
     }, 45_000);
     return () => clearInterval(interval);
   }, [authLoading, user, activeWeek, loadLeagueData]);
 
   const handleWeekChange = (week: number) => {
     setActiveWeek(week);
-    loadLeagueData(week);
+    loadLeagueData(week, true);
   };
 
   const handleSyncToEspn = async (week?: number) => {

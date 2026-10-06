@@ -57,45 +57,60 @@ export async function GET(
     const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;
     const now = Date.now();
 
-    // Automatically check for fresh ESPN scores on page view/refresh (throttled to 30s)
-    if (!lastAutoSyncByWeek[activeWeek] || now - lastAutoSyncByWeek[activeWeek] > 30_000) {
+    // Check if background ESPN sync is needed (non-blocking stale-while-revalidate)
+    const currentWeekGames = gamesByWeek[activeWeek] || [];
+    const hasLiveGames = currentWeekGames.some((g: any) => g.status?.state === "in");
+    const hasPendingGames = currentWeekGames.some((g: any) => !g.status?.completed);
+    const syncThrottle = hasLiveGames ? 45_000 : hasPendingGames ? 120_000 : 300_000;
+
+    if (!lastAutoSyncByWeek[activeWeek] || now - lastAutoSyncByWeek[activeWeek] > syncThrottle) {
       lastAutoSyncByWeek[activeWeek] = now;
-      try {
-        await syncWeekFromEspn(activeWeek, settings.seasonYear || 2026);
-        // Also keep prior completed week synced for accurate final scoring
-        if (activeWeek > 1 && !lastAutoSyncByWeek[activeWeek - 1]) {
-          await syncWeekFromEspn(activeWeek - 1, settings.seasonYear || 2026);
-        }
-      } catch (syncErr) {
-        console.warn("Auto ESPN sync warning:", syncErr);
-      }
+      // Run sync in the background so the user request returns immediately without delay
+      syncWeekFromEspn(activeWeek, settings.seasonYear || 2026)
+        .then(() => {
+          if (activeWeek > 1 && !lastAutoSyncByWeek[activeWeek - 1]) {
+            syncWeekFromEspn(activeWeek - 1, settings.seasonYear || 2026).catch(() => {});
+          }
+        })
+        .catch((syncErr) => {
+          console.warn("Background ESPN sync warning:", syncErr);
+        });
     }
 
     const db = adminDb();
 
-    // 1. Fetch memberships
-    const memSnap = await db.collection("memberships").where("leagueId", "==", leagueId).get();
-    const userIds = memSnap.docs.map((doc) => doc.data().userId);
+    // Fetch memberships and picks in parallel
+    const [memSnap, picksSnap] = await Promise.all([
+      db.collection("memberships").where("leagueId", "==", leagueId).get(),
+      db.collection("picks").where("leagueId", "==", leagueId).get(),
+    ]);
 
-    // 2. Fetch users in batches of 30 (Firestore in query limit)
-    const users: any[] = [];
+    const userIds = memSnap.docs.map((doc) => doc.data().userId).filter(Boolean);
+
+    // Fetch user profiles in parallel batches of 30
+    const userChunks: string[][] = [];
     for (let i = 0; i < userIds.length; i += 30) {
-      const chunk = userIds.slice(i, i + 30);
-      if (chunk.length > 0) {
-        const userSnap = await db.collection("users").where("id", "in", chunk).get();
-        userSnap.docs.forEach((doc) => {
-          const u = doc.data();
-          users.push({
-            id: u.id,
-            name: u.name || "Unknown",
-            avatarColor: "bg-slate-800",
-          });
-        });
-      }
+      userChunks.push(userIds.slice(i, i + 30));
     }
 
-    // 3. Fetch picks for this league
-    const picksSnap = await db.collection("picks").where("leagueId", "==", leagueId).get();
+    const userSnaps = await Promise.all(
+      userChunks.map((chunk) =>
+        db.collection("users").where("id", "in", chunk).get()
+      )
+    );
+
+    const users: any[] = [];
+    userSnaps.forEach((userSnap) => {
+      userSnap.docs.forEach((doc) => {
+        const u = doc.data();
+        users.push({
+          id: u.id,
+          name: u.name || "Unknown",
+          avatarColor: "bg-slate-800",
+        });
+      });
+    });
+
     const rawAllPicks: any[] = picksSnap.docs.map((doc) => doc.data());
 
     const availableWeeks = Array.from({ length: 18 }, (_, i) => i + 1);

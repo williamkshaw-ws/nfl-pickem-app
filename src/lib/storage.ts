@@ -374,6 +374,9 @@ export function generateSeedData(): DatabaseSchema {
   };
 }
 
+let _cachedDb: DatabaseSchema | null = null;
+let _cachedDbMtime = 0;
+
 export function getDatabase(): DatabaseSchema {
   ensureDirectoryExists();
   if (!fs.existsSync(DB_PATH)) {
@@ -383,9 +386,16 @@ export function getDatabase(): DatabaseSchema {
   }
 
   try {
+    const stat = fs.statSync(DB_PATH);
+    if (_cachedDb && stat.mtimeMs <= _cachedDbMtime) {
+      return _cachedDb;
+    }
     const content = fs.readFileSync(DB_PATH, "utf-8");
-    return JSON.parse(content) as DatabaseSchema;
+    _cachedDb = JSON.parse(content) as DatabaseSchema;
+    _cachedDbMtime = stat.mtimeMs;
+    return _cachedDb;
   } catch (err) {
+    if (_cachedDb) return _cachedDb;
     console.error("Failed to read database, regenerating seed:", err);
     const seed = generateSeedData();
     saveDatabase(seed);
@@ -395,6 +405,8 @@ export function getDatabase(): DatabaseSchema {
 
 export function saveDatabase(data: DatabaseSchema): void {
   ensureDirectoryExists();
+  _cachedDb = data;
+  _cachedDbMtime = Date.now();
   const tempPath = `${DB_PATH}.tmp.${Date.now()}`;
   fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
   fs.renameSync(tempPath, DB_PATH);
