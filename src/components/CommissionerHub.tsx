@@ -212,11 +212,11 @@ export function CommissionerHub({
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 mt-4">Or share a direct Invite Link</label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-[11px] text-slate-500 dark:text-slate-400 truncate select-all">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/dashboard?join=${leagueId}` : "..."}
+                    {typeof window !== 'undefined' ? `${window.location.origin}/?join=${leagueId}` : "..."}
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(typeof window !== 'undefined' ? `${window.location.origin}/dashboard?join=${leagueId}` : "");
+                      navigator.clipboard.writeText(typeof window !== 'undefined' ? `${window.location.origin}/?join=${leagueId}` : "");
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }}
@@ -228,7 +228,7 @@ export function CommissionerHub({
                 </div>
 
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
-                  Users can enter the 5-digit code in their Dashboard or simply click the link to join.
+                  Users can enter the code in their league switcher or simply click the link to join.
                 </p>
               </div>
 

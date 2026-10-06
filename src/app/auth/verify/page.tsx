@@ -55,7 +55,12 @@ function VerifyHandler() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard");
+      const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
+      if (lastLeague) {
+        window.location.href = `/league/${lastLeague}`;
+      } else {
+        window.location.href = "/";
+      }
 } catch (err: any) {
       if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
         setLoginError("Invalid email or password. Please try again.");

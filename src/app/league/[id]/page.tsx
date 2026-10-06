@@ -220,7 +220,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       }
       // Redirect to dashboard router after a short delay
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push("/");
       }, 1500);
     } catch (err) {
       console.error(err);

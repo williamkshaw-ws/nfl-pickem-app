@@ -19,7 +19,12 @@ export default function Login() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/dashboard");
+      const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
+      if (lastLeague) {
+        router.replace(`/league/${lastLeague}`);
+      } else {
+        router.replace("/");
+      }
     }
   }, [user, authLoading, router]);
 
@@ -40,7 +45,12 @@ try {
         return;
       }
 
-      window.location.href = "/dashboard";
+      const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
+      if (lastLeague) {
+        window.location.href = `/league/${lastLeague}`;
+      } else {
+        window.location.href = "/";
+      }
 } catch (err: any) {
       if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
         setError("Invalid email or password. Please try again.");
