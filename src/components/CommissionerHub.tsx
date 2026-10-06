@@ -16,8 +16,12 @@ import {
   Unlock,
   User as UserIcon,
   RefreshCw,
+  UserMinus,
+  Ban,
+  Loader2,
 } from "lucide-react";
 import { WeeklyPicks } from "./WeeklyPicks";
+import { authFetch } from "@/lib/api-client";
 
 interface CommissionerHubProps {
   leagueId: string;
@@ -63,8 +67,66 @@ export function CommissionerHub({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [userToKick, setUserToKick] = useState<User | null>(null);
+  const [userToBan, setUserToBan] = useState<User | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const selectedUser = users.find(u => u.id === selectedUserId);
   const picksForSelectedUser = allPicks?.find(p => p.userId === selectedUserId && p.week === activeWeek);
+
+  const handleKickUser = async () => {
+    if (!userToKick) return;
+    setActionLoading(true);
+    try {
+      const res = await authFetch(`/api/league/${leagueId}/members/kick`, {
+        method: "POST",
+        body: JSON.stringify({ userId: userToKick.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to kick member");
+        setActionLoading(false);
+        return;
+      }
+      const kickedId = userToKick.id;
+      setUserToKick(null);
+      if (onRemoveUser) {
+        await onRemoveUser(kickedId);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to kick member");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBanUser = async () => {
+    if (!userToBan) return;
+    setActionLoading(true);
+    try {
+      const res = await authFetch(`/api/league/${leagueId}/members/ban`, {
+        method: "POST",
+        body: JSON.stringify({ userId: userToBan.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to ban user");
+        setActionLoading(false);
+        return;
+      }
+      const bannedId = userToBan.id;
+      setUserToBan(null);
+      if (onRemoveUser) {
+        await onRemoveUser(bannedId);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to ban user");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -283,10 +345,33 @@ export function CommissionerHub({
                         {settings.commissionerId === u.id && <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[9px] rounded font-black uppercase tracking-wider">Admin</span>}
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Joined {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Invalid Date'}
+                        Joined {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Active Member'}
                       </div>
                     </div>
                   </div>
+
+                  {settings.commissionerId !== u.id && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setUserToKick(u)}
+                        title={`Kick ${u.name} from this league`}
+                        className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-xl border border-amber-200 dark:border-amber-900/50 transition flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                        <span>Kick</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserToBan(u)}
+                        title={`Ban ${u.name} from the platform`}
+                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl border border-rose-200 dark:border-rose-900/50 transition flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                        <span>Ban</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -411,6 +496,92 @@ export function CommissionerHub({
               >
                 <Trash2 className="w-4 h-4" />
                 {isDeleting ? "Deleting..." : "Delete League"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kick User Modal */}
+      {userToKick && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                <UserMinus className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Kick Member</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                  Are you sure you want to kick <strong className="text-slate-900 dark:text-white font-bold">{userToKick.name}</strong> from this league?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-medium">
+              ⚠️ They will be removed from <strong className="font-bold">{settings.leagueName}</strong> and their picks in this league will be cleared. Their account will remain active, but they will only be able to rejoin if given an invite code.
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setUserToKick(null)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={handleKickUser}
+                className="flex-1 py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+              >
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                {actionLoading ? "Kicking..." : "Kick Member"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ban User Modal */}
+      {userToBan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+                <Ban className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Ban Account</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                  Are you sure you want to ban <strong className="text-slate-900 dark:text-white font-bold">{userToBan.name}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium">
+              ⛔ Their account will be permanently disabled and their email will no longer be allowed to log into PocketPicks. They will also be immediately removed from this league.
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setUserToBan(null)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={handleBanUser}
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+              >
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                {actionLoading ? "Banning..." : "Ban Account"}
               </button>
             </div>
           </div>

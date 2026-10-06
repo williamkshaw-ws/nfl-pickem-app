@@ -68,7 +68,9 @@ export default function Login() {
         window.location.href = "/";
       }
     } catch (err: any) {
-      if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+      if (err.code === "auth/user-disabled") {
+        setError("This account has been banned and cannot log in.");
+      } else if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
         setError("Invalid email, username, or password. Please try again.");
       } else if (err.code === "auth/too-many-requests") {
         setError("Too many failed login attempts. Please try again later.");

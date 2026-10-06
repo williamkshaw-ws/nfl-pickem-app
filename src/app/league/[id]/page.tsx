@@ -367,6 +367,10 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               onOverridePicks={handleOverridePicks}
               onUpdateSettings={handleUpdateSettings}
               onSyncEspn={handleSyncToEspn}
+              onRemoveUser={async () => {
+                await loadLeagueData();
+                showToast("Member removed from league.");
+              }}
               isSyncing={isSyncing}
             />
           )}
