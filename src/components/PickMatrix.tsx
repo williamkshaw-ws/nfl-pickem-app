@@ -436,7 +436,7 @@ export function PickMatrix({
               </span>
               {eliminatorEnabled && (
                 <span className="flex items-center gap-1 text-purple-700 dark:text-purple-400">
-                  <span className="text-[9px] font-black px-1 rounded bg-purple-100 dark:bg-purple-950 border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300">S</span> Survivor Pick
+                  <span className="w-2 h-2 rounded-full bg-purple-500" /> Survivor Pick
                 </span>
               )}
             </div>
@@ -489,9 +489,7 @@ export function PickMatrix({
                             ? `${game.awayScore}-${game.homeScore}`
                             : isLive
                             ? `${game.awayScore ?? 0}-${game.homeScore ?? 0}`
-                            : game.odds?.spread !== undefined
-                            ? `${game.odds.spread > 0 ? `+${game.odds.spread}` : game.odds.spread}`
-                            : "@"}
+                            : "VS"}
                         </span>
                         <div className="flex items-center justify-center gap-1">
                           <TeamLogo
@@ -667,7 +665,7 @@ export function PickMatrix({
                               >
                                 {isSurvivorPick && (
                                   <span
-                                    className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-purple-500"
+                                    className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-purple-500 ring-1 ring-white dark:ring-slate-900"
                                     title="Survivor Pick"
                                   />
                                 )}
