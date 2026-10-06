@@ -117,7 +117,7 @@ if (password !== confirmPassword) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Create Account</h2>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">Join the ultimate NFL Pick&apos;em platform.</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">Create your PocketPicks account.</p>
 
         {error && (
           <div className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-sm p-3 rounded-lg mb-6 border border-rose-100 dark:border-rose-900/50">

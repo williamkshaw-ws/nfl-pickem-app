@@ -360,7 +360,7 @@ export function generateSeedData(): DatabaseSchema {
 
   return {
     settings: {
-      leagueName: "Gridiron Clash Pick'em League",
+      leagueName: "Gridiron Clash League",
       seasonYear: 2026,
       currentWeek: 4,
       lockPolicy: "game", // Default false for smooth testing

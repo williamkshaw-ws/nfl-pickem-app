@@ -192,7 +192,7 @@ export default function Home() {
           <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm">
             <Trophy className="w-5 h-5" />
           </div>
-          <span className="font-black text-lg tracking-tight">NFL Pick&apos;em</span>
+          <span className="font-black text-lg tracking-tight">PocketPicks</span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -284,7 +284,7 @@ export default function Home() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">Create New League</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Start a private pick&apos;em league for your friends or coworkers.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Start a private league for your friends or coworkers.</p>
             </div>
 
             <form onSubmit={handleCreateLeague} className="space-y-4">

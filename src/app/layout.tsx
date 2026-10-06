@@ -4,8 +4,8 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "NFL Pick'em League | Weekly Picks & Season Standings",
-  description: "Pick weekly NFL games, compete with friends, track weekly winners, and battle for the season championship!",
+  title: "PocketPicks | Weekly Football Picks & Standings",
+  description: "Make weekly football picks, compete with friends, track weekly winners, and battle for the season championship with PocketPicks!",
   icons: {
     icon: "/icon.svg?v=2",
     shortcut: "/icon.svg?v=2",

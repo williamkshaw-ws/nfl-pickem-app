@@ -413,7 +413,7 @@ export function Header({
                     value={newLeagueName}
                     onChange={(e) => setNewLeagueName(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 mb-4"
-                    placeholder="e.g. Office Pick'em 2026"
+                    placeholder="e.g. Office League 2026"
                   />
 
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">League Format</label>
