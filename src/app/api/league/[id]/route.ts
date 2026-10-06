@@ -1,0 +1,315 @@
+import { NextResponse } from "next/server";
+import {
+  requireUser,
+  requireMember,
+  requireCommissioner,
+  adminDb,
+  errorResponse,
+  isGameLocked,
+  HttpError,
+} from "@/lib/server-auth";
+import { getDatabase, syncWeekFromEspn, detectCurrentWeek } from "@/lib/storage";
+import { calculateWeeklyResults, calculateSeasonStandings } from "@/lib/scoring";
+
+// Throttle automatic ESPN sync on page load to at most once every 60 seconds per week
+const lastAutoSyncByWeek: Record<number, number> = {};
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const caller = await requireUser(request);
+    const { id: leagueId } = await params;
+    const { league, isCommissioner } = await requireMember(leagueId, caller.uid);
+
+    const url = new URL(request.url);
+    const weekParam = url.searchParams.get("week");
+
+    const jsonDb = getDatabase();
+    const gamesByWeek = jsonDb.gamesByWeek;
+    const detectedWeek = detectCurrentWeek(gamesByWeek);
+
+    const rawSettings = league.settings || {};
+    const effectiveCurrentWeek =
+      rawSettings.currentWeek && rawSettings.currentWeek !== 1
+        ? rawSettings.currentWeek
+        : detectedWeek;
+
+    const settings = {
+      leagueName: league.name || rawSettings.leagueName || "Untitled League",
+      seasonYear: rawSettings.seasonYear || 2026,
+      currentWeek: effectiveCurrentWeek,
+      lockPolicy: rawSettings.lockPolicy || "game",
+      tiebreakerRuleSummary: rawSettings.tiebreakerRuleSummary || "Closest to total points",
+      eliminatorEnabled: rawSettings.eliminatorEnabled !== false,
+      pickemEnabled: rawSettings.pickemEnabled !== false,
+      commissionerId: league.commissionerId,
+      // Never expose the actual league password to clients; only flag if one is set
+      hasPassword: !!rawSettings.leaguePassword,
+    };
+
+    const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;
+    const now = Date.now();
+
+    // Automatically check for fresh ESPN scores on page view/refresh (throttled to 30s)
+    if (!lastAutoSyncByWeek[activeWeek] || now - lastAutoSyncByWeek[activeWeek] > 30_000) {
+      lastAutoSyncByWeek[activeWeek] = now;
+      try {
+        await syncWeekFromEspn(activeWeek, settings.seasonYear || 2026);
+      } catch (syncErr) {
+        console.warn("Auto ESPN sync warning:", syncErr);
+      }
+    }
+
+    const db = adminDb();
+
+    // 1. Fetch memberships
+    const memSnap = await db.collection("memberships").where("leagueId", "==", leagueId).get();
+    const userIds = memSnap.docs.map((doc) => doc.data().userId);
+
+    // 2. Fetch users in batches of 30 (Firestore in query limit)
+    const users: any[] = [];
+    for (let i = 0; i < userIds.length; i += 30) {
+      const chunk = userIds.slice(i, i + 30);
+      if (chunk.length > 0) {
+        const userSnap = await db.collection("users").where("id", "in", chunk).get();
+        userSnap.docs.forEach((doc) => {
+          const u = doc.data();
+          users.push({
+            id: u.id,
+            name: u.name || "Unknown",
+            avatarColor: "bg-slate-800",
+          });
+        });
+      }
+    }
+
+    // 3. Fetch picks for this league
+    const picksSnap = await db.collection("picks").where("leagueId", "==", leagueId).get();
+    const rawAllPicks: any[] = picksSnap.docs.map((doc) => doc.data());
+
+    const availableWeeks = Array.from({ length: 18 }, (_, i) => i + 1);
+
+    const gamesForWeek = gamesByWeek[activeWeek] || [];
+
+    // Tiebreaker game for active week
+    const tbGame =
+      gamesForWeek.find((g: any) => g.isTiebreakerGame) ||
+      [...gamesForWeek].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+    // Mask picks for unlocked games so other players cannot spy before kickoff (Fix H1)
+    const allPicks = rawAllPicks.map((p) => {
+      if (p.userId === caller.uid) return p;
+      if (isCommissioner) return p;
+      if (p.week !== activeWeek) return p;
+
+      const maskedPicks: Record<string, string> = { ...(p.picks || {}) };
+      for (const game of gamesForWeek) {
+        if (!isGameLocked(game, gamesForWeek, settings.lockPolicy, now)) {
+          if (maskedPicks[game.id]) {
+            maskedPicks[game.id] = "HIDDEN";
+          }
+        }
+      }
+
+      const tbLocked = tbGame ? isGameLocked(tbGame, gamesForWeek, settings.lockPolicy, now) : false;
+      const maskedTb = tbLocked ? p.tiebreaker : undefined;
+
+      let maskedElim = p.eliminatorPick;
+      if (p.eliminatorPick) {
+        const elimGame = gamesForWeek.find(
+          (g: any) => g.homeTeam.id === p.eliminatorPick || g.awayTeam.id === p.eliminatorPick
+        );
+        if (elimGame && !isGameLocked(elimGame, gamesForWeek, settings.lockPolicy, now)) {
+          maskedElim = "HIDDEN";
+        }
+      }
+
+      return {
+        ...p,
+        picks: maskedPicks,
+        tiebreaker: maskedTb,
+        eliminatorPick: maskedElim,
+      };
+    });
+
+    const isSeasonOver =
+      settings.currentWeek > 18 ||
+      (settings.currentWeek === 18 && gamesByWeek[18]?.every((g: any) => g.status.completed));
+
+    // Calculate weekly results and standings using raw picks for accurate scoring
+    const weeklyResults = calculateWeeklyResults(
+      gamesForWeek,
+      users,
+      rawAllPicks,
+      activeWeek
+    );
+    const seasonStandings = calculateSeasonStandings(gamesByWeek, users, rawAllPicks);
+
+    // Calculate Eliminator / Survivor pool status
+    let eliminatorStatus: any[] = [];
+    if (settings.eliminatorEnabled) {
+      eliminatorStatus = users.map((u) => {
+        let status: "Alive" | "Eliminated" = "Alive";
+        let eliminatedWeek: number | undefined;
+        const picksByWeek: Record<number, any> = {};
+
+        const limit = Math.max(activeWeek, settings.currentWeek);
+        for (let w = 1; w <= limit; w++) {
+          const userPick = rawAllPicks.find((p) => p.userId === u.id && p.week === w);
+          const elimPick = userPick?.eliminatorPick;
+          if (elimPick) {
+            const gamesForW = gamesByWeek[w] || [];
+            const game = gamesForW.find(
+              (g: any) => g.homeTeam.id === elimPick || g.awayTeam.id === elimPick
+            );
+
+            let won = false;
+            let lost = false;
+            if (game && game.status.completed) {
+              const homeScore = game.homeScore || 0;
+              const awayScore = game.awayScore || 0;
+              if (elimPick === game.homeTeam.id && homeScore > awayScore) won = true;
+              else if (elimPick === game.awayTeam.id && awayScore > homeScore) won = true;
+              else lost = true;
+            }
+
+            const pickedTeam = game
+              ? game.homeTeam.id === elimPick
+                ? game.homeTeam
+                : game.awayTeam
+              : undefined;
+
+            // If game is in the current active week and hasn't started yet, don't reveal team to other players
+            const isPickLocked = game ? isGameLocked(game, gamesForW, settings.lockPolicy, now) : false;
+            const hideToCaller = w === activeWeek && u.id !== caller.uid && !isPickLocked;
+
+            picksByWeek[w] = {
+              teamId: hideToCaller ? "HIDDEN" : elimPick,
+              abbreviation: hideToCaller ? "Hidden" : pickedTeam?.abbreviation || elimPick,
+              logo: hideToCaller ? undefined : pickedTeam?.logo,
+              result: won ? "won" : lost ? "lost" : "pending",
+            };
+
+            if (lost && status === "Alive") {
+              status = "Eliminated";
+              eliminatedWeek = w;
+            }
+          }
+        }
+        return {
+          userId: u.id,
+          status,
+          eliminatedWeek,
+          picksByWeek,
+        };
+      });
+    }
+
+    const activeUserPicks = rawAllPicks.find(
+      (p) => p.userId === caller.uid && p.week === activeWeek
+    );
+
+    return NextResponse.json({
+      settings,
+      users,
+      gamesByWeek,
+      activeWeek,
+      currentUserId: caller.uid,
+      allPicks,
+      activeUserPicks,
+      weeklyResults,
+      seasonStandings,
+      eliminatorStatus,
+      availableWeeks,
+      isSeasonOver,
+    });
+  } catch (err: any) {
+    return errorResponse(err);
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const caller = await requireUser(request);
+    const { id: leagueId } = await params;
+    await requireCommissioner(leagueId, caller.uid);
+
+    const body = await request.json();
+    const db = adminDb();
+    const leagueRef = db.collection("leagues").doc(leagueId);
+
+    const docSnap = await leagueRef.get();
+    if (!docSnap.exists) throw new HttpError(404, "League not found");
+
+    const currentSettings = docSnap.data()?.settings || {};
+
+    // Whitelist only allowed fields to prevent arbitrary writes
+    const allowedFields = [
+      "leagueName",
+      "seasonYear",
+      "currentWeek",
+      "lockPolicy",
+      "tiebreakerRuleSummary",
+      "pickemEnabled",
+      "eliminatorEnabled",
+      "leaguePassword",
+    ];
+
+    const sanitizedUpdates: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (key in body) {
+        sanitizedUpdates[key] = body[key];
+      }
+    }
+
+    const newSettings = { ...currentSettings, ...sanitizedUpdates };
+    await leagueRef.update({
+      settings: newSettings,
+      name: newSettings.leagueName || docSnap.data()?.name,
+    });
+
+    return NextResponse.json({ success: true, settings: newSettings });
+  } catch (err: any) {
+    return errorResponse(err);
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const caller = await requireUser(request);
+    const { id: leagueId } = await params;
+    await requireCommissioner(leagueId, caller.uid);
+
+    const db = adminDb();
+
+    // Delete the league
+    await db.collection("leagues").doc(leagueId).delete();
+
+    // Delete all memberships for this league
+    const memSnap = await db.collection("memberships").where("leagueId", "==", leagueId).get();
+    const batch = db.batch();
+    memSnap.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    // Delete all picks for this league
+    const picksSnap = await db.collection("picks").where("leagueId", "==", leagueId).get();
+    picksSnap.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return errorResponse(err);
+  }
+}

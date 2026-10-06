@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read other user profiles (for leaderboard displays)
+    // but can only create and edit their own user profile document.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Memberships can only be read by the owner of the membership.
+    // Client-side writes are completely disabled; all joins and creations
+    // are executed securely via Next.js backend API routes with Firebase Admin.
+    match /memberships/{membershipId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Direct client access to leagues and picks is blocked.
+    // All operations are handled via verified backend API routes.
+    match /leagues/{leagueId} {
+      allow read, write: if false;
+    }
+
+    match /picks/{pickId} {
+      allow read, write: if false;
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
