@@ -150,6 +150,11 @@ export function EliminatorPool({
                     return (
                       <td key={w} className="p-3 text-center border-l border-slate-100/50 dark:border-slate-800/60 whitespace-nowrap">
                         {pick ? (
+                          pick.teamId === "HIDDEN" || pick.abbreviation?.toLowerCase() === "hidden" ? (
+                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
+                              Hidden
+                            </span>
+                          ) : (
                             <div className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded font-bold transition-colors ${
                               pick.result === "won" ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/60" : 
                               pick.result === "lost" ? "text-rose-700 dark:text-rose-300 bg-rose-50/80 dark:bg-rose-950/60" : 
@@ -166,6 +171,7 @@ export function EliminatorPool({
                               {pick.result === "won" && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
                               {pick.result === "lost" && <X className="w-3 h-3 text-rose-600 dark:text-rose-400 flex-shrink-0" />}
                             </div>
+                          )
                         ) : (
                           <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
                         )}

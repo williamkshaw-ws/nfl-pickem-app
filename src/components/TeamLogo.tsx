@@ -18,9 +18,13 @@ export function TeamLogo({
   height = 24,
   className = "object-contain shrink-0",
 }: TeamLogoProps) {
+  if (!src && (!alt || alt.toLowerCase() === "hidden" || alt.toLowerCase() === "n/a")) {
+    return null;
+  }
+
   const getInitialSrc = () => {
     if (src && src.trim() !== "") return src;
-    if (alt) {
+    if (alt && alt.toLowerCase() !== "hidden") {
       return `https://a.espncdn.com/i/teamlogos/nfl/500/${alt.toLowerCase().slice(0, 3)}.png`;
     }
     return "";
