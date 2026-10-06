@@ -95,3 +95,81 @@ export function isGameLocked(game: any, weekGames: any[], lockPolicy: string, no
   }
   return false;
 }
+
+/**
+ * Automatically reassigns the commissioner role to the next oldest active member of the league.
+ * If no eligible members remain in the league, the league is safely cleaned up.
+ */
+export async function reassignLeagueCommissioner(
+  db: FirebaseFirestore.Firestore,
+  leagueId: string,
+  currentCommissionerId: string
+): Promise<{ newCommissionerId: string | null; leagueDeleted: boolean }> {
+  // Find all memberships in the league
+  const membersSnap = await db
+    .collection("memberships")
+    .where("leagueId", "==", leagueId)
+    .get();
+
+  const otherMembers = membersSnap.docs
+    .filter((doc) => {
+      const data = doc.data();
+      return data.userId && data.userId !== currentCommissionerId;
+    })
+    .map((doc) => ({
+      docRef: doc.ref,
+      userId: doc.data().userId as string,
+      joinedAt: doc.data().joinedAt as string | undefined,
+    }));
+
+  // Exclude any banned users from being eligible to become commissioner
+  const eligibleMembers: typeof otherMembers = [];
+  for (const m of otherMembers) {
+    const userDoc = await db.collection("users").doc(m.userId).get();
+    if (userDoc.exists && userDoc.data()?.banned) {
+      continue;
+    }
+    eligibleMembers.push(m);
+  }
+
+  if (eligibleMembers.length > 0) {
+    // Sort by joinedAt ascending (earliest joined member becomes new commissioner)
+    eligibleMembers.sort((a, b) => {
+      const timeA = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+      const timeB = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    const nextCommish = eligibleMembers[0];
+
+    const batch = db.batch();
+    // 1. Update league document with new commissionerId
+    batch.update(db.collection("leagues").doc(leagueId), {
+      commissionerId: nextCommish.userId,
+    });
+    // 2. Promote next member in memberships
+    batch.update(nextCommish.docRef, {
+      role: "commissioner",
+    });
+    await batch.commit();
+
+    return { newCommissionerId: nextCommish.userId, leagueDeleted: false };
+  } else {
+    // No other eligible members remain in this league: delete the empty league
+    const batch = db.batch();
+    batch.delete(db.collection("leagues").doc(leagueId));
+
+    // Clean up any picks for this league
+    const picksSnap = await db
+      .collection("picks")
+      .where("leagueId", "==", leagueId)
+      .get();
+    picksSnap.docs.forEach((doc) => batch.delete(doc.ref));
+
+    // Clean up remaining memberships
+    membersSnap.docs.forEach((doc) => batch.delete(doc.ref));
+
+    await batch.commit();
+    return { newCommissionerId: null, leagueDeleted: true };
+  }
+}

@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireUser, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import {
+  requireUser,
+  adminDb,
+  errorResponse,
+  HttpError,
+  reassignLeagueCommissioner,
+} from "@/lib/server-auth";
 
 export async function POST(
   request: Request,
@@ -19,32 +25,23 @@ export async function POST(
     }
 
     const membershipData = memSnap.data()!;
-    const isCommissioner = membershipData.role === "commissioner";
+
+    // Check if the caller is the commissioner
+    const leagueDoc = await db.collection("leagues").doc(leagueId).get();
+    const isCommissioner =
+      membershipData.role === "commissioner" ||
+      (leagueDoc.exists && leagueDoc.data()?.commissionerId === caller.uid);
+
+    let leagueDeleted = false;
 
     if (isCommissioner) {
-      // Check total member count
-      const allMembersSnap = await db.collection("memberships").where("leagueId", "==", leagueId).get();
-      if (allMembersSnap.size > 1) {
-        throw new HttpError(
-          400,
-          "As the commissioner, you cannot leave while other members are in the league. You can delete the league in the Commissioner Control Room."
-        );
-      }
-
-      // If sole member and commissioner, deleting league
-      await db.collection("leagues").doc(leagueId).delete();
-      await membershipRef.delete();
-
-      const picksSnap = await db.collection("picks").where("leagueId", "==", leagueId).get();
-      const batch = db.batch();
-      picksSnap.docs.forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-
-      return NextResponse.json({ success: true, deletedLeague: true });
+      // Reassign commissioner to the next oldest active member in the league
+      const result = await reassignLeagueCommissioner(db, leagueId, caller.uid);
+      leagueDeleted = result.leagueDeleted;
     }
 
-    // Regular member leaving
-    await membershipRef.delete();
+    // Delete the leaving member's membership document
+    await membershipRef.delete().catch(() => {});
 
     // Remove user's picks for this league
     const picksSnap = await db
@@ -52,14 +49,18 @@ export async function POST(
       .where("leagueId", "==", leagueId)
       .where("userId", "==", caller.uid)
       .get();
-    
+
     if (!picksSnap.empty) {
       const batch = db.batch();
       picksSnap.docs.forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
+      await batch.commit().catch(() => {});
     }
 
-    return NextResponse.json({ success: true, leftLeague: true });
+    return NextResponse.json({
+      success: true,
+      leftLeague: true,
+      deletedLeague: leagueDeleted,
+    });
   } catch (err: any) {
     return errorResponse(err);
   }

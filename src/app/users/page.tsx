@@ -836,6 +836,21 @@ export default function AdminUsersPage() {
                 from signing into PocketPicks and revoke their active login tokens. You can unban this account anytime from this directory.
               </p>
             </div>
+            {userToBan.leagues.some((l) => l.role === "commissioner") && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                <Crown className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  This user is commissioner of{" "}
+                  <strong>
+                    {userToBan.leagues
+                      .filter((l) => l.role === "commissioner")
+                      .map((l) => l.name)
+                      .join(", ")}
+                  </strong>
+                  . The commissioner role will automatically be assigned to the next member in the league so it is not deleted.
+                </span>
+              </div>
+            )}
             <div className="pt-2 flex items-center justify-end gap-2.5">
               <button
                 type="button"
@@ -881,6 +896,21 @@ export default function AdminUsersPage() {
                 </span>
               </p>
             </div>
+            {userToDelete.leagues.some((l) => l.role === "commissioner") && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                <Crown className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  This user is commissioner of{" "}
+                  <strong>
+                    {userToDelete.leagues
+                      .filter((l) => l.role === "commissioner")
+                      .map((l) => l.name)
+                      .join(", ")}
+                  </strong>
+                  . The commissioner role will automatically be assigned to the next member in the league so it is not deleted.
+                </span>
+              </div>
+            )}
             <div className="pt-2 flex items-center justify-end gap-2.5">
               <button
                 type="button"

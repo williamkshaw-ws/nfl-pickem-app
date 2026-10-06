@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { adminAuth } from "@/lib/firebase-admin";
-import { adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import {
+  adminDb,
+  errorResponse,
+  HttpError,
+  reassignLeagueCommissioner,
+} from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   try {
@@ -15,13 +20,45 @@ export async function POST(request: Request) {
     }
 
     if (!action || !["ban", "unban", "delete"].includes(action)) {
-      throw new HttpError(400, "Invalid action. Supported actions: 'ban', 'unban', 'delete'");
+      throw new HttpError(
+        400,
+        "Invalid action. Supported actions: 'ban', 'unban', 'delete'"
+      );
     }
 
     const db = adminDb();
 
     if (action === "ban") {
-      // 1. Disable user in Firebase Auth so they cannot sign in
+      // 1. If this user is commissioner of any leagues, reassign commissioner to the next member
+      const commishLeaguesSnap = await db
+        .collection("leagues")
+        .where("commissionerId", "==", userId)
+        .get();
+
+      for (const leagueDoc of commishLeaguesSnap.docs) {
+        await reassignLeagueCommissioner(db, leagueDoc.id, userId);
+
+        // Remove the banned user from this league
+        await db
+          .collection("memberships")
+          .doc(`${leagueDoc.id}_${userId}`)
+          .delete()
+          .catch(() => {});
+
+        const leaguePicksSnap = await db
+          .collection("picks")
+          .where("leagueId", "==", leagueDoc.id)
+          .where("userId", "==", userId)
+          .get();
+
+        if (!leaguePicksSnap.empty) {
+          const batch = db.batch();
+          leaguePicksSnap.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit().catch(() => {});
+        }
+      }
+
+      // 2. Disable user in Firebase Auth so they cannot sign in
       try {
         await adminAuth.updateUser(userId, { disabled: true });
         await adminAuth.revokeRefreshTokens(userId);
@@ -29,7 +66,7 @@ export async function POST(request: Request) {
         console.warn("Firebase Auth disable warning:", authErr);
       }
 
-      // 2. Mark banned in Firestore
+      // 3. Mark banned in Firestore
       await db.collection("users").doc(userId).set(
         {
           banned: true,
@@ -38,7 +75,11 @@ export async function POST(request: Request) {
         { merge: true }
       );
 
-      return NextResponse.json({ success: true, message: "User account banned" });
+      return NextResponse.json({
+        success: true,
+        message:
+          "User account banned. Any commissioner roles were transferred to the next member.",
+      });
     }
 
     if (action === "unban") {
@@ -58,21 +99,34 @@ export async function POST(request: Request) {
         { merge: true }
       );
 
-      return NextResponse.json({ success: true, message: "User account unbanned" });
+      return NextResponse.json({
+        success: true,
+        message: "User account unbanned",
+      });
     }
 
     if (action === "delete") {
-      // 1. Delete user from Firebase Auth
+      // 1. If user is commissioner of any leagues, reassign commissioner to the next member
+      const commishLeaguesSnap = await db
+        .collection("leagues")
+        .where("commissionerId", "==", userId)
+        .get();
+
+      for (const leagueDoc of commishLeaguesSnap.docs) {
+        await reassignLeagueCommissioner(db, leagueDoc.id, userId);
+      }
+
+      // 2. Delete user from Firebase Auth
       try {
         await adminAuth.deleteUser(userId);
       } catch (authErr: any) {
         console.warn("Firebase Auth delete warning:", authErr);
       }
 
-      // 2. Delete user profile in Firestore
+      // 3. Delete user profile in Firestore
       await db.collection("users").doc(userId).delete().catch(() => {});
 
-      // 3. Delete all league memberships for this user
+      // 4. Delete all remaining league memberships for this user
       const memSnap = await db
         .collection("memberships")
         .where("userId", "==", userId)
@@ -84,7 +138,7 @@ export async function POST(request: Request) {
         await batch.commit().catch(() => {});
       }
 
-      // 4. Delete all picks submitted by this user
+      // 5. Delete all picks submitted by this user
       const picksSnap = await db
         .collection("picks")
         .where("userId", "==", userId)
@@ -98,7 +152,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: "User permanently deleted",
+        message:
+          "User permanently deleted. Any commissioner roles were transferred to the next member.",
       });
     }
 
