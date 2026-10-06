@@ -31,6 +31,7 @@ interface HeaderProps {
   currentActiveUserId: string;
   activeWeek: number;
   availableWeeks: number[];
+  currentLeagueId?: string;
   onSelectWeek: (week: number) => void;
   onSwitchUser: (userId: string) => void;
   onAddUser: (name: string) => Promise<void>;
@@ -49,6 +50,7 @@ export function Header({
   currentActiveUserId,
   activeWeek,
   availableWeeks,
+  currentLeagueId,
   onSelectWeek,
 }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -122,6 +124,9 @@ export function Header({
         alert(data.error || "Failed to create league");
         return;
       }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("last_active_league", data.leagueId);
+      }
       router.push(`/league/${data.leagueId}`);
       window.location.href = `/league/${data.leagueId}`;
     } catch (err: any) {
@@ -151,6 +156,9 @@ export function Header({
       if (!res.ok) {
         setJoinError(data.error || "Failed to join league.");
         return;
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("last_active_league", data.leagueId);
       }
       router.push(`/league/${data.leagueId}`);
       window.location.href = `/league/${data.leagueId}`;
@@ -336,24 +344,47 @@ export function Header({
                       ) : memberships.length === 0 ? (
                         <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">No leagues yet.</p>
                       ) : (
-                        memberships.map((m) => (
-                          <Link
-                            key={m.id}
-                            href={`/league/${m.leagueId}`}
-                            onClick={() => setUserDropdownOpen(false)}
-                            className="block p-3 border border-slate-100 dark:border-slate-800/80 hover:border-emerald-200 dark:hover:border-emerald-700/60 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 rounded-2xl transition-colors group relative overflow-hidden"
-                          >
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-bl-full -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100/50 dark:group-hover:bg-emerald-900/30" />
-                            <div className="relative z-10 flex items-center justify-between">
-                              <h5 className="font-bold text-sm text-slate-900 dark:text-white truncate pr-2">{m.leagueName}</h5>
-                              {m.role === 'commissioner' && (
-                                <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest rounded flex-shrink-0">
-                                  Commissioner
-                                </span>
-                              )}
-                            </div>
-                          </Link>
-                        ))
+                        memberships.map((m) => {
+                          const isCurrent = m.leagueId === currentLeagueId;
+                          return (
+                            <Link
+                              key={m.id}
+                              href={`/league/${m.leagueId}`}
+                              onClick={() => {
+                                if (typeof window !== "undefined") {
+                                  localStorage.setItem("last_active_league", m.leagueId);
+                                }
+                                setUserDropdownOpen(false);
+                              }}
+                              className={`block p-3 border rounded-2xl transition-all group relative overflow-hidden ${
+                                isCurrent
+                                  ? "border-emerald-500/80 bg-emerald-50/70 dark:bg-emerald-950/40"
+                                  : "border-slate-100 dark:border-slate-800/80 hover:border-emerald-200 dark:hover:border-emerald-700/60 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
+                              }`}
+                            >
+                              <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-bl-full -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100/50 dark:group-hover:bg-emerald-900/30" />
+                              <div className="relative z-10 flex items-center justify-between">
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  <h5 className={`font-bold text-sm truncate ${
+                                    isCurrent ? "text-emerald-900 dark:text-emerald-200 font-extrabold" : "text-slate-900 dark:text-white"
+                                  }`}>
+                                    {m.leagueName}
+                                  </h5>
+                                  {isCurrent && (
+                                    <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[8px] font-black uppercase tracking-wider rounded flex-shrink-0">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+                                {m.role === 'commissioner' && (
+                                  <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest rounded flex-shrink-0">
+                                    Commissioner
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })
                       )}
                     </div>
                   </div>

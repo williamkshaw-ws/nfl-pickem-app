@@ -59,6 +59,12 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     }, 3000);
   };
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && leagueId) {
+      localStorage.setItem("last_active_league", leagueId);
+    }
+  }, [leagueId]);
+
   const loadLeagueData = useCallback(async (week?: number) => {
     if (!user) return;
     try {
@@ -209,7 +215,10 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         throw new Error(errJson.error || "Failed to delete league");
       }
       showToast("League deleted successfully!");
-      // Redirect to dashboard after a short delay
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("last_active_league");
+      }
+      // Redirect to dashboard router after a short delay
       setTimeout(() => {
         router.push("/dashboard");
       }, 1500);
@@ -220,7 +229,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   };
 
   const handleAddUser = async (name: string) => {
-    alert("Users must join via the dashboard using the 5-character invite code.");
+    alert("Users must join using the 5-character invite code.");
   };
 
   if (authLoading || loading) {
@@ -256,6 +265,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         currentActiveUserId={user.id}
         activeWeek={activeWeek}
         availableWeeks={data.availableWeeks}
+        currentLeagueId={leagueId}
         onSelectWeek={handleWeekChange}
         onSwitchUser={() => {}}
         onAddUser={handleAddUser}
