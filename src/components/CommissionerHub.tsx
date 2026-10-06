@@ -95,6 +95,28 @@ export function CommissionerHub({
 
   const totalGames = games.length;
 
+  // Build team lookup map from games
+  const teamsMap = useMemo(() => {
+    const map = new Map<string, { abbreviation: string; name: string; logo?: string }>();
+    for (const g of games) {
+      if (g.homeTeam) {
+        map.set(g.homeTeam.id, {
+          abbreviation: g.homeTeam.abbreviation || g.homeTeam.name,
+          name: g.homeTeam.name,
+          logo: g.homeTeam.logo,
+        });
+      }
+      if (g.awayTeam) {
+        map.set(g.awayTeam.id, {
+          abbreviation: g.awayTeam.abbreviation || g.awayTeam.name,
+          name: g.awayTeam.name,
+          logo: g.awayTeam.logo,
+        });
+      }
+    }
+    return map;
+  }, [games]);
+
   // Compute submission statistics per user for active week
   const memberStatuses = useMemo(() => {
     return users.map((u) => {
@@ -114,6 +136,10 @@ export function CommissionerHub({
       const hasSurvivor =
         !!userPickObj?.eliminatorPick && userPickObj.eliminatorPick !== "HIDDEN";
 
+      const pickedTeam = userPickObj?.eliminatorPick
+        ? teamsMap.get(userPickObj.eliminatorPick)
+        : undefined;
+
       const pickemDone =
         settings.pickemEnabled !== false
           ? totalGames > 0 && validPicksCount >= totalGames
@@ -130,12 +156,13 @@ export function CommissionerHub({
         hasTiebreaker,
         hasSurvivor,
         survivorPick: userPickObj?.eliminatorPick,
+        survivorTeam: pickedTeam,
         isComplete,
         isPartial,
         isMissing,
       };
     });
-  }, [users, allPicks, activeWeek, totalGames, settings.pickemEnabled, settings.eliminatorEnabled]);
+  }, [users, allPicks, activeWeek, totalGames, teamsMap, settings.pickemEnabled, settings.eliminatorEnabled]);
 
   const completeCount = memberStatuses.filter((s) => s.isComplete).length;
   const missingCount = memberStatuses.filter((s) => s.isMissing).length;
@@ -519,11 +546,16 @@ export function CommissionerHub({
                     hasTiebreaker,
                     hasSurvivor,
                     survivorPick,
+                    survivorTeam,
                     isComplete,
                     isPartial,
                     isMissing,
                   }) => {
                     const isCommish = settings.commissionerId === u.id;
+
+                    const survivorDisplayName = survivorPick === "HIDDEN"
+                      ? "Hidden"
+                      : survivorTeam?.abbreviation || survivorTeam?.name || (hasSurvivor ? "Picked" : "Missing");
 
                     return (
                       <div
@@ -576,15 +608,36 @@ export function CommissionerHub({
 
                               {settings.eliminatorEnabled && (
                                 <span
-                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                                     hasSurvivor
-                                      ? "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300"
-                                      : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                                      ? "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900/60"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
                                   }`}
                                 >
-                                  {hasSurvivor
-                                    ? `Survivor: ${survivorPick}`
-                                    : "Survivor: Missing"}
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      hasSurvivor
+                                        ? "bg-purple-600 dark:bg-purple-400"
+                                        : "bg-slate-400"
+                                    }`}
+                                  />
+                                  <span>Survivor:</span>
+                                  {hasSurvivor ? (
+                                    <>
+                                      {survivorTeam?.logo && (
+                                        <img
+                                          src={survivorTeam.logo}
+                                          alt=""
+                                          className="w-3.5 h-3.5 object-contain"
+                                        />
+                                      )}
+                                      <span className="font-extrabold">
+                                        {survivorDisplayName}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span>Missing</span>
+                                  )}
                                 </span>
                               )}
                             </div>
