@@ -60,6 +60,8 @@ export function CommissionerHub({
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || "");
   const [leaguePassword, setLeaguePassword] = useState(settings.leaguePassword || "");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const selectedUser = users.find(u => u.id === selectedUserId);
   const picksForSelectedUser = allPicks?.find(p => p.userId === selectedUserId && p.week === activeWeek);
@@ -299,13 +301,10 @@ export function CommissionerHub({
               Once you delete a league, there is no going back. Please be certain.
             </p>
             <button
-              onClick={() => {
-                if (window.confirm("Are you absolutely sure you want to delete this league? This action cannot be undone.")) {
-                  onDeleteLeague();
-                }
-              }}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+              onClick={() => setShowDeleteModal(true)}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
             >
+              <Trash2 className="w-3.5 h-3.5" />
               Delete League
             </button>
           </div>
@@ -367,6 +366,56 @@ export function CommissionerHub({
           </div>
         </div>
       </div>
+
+      {/* Delete League Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Delete League</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                  Are you absolutely sure you want to delete <strong className="text-slate-900 dark:text-white font-bold">{settings.leagueName}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
+              ⚠️ All player picks, season standings, matchups, and league history will be permanently erased. This action cannot be undone.
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await onDeleteLeague();
+                  } catch (err) {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isDeleting ? "Deleting..." : "Delete League"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
