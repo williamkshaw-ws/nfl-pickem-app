@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { User, LeagueSettings } from "@/types/nfl";
 import {
   Trophy,
@@ -54,6 +54,7 @@ export function Header({
   onSelectWeek,
 }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
   const router = useRouter();
@@ -61,6 +62,8 @@ export function Header({
   
   const [memberships, setMemberships] = useState<LeagueMembership[]>([]);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
+  const [leagueToLeave, setLeagueToLeave] = useState<LeagueMembership | null>(null);
+  const [leaving, setLeaving] = useState(false);
   
   const [showCreate, setShowCreate] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState("");
@@ -97,12 +100,61 @@ export function Header({
     }
   }, [userDropdownOpen, user]);
 
+  // Close user dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    if (userDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [userDropdownOpen]);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
       router.push("/auth/login");
     } catch (err) {
       console.error("Failed to log out", err);
+    }
+  };
+
+  const handleLeaveLeague = async () => {
+    if (!leagueToLeave) return;
+    setLeaving(true);
+    try {
+      const res = await authFetch(`/api/league/${leagueToLeave.leagueId}/leave`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to leave league");
+        setLeaving(false);
+        return;
+      }
+
+      if (leagueToLeave.leagueId === currentLeagueId) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("last_active_league");
+        }
+        window.location.href = "/";
+      } else {
+        setMemberships((prev) => prev.filter((m) => m.leagueId !== leagueToLeave.leagueId));
+        setLeagueToLeave(null);
+        setLeaving(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to leave league");
+      setLeaving(false);
     }
   };
 
@@ -205,7 +257,7 @@ export function Header({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="relative ml-0 sm:ml-2">
+            <div ref={dropdownRef} className="relative ml-0 sm:ml-2">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                 className="flex items-center gap-2 text-left transition-opacity hover:opacity-80"
@@ -223,12 +275,7 @@ export function Header({
               </button>
 
               {userDropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setUserDropdownOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                     
                     {/* User Profile Bubble */}
                     <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
@@ -376,11 +423,26 @@ export function Header({
                                     </span>
                                   )}
                                 </div>
-                                {m.role === 'commissioner' && (
-                                  <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest rounded flex-shrink-0">
-                                    Commissioner
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {m.role === 'commissioner' ? (
+                                    <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest rounded flex-shrink-0">
+                                      Commissioner
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      title="Leave League"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setLeagueToLeave(m);
+                                      }}
+                                      className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-wider rounded border border-rose-200 dark:border-rose-900/60 transition-colors"
+                                    >
+                                      Leave
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </Link>
                           );
@@ -388,7 +450,6 @@ export function Header({
                       )}
                     </div>
                   </div>
-                </>
               )}
             </div>
           </div>
@@ -522,6 +583,49 @@ export function Header({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave League Confirmation Modal */}
+      {leagueToLeave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+                <LogOut className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Leave League</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                  Are you sure you want to leave <strong className="text-slate-900 dark:text-white font-bold">{leagueToLeave.leagueName}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium">
+              ⚠️ Your picks, standings, and history for this league will be removed. You will need an invite code to rejoin.
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={leaving}
+                onClick={() => setLeagueToLeave(null)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={leaving}
+                onClick={handleLeaveLeague}
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+              >
+                {leaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                {leaving ? "Leaving..." : "Leave League"}
+              </button>
             </div>
           </div>
         </div>

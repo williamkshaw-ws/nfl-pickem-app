@@ -11,7 +11,7 @@ import { useAuth } from "@/components/AuthProvider";
 export default function Login() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,14 +33,30 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    try {
+      let loginEmail = identifier.trim();
+
+      // If user provided a username instead of an email, look up the email
+      if (!loginEmail.includes("@")) {
+        const lookupRes = await fetch("/api/auth/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: loginEmail }),
+        });
+        const lookupData = await lookupRes.json();
+        if (!lookupRes.ok || !lookupData.email) {
+          setError(lookupData.error || "No account found with that username.");
+          setLoading(false);
+          return;
+        }
+        loginEmail = lookupData.email;
+      }
+
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, password);
       
       if (!userCredential.user.emailVerified) {
         await auth.signOut();
         setError("Please verify your email before logging in.");
-        
-        // We can optionally trigger a new verification email here or just show a message.
         setLoading(false);
         return;
       }
@@ -51,9 +67,9 @@ try {
       } else {
         window.location.href = "/";
       }
-} catch (err: any) {
+    } catch (err: any) {
       if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
-        setError("Invalid email or password. Please try again.");
+        setError("Invalid email, username, or password. Please try again.");
       } else if (err.code === "auth/too-many-requests") {
         setError("Too many failed login attempts. Please try again later.");
       } else if (err.code === "auth/network-request-failed") {
@@ -62,7 +78,6 @@ try {
         setError(err.message.replace("Firebase: ", ""));
       }
     } finally {
-
       setLoading(false);
     }
   };
@@ -81,14 +96,16 @@ try {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email or Username</label>
             <input
               required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-              placeholder="you@example.com"
+              placeholder="you@example.com or username"
             />
           </div>
           <div>
