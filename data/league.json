@@ -4607,9 +4607,9 @@
           "period": 0
         },
         "odds": {
-          "details": "DAL -9.5",
+          "details": "DAL -8.5",
           "overUnder": 47.5,
-          "spread": -9.5
+          "spread": -8.5
         },
         "isTiebreakerGame": false
       },
@@ -4742,9 +4742,9 @@
           "period": 0
         },
         "odds": {
-          "details": "HOU -7",
-          "overUnder": 39.5,
-          "spread": 7
+          "details": "HOU -6.5",
+          "overUnder": 38.5,
+          "spread": 6.5
         },
         "isTiebreakerGame": false
       },
@@ -4854,7 +4854,7 @@
           "shortDisplayName": "Saints",
           "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/no.png",
           "color": "#d3bc8d",
-          "record": "1-2"
+          "record": "1-3"
         },
         "awayTeam": {
           "id": "16",
@@ -4878,7 +4878,7 @@
         },
         "odds": {
           "details": "MIN -1.5",
-          "overUnder": 41.5,
+          "overUnder": 42.5,
           "spread": 1.5
         },
         "isTiebreakerGame": false
@@ -5147,9 +5147,9 @@
           "period": 0
         },
         "odds": {
-          "details": "SEA -2.5",
+          "details": "SEA -3",
           "overUnder": 47.5,
-          "spread": -2.5
+          "spread": -3
         },
         "isTiebreakerGame": false
       },
@@ -5169,7 +5169,7 @@
           "shortDisplayName": "Falcons",
           "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/atl.png",
           "color": "#a71930",
-          "record": "1-2"
+          "record": "2-2"
         },
         "awayTeam": {
           "id": "33",
@@ -5192,9 +5192,9 @@
           "period": 0
         },
         "odds": {
-          "details": "BAL -2.5",
-          "overUnder": 44.5,
-          "spread": 2.5
+          "details": "ATL -3",
+          "overUnder": 43.5,
+          "spread": -3
         },
         "isTiebreakerGame": false
       },
