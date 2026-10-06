@@ -63,9 +63,9 @@ export default function Login() {
 
       const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
       if (lastLeague) {
-        window.location.href = `/league/${lastLeague}`;
+        router.replace(`/league/${lastLeague}`);
       } else {
-        window.location.href = "/";
+        router.replace("/");
       }
     } catch (err: any) {
       if (err.code === "auth/user-disabled") {
