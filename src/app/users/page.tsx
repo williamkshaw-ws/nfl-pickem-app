@@ -17,15 +17,16 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Copy,
-  Check,
   Crown,
   UserCheck,
   UserX,
   ExternalLink,
   Sun,
   Moon,
-  Monitor,
+  Trash2,
+  Ban,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import Link from "next/link";
@@ -69,11 +70,23 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [fetchError, setFetchError] = useState("");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Search & filter
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "verified" | "unverified" | "leagues" | "banned">("all");
+
+  // Action state (Ban / Delete modals)
+  const [userToBan, setUserToBan] = useState<AdminUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionToast, setActionToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setActionToast({ message, type });
+    setTimeout(() => {
+      setActionToast(null);
+    }, 3500);
+  };
 
   // Check initial session
   useEffect(() => {
@@ -160,10 +173,59 @@ export default function AdminUsersPage() {
     }
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleBanOrUnban = async (user: AdminUser, shouldBan: boolean) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/users/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.uid,
+          action: shouldBan ? "ban" : "unban",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to ${shouldBan ? "ban" : "unban"} user`);
+      }
+
+      showToast(shouldBan ? `@${user.username} has been banned.` : `@${user.username} has been unbanned.`);
+      setUserToBan(null);
+      await fetchUsers();
+    } catch (err: any) {
+      showToast(err.message || "Action failed", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/users/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userToDelete.uid,
+          action: "delete",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete user");
+      }
+
+      showToast(`User @${userToDelete.username} permanently deleted.`);
+      setUserToDelete(null);
+      await fetchUsers();
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete user", "error");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // Filtered users calculation
@@ -181,12 +243,11 @@ export default function AdminUsersPage() {
       const matchUsername = u.username.toLowerCase().includes(q);
       const matchName = u.name.toLowerCase().includes(q);
       const matchEmail = u.email.toLowerCase().includes(q);
-      const matchUid = u.uid.toLowerCase().includes(q);
       const matchLeague = u.leagues.some(
         (l) => l.name.toLowerCase().includes(q) || l.id.toLowerCase().includes(q)
       );
 
-      return matchUsername || matchName || matchEmail || matchUid || matchLeague;
+      return matchUsername || matchName || matchEmail || matchLeague;
     });
   }, [users, filterTab, searchQuery]);
 
@@ -304,6 +365,26 @@ export default function AdminUsersPage() {
   // Authenticated User Directory Dashboard
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors pb-16">
+      {/* Toast Notification */}
+      {actionToast && (
+        <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div
+            className={`px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-semibold border ${
+              actionToast.type === "success"
+                ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/20"
+                : "bg-red-600 text-white border-red-500 shadow-red-600/20"
+            }`}
+          >
+            {actionToast.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : (
+              <AlertTriangle className="w-4 h-4" />
+            )}
+            <span>{actionToast.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
@@ -321,7 +402,7 @@ export default function AdminUsersPage() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                All registered accounts and league memberships
+                Platform accounts, verification, leagues & management
               </p>
             </div>
           </div>
@@ -458,7 +539,7 @@ export default function AdminUsersPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search username, name, email, league, UID..."
+                placeholder="Search username, name, email, league..."
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
               />
               {searchQuery && (
@@ -512,7 +593,7 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        {/* User Directory Table / Card view */}
+        {/* User Directory Table */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -553,7 +634,7 @@ export default function AdminUsersPage() {
                     <th className="py-3.5 px-4">Enrolled Leagues</th>
                     <th className="py-3.5 px-4">Created Date</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">UID</th>
+                    <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-normal">
@@ -561,6 +642,8 @@ export default function AdminUsersPage() {
                     const initials = (user.name || user.username || "U")
                       .slice(0, 2)
                       .toUpperCase();
+
+                    const isBanned = user.banned || user.disabled;
 
                     return (
                       <tr
@@ -576,7 +659,7 @@ export default function AdminUsersPage() {
                             <div>
                               <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                                 <span>{user.name}</span>
-                                {user.banned && (
+                                {isBanned && (
                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                                     BANNED
                                   </span>
@@ -673,7 +756,7 @@ export default function AdminUsersPage() {
 
                         {/* Status */}
                         <td className="py-4 px-4">
-                          {user.banned || user.disabled ? (
+                          {isBanned ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                               <ShieldAlert className="w-3 h-3" />
                               Banned
@@ -686,27 +769,43 @@ export default function AdminUsersPage() {
                           )}
                         </td>
 
-                        {/* Quick Copy UID */}
-                        <td className="py-4 px-4 text-right">
-                          <button
-                            onClick={() => copyToClipboard(user.uid, user.id)}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg text-xs font-mono transition-colors"
-                            title="Copy Firebase UID"
-                          >
-                            {copiedId === user.id ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-500" />
-                                <span className="text-[10px] text-emerald-500">Copied</span>
-                              </>
+                        {/* Actions (Ban / Delete) */}
+                        <td className="py-4 px-4 sm:px-6 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            {/* Ban or Unban button */}
+                            {isBanned ? (
+                              <button
+                                onClick={() => handleBanOrUnban(user, false)}
+                                disabled={actionLoading}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                                title="Unban user and allow login"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Unban</span>
+                              </button>
                             ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span className="text-[10px]">
-                                  {user.uid.slice(0, 6)}...
-                                </span>
-                              </>
+                              <button
+                                onClick={() => setUserToBan(user)}
+                                disabled={actionLoading}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                                title="Ban user from logging in"
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                                <span>Ban</span>
+                              </button>
                             )}
-                          </button>
+
+                            {/* Delete User button */}
+                            <button
+                              onClick={() => setUserToDelete(user)}
+                              disabled={actionLoading}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                              title="Permanently delete user account"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -717,6 +816,93 @@ export default function AdminUsersPage() {
           )}
         </div>
       </main>
+
+      {/* Confirmation Modal: Ban User */}
+      {userToBan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <Ban className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Ban Account: @{userToBan.username}?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Banning will immediately disable{" "}
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {userToBan.email}
+                </span>{" "}
+                from signing into PocketPicks and revoke their active login tokens. You can unban this account anytime from this directory.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUserToBan(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBanOrUnban(userToBan, true)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-amber-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Confirm Ban</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Delete User */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Delete Account: @{userToDelete.username}?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Are you sure you want to permanently delete{" "}
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {userToDelete.name} ({userToDelete.email})
+                </span>
+                ? This will completely purge their account, remove them from all leagues, and delete their picks.{" "}
+                <span className="font-semibold text-red-600 dark:text-red-400">
+                  This action cannot be undone.
+                </span>
+              </p>
+            </div>
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteUser}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Permanently Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
