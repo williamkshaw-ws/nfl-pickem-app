@@ -332,128 +332,70 @@ export function CommissionerHub({
 
   return (
     <div className="space-y-6">
-      {/* Commissioner Control Room Header & Stats */}
-      <div className="bg-gradient-to-r from-amber-500/10 via-slate-900/5 to-emerald-500/10 dark:from-amber-950/20 dark:via-slate-900 dark:to-slate-900 border border-amber-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Commissioner Control Header */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60 mb-2">
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              Commissioner Control Room
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60">
+                <SlidersHorizontal className="w-3 h-3" />
+                Commissioner
+              </span>
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                {settings.leagueName || "League Control Room"}
+              </h2>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              {settings.leagueName || "League Management"}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Week {activeWeek} overview, member picks tracking, and league controls.
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Week {activeWeek} roster, pick overrides, and league settings.
             </p>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3.5 py-2 flex items-center gap-2.5 shadow-2xs">
-              <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Members
-                </div>
-                <div className="text-sm font-black text-slate-900 dark:text-white leading-tight">
-                  {users.length}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl px-3.5 py-2 flex items-center gap-2.5 shadow-2xs">
-              <CheckCircle2
-                className={`w-4 h-4 ${
-                  completeCount === users.length
-                    ? "text-emerald-500"
-                    : "text-amber-500"
-                }`}
-              />
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Week {activeWeek} Picks In
-                </div>
-                <div className="text-sm font-black text-slate-900 dark:text-white leading-tight">
-                  {completeCount} / {users.length}{" "}
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    ({completionPercentage}%)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick ESPN Sync Button */}
+          {/* Sub-Tab Navigation Bar */}
+          <div className="flex items-center gap-1.5 self-start sm:self-center">
             <button
-              onClick={() => onSyncEspn?.(activeWeek)}
-              disabled={isSyncing}
-              className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-2xl px-3.5 py-2 flex items-center gap-2 transition disabled:opacity-50 shadow-2xs active:scale-95 flex-shrink-0"
-              title="Force sync live scores from ESPN"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${isSyncing ? "animate-spin text-emerald-300" : ""}`}
-              />
-              <span className="text-xs font-bold whitespace-nowrap">
-                {isSyncing ? "Syncing..." : "Sync Scores"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Sub-Tab Navigation Bar */}
-        <div className="flex items-center gap-2 mt-6 pt-5 border-t border-slate-200/80 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("roster")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeSubTab === "roster"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                : "bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-700/60"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Roster &amp; Invites</span>
-            <span
-              className={`text-[11px] font-black px-1.5 py-0.5 rounded-full ${
+              type="button"
+              onClick={() => setActiveSubTab("roster")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeSubTab === "roster"
-                  ? "bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              {users.length}
-            </span>
-          </button>
+              <Users className="w-3.5 h-3.5" />
+              <span>Roster &amp; Invites</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("overrides")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeSubTab === "overrides"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                : "bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-700/60"
-            }`}
-          >
-            <FileEdit className="w-4 h-4" />
-            <span>Pick Overrides</span>
-            {missingCount > 0 && (
-              <span className="text-[11px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                {missingCount} missing
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("overrides")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeSubTab === "overrides"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <FileEdit className="w-3.5 h-3.5" />
+              <span>Pick Overrides</span>
+              {missingCount > 0 && (
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                  {missingCount} missing
+                </span>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("settings")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeSubTab === "settings"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                : "bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-700/60"
-            }`}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>Settings &amp; Tools</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("settings")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeSubTab === "settings"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+          </div>
         </div>
       </div>
 
