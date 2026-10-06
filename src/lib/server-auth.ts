@@ -31,7 +31,7 @@ export async function requireUser(request: Request) {
 
 /** Loads the league and the caller's membership. Throws 404 / 403 as appropriate. */
 export async function requireMember(leagueId: string, uid: string) {
-  if (!/^\d{5}$/.test(leagueId)) throw new HttpError(404, "League not found");
+  if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) throw new HttpError(404, "League not found");
   const db = adminDb();
   const [leagueSnap, memberSnap] = await Promise.all([
     db.collection("leagues").doc(leagueId).get(),
@@ -40,7 +40,16 @@ export async function requireMember(leagueId: string, uid: string) {
   if (!leagueSnap.exists) throw new HttpError(404, "League not found");
   const league = leagueSnap.data()!;
   const isCommissioner = league.commissionerId === uid;
-  if (!memberSnap.exists && !isCommissioner) throw new HttpError(403, "You are not a member of this league");
+  if (!memberSnap.exists && !isCommissioner) {
+    const legacySnap = await db.collection("memberships")
+      .where("leagueId", "==", leagueId)
+      .where("userId", "==", uid)
+      .limit(1)
+      .get();
+    if (legacySnap.empty) {
+      throw new HttpError(403, "You are not a member of this league");
+    }
+  }
   return { league, isCommissioner };
 }
 

@@ -7,8 +7,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { code, password } = body;
 
-    if (!code || typeof code !== "string" || !/^\d{5}$/.test(code.trim())) {
-      throw new HttpError(400, "Please provide a valid 5-digit league code");
+    if (!code || typeof code !== "string" || !/^[A-Za-z0-9_-]{3,20}$/.test(code.trim())) {
+      throw new HttpError(400, "Please provide a valid league code");
     }
 
     const cleanCode = code.trim();
