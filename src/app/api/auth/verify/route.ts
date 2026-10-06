@@ -35,12 +35,12 @@ export async function POST(req: Request) {
 
     // Send beautiful custom HTML email via Resend
     const { error } = await resend.emails.send({
-      from: "Pick'em League <onboarding@resend.dev>",
+      from: "PocketPicks <noreply@pocketpicks.app>",
       to: cleanEmail,
-      subject: "Verify your Pick'em League account",
+      subject: "Verify your PocketPicks account",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #f8fafc;">
-          <h2 style="color: #0f172a; margin-bottom: 24px;">Welcome to the NFL Pick'em League, ${safeName}!</h2>
+          <h2 style="color: #0f172a; margin-bottom: 24px;">Welcome to PocketPicks, ${safeName}!</h2>
           <p style="color: #334155; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
             We're thrilled to have you. Before you can jump in and start making your picks, we just need to quickly verify your email address.
           </p>
