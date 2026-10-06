@@ -450,19 +450,6 @@ export function PickMatrix({
           <table className="w-full text-center border-collapse">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 select-none">
               <tr>
-                {/* Sticky PTS & GB Header */}
-                <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 p-1.5 text-center border-r border-slate-200 dark:border-slate-700/80 min-w-[70px] max-w-[80px] shadow-xs">
-                  <div className="flex items-center justify-around text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 leading-tight">
-                    <span>PTS</span>
-                    <span className="text-slate-400 dark:text-slate-500">|</span>
-                    <span>GB</span>
-                  </div>
-                  <div className="flex items-center justify-around text-[8px] font-bold text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
-                    <span>Score</span>
-                    <span>Back</span>
-                  </div>
-                </th>
-
                 {/* Matchup Columns */}
                 {sortedGames.map((game) => {
                   const isFinal = game.status.completed;
@@ -546,7 +533,7 @@ export function PickMatrix({
                   detail: "",
                   badgeColor: "bg-slate-100 text-slate-700",
                 };
-                const totalCols = sortedGames.length + (tbGame ? 2 : 1);
+                const totalCols = sortedGames.length + (tbGame ? 1 : 0);
 
                 return (
                   <React.Fragment key={user.id}>
@@ -557,8 +544,8 @@ export function PickMatrix({
                         className="sticky left-0 py-1.5 px-3 z-10 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs text-left"
                       >
                         <div className="flex items-center justify-between gap-2 max-w-full">
-                          {/* Left: Rank, Name, Contention, Points, Games Back */}
-                          <div className="flex items-center gap-2 min-w-0">
+                          {/* Left: Rank, Name, Contention, Points (XX/YY correct), Games Back */}
+                          <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
                             <span className="text-[11px] font-mono font-black text-slate-500 dark:text-slate-400 w-7 shrink-0">
                               {stat.rankLabel}
                             </span>
@@ -580,8 +567,11 @@ export function PickMatrix({
                               )}
                               <span>{contention.label}</span>
                             </span>
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 hidden sm:inline ml-1">
-                              · <strong>{stat.correctCount}</strong> pts {stat.gamesBack === 0 ? "(Leader)" : `(${stat.gamesBack} GB)`}
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                              · <strong className="text-slate-900 dark:text-white font-black">{stat.correctCount}</strong>/{sortedGames.length} correct
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              · {stat.gamesBack === 0 ? "Leader" : `${stat.gamesBack} ${stat.gamesBack === 1 ? "game back" : "games back"}`}
                             </span>
                           </div>
 
@@ -630,19 +620,6 @@ export function PickMatrix({
 
                     {/* Picks Data Row */}
                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
-                      {/* Sticky PTS & GB Column */}
-                      <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-1 text-center border-r border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center justify-around">
-                          <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                            {stat.correctCount}
-                          </span>
-                          <span className="text-[10px] text-slate-300 dark:text-slate-700">|</span>
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
-                            {stat.gamesBack === 0 ? "—" : `-${stat.gamesBack}`}
-                          </span>
-                        </div>
-                      </td>
-
                       {/* Pick Cells */}
                       {sortedGames.map((game) => {
                         const pickedTeamId = stat.userPicksMap[game.id];
