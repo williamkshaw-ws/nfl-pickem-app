@@ -166,8 +166,10 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth/login";
+      }
       await signOut(auth);
-      router.replace("/auth/login");
     } catch (err) {
       console.error("Failed to log out", err);
     }
