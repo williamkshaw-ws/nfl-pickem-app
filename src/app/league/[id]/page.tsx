@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { auth } from "@/lib/firebase";
 import {
   Game,
   User,
@@ -81,7 +82,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user && !auth.currentUser) {
       router.push("/auth/login");
       return;
     }

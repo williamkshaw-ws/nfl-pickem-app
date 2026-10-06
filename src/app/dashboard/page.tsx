@@ -50,14 +50,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) {
+    if (!user && !auth.currentUser) {
       router.push("/auth/login");
       return;
     }
 
+    const currentUid = user?.id || auth.currentUser?.uid;
+    if (!currentUid) return;
+
     const fetchLeagues = async () => {
       try {
-        const q = query(collection(db, "memberships"), where("userId", "==", user.id));
+        const q = query(collection(db, "memberships"), where("userId", "==", currentUid));
         const snapshot = await getDocs(q);
         
         const m: LeagueMembership[] = [];

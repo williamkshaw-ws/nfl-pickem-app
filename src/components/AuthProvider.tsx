@@ -29,28 +29,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch custom user doc from Firestore
-        const docRef = doc(db, "users", firebaseUser.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || "",
-            name: data.name || "",
-            username: data.username || "",
-            emailVerified: firebaseUser.emailVerified,
-          });
-        } else {
-          // If no doc exists yet (during registration process)
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || "",
-            name: "",
-            username: "",
-            emailVerified: firebaseUser.emailVerified,
-          });
+        // Set immediate user state from Firebase auth so routes never falsely perceive user as null
+        setUser((prev) => (prev && prev.id === firebaseUser.uid ? prev : {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          name: firebaseUser.displayName || "",
+          username: "",
+          emailVerified: firebaseUser.emailVerified,
+        }));
+
+        try {
+          // Fetch custom user doc from Firestore
+          const docRef = doc(db, "users", firebaseUser.uid);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              name: data.name || firebaseUser.displayName || "",
+              username: data.username || "",
+              emailVerified: firebaseUser.emailVerified,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching user profile doc:", err);
         }
       } else {
         setUser(null);
