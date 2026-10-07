@@ -22,7 +22,7 @@ import { OverallStandings } from "@/components/OverallStandings";
 import { PickMatrix } from "@/components/PickMatrix";
 import { EliminatorPool } from "@/components/EliminatorPool";
 import { CommissionerHub } from "@/components/CommissionerHub";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 
 interface LeagueApiResponse {
@@ -51,6 +51,11 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   const [loading, setLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState<boolean>(false);
+  const [pendingNavigation, setPendingNavigation] = useState<
+    { type: "tab"; target: TabType } | { type: "week"; target: number } | null
+  >(null);
 
   const showToast = (message: string) => {
     setNotification(message);
@@ -109,6 +114,45 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   const handleWeekChange = (week: number) => {
     setActiveWeek(week);
     loadLeagueData(week, true);
+  };
+
+  const handleTabChange = (newTab: TabType) => {
+    if (newTab === activeTab) return;
+    if (activeTab === "picks" && hasUnsavedChanges) {
+      setPendingNavigation({ type: "tab", target: newTab });
+      setShowUnsavedModal(true);
+      return;
+    }
+    setActiveTab(newTab);
+  };
+
+  const handleSelectWeek = (week: number) => {
+    if (week === activeWeek) return;
+    if (activeTab === "picks" && hasUnsavedChanges) {
+      setPendingNavigation({ type: "week", target: week });
+      setShowUnsavedModal(true);
+      return;
+    }
+    handleWeekChange(week);
+  };
+
+  const handleStayAndSave = () => {
+    setShowUnsavedModal(false);
+    setPendingNavigation(null);
+  };
+
+  const handleDiscardAndLeave = () => {
+    const nextNav = pendingNavigation;
+    setHasUnsavedChanges(false);
+    setShowUnsavedModal(false);
+    setPendingNavigation(null);
+
+    if (!nextNav) return;
+    if (nextNav.type === "tab") {
+      setActiveTab(nextNav.target);
+    } else if (nextNav.type === "week") {
+      handleWeekChange(nextNav.target);
+    }
   };
 
   const handleSyncToEspn = async (week?: number) => {
@@ -296,7 +340,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         activeWeek={activeWeek}
         availableWeeks={data.availableWeeks}
         currentLeagueId={leagueId}
-        onSelectWeek={handleWeekChange}
+        onSelectWeek={handleSelectWeek}
         onSwitchUser={() => {}}
         onAddUser={handleAddUser}
       />
@@ -304,7 +348,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       <main className="max-w-7xl mx-auto px-4 py-8">
         <NavigationTabs 
           activeTab={activeTab} 
-          onTabChange={setActiveTab} 
+          onTabChange={handleTabChange} 
           activeWeek={activeWeek}
           picksCount={
             isSurvivorOnly
@@ -332,6 +376,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               eliminatorStatus={data.eliminatorStatus}
               totalMembersCount={data.users?.length}
               isCommissionerEditMode={false}
+              onDirtyChange={setHasUnsavedChanges}
               onSavePicks={handleSavePicks}
             />
           )}
@@ -398,6 +443,47 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
           )}
         </div>
       </main>
+
+      {/* Unsaved Changes Exit Guard Modal */}
+      {showUnsavedModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={handleStayAndSave}
+        >
+          <div 
+            className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-center animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-4 border border-amber-200/50 dark:border-amber-900/40">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              Unsaved Picks
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-medium leading-relaxed">
+              You have unsaved picks for Week {activeWeek}. If you leave without saving, your draft selections will be lost.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={handleStayAndSave}
+                className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+              >
+                Stay & Save
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndLeave}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-semibold text-xs transition-all border border-slate-200/60 dark:border-slate-700/60 hover:border-rose-200 dark:hover:border-rose-800/60 cursor-pointer"
+              >
+                Discard & Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {notification && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full font-bold shadow-2xl z-50 animate-in slide-in-from-bottom-5">

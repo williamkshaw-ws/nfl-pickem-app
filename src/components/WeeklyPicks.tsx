@@ -36,6 +36,7 @@ interface WeeklyPicksProps {
   isCommissionerEditMode?: boolean;
   /** Render the save bar inline (e.g. inside the Commissioner Hub) instead of floating */
   embedded?: boolean;
+  onDirtyChange?: (isDirty: boolean) => void;
   onSavePicks: (picks: Record<string, string>, tiebreaker?: TiebreakerPrediction, eliminatorPick?: string) => Promise<void>;
 }
 
@@ -52,6 +53,7 @@ export function WeeklyPicks({
   totalMembersCount,
   isCommissionerEditMode,
   embedded = false,
+  onDirtyChange,
   onSavePicks,
 }: WeeklyPicksProps) {
   const isSurvivorOnly = !pickemEnabled && !!eliminatorEnabled;
@@ -82,6 +84,63 @@ export function WeeklyPicks({
     }
     setSaveSuccess(false);
   }, [existingPicks, activeWeek]);
+
+  const isDirty = React.useMemo(() => {
+    const origPicks = existingPicks?.picks || {};
+    const origHome = existingPicks?.tiebreaker ? existingPicks.tiebreaker.homeScore.toString() : "";
+    const origAway = existingPicks?.tiebreaker ? existingPicks.tiebreaker.awayScore.toString() : "";
+    const origElim = existingPicks?.eliminatorPick || "";
+
+    // 1. Survivor pick comparison (if eliminator enabled)
+    if (eliminatorEnabled) {
+      if ((eliminatorPick || "") !== origElim) return true;
+    }
+
+    // 2. Pick'em & Tiebreaker comparison (if pick'em enabled and not survivor only)
+    if (!isSurvivorOnly) {
+      if (homeScoreInput !== origHome) return true;
+      if (awayScoreInput !== origAway) return true;
+
+      const allGameIds = new Set([...Object.keys(selectedPicks), ...Object.keys(origPicks)]);
+      for (const gid of allGameIds) {
+        if ((selectedPicks[gid] || "") !== (origPicks[gid] || "")) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }, [
+    existingPicks,
+    eliminatorPick,
+    eliminatorEnabled,
+    isSurvivorOnly,
+    homeScoreInput,
+    awayScoreInput,
+    selectedPicks,
+  ]);
+
+  // Notify parent of dirty state changes
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => {
+      onDirtyChange?.(false);
+    };
+  }, [isDirty, onDirtyChange]);
+
+  // Guard against accidental tab/browser close or refresh
+  useEffect(() => {
+    if (!isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
 
   const tiebreakerGame =
     games.find((g) => g.isTiebreakerGame) ||
