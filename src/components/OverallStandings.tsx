@@ -204,7 +204,7 @@ export function OverallStandings({
                       (isSeasonOver && p.rank === 1)
                         ? "bg-amber-50/70 dark:bg-amber-950/40"
                         : isMe
-                        ? "bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                        ? "bg-emerald-100/60 dark:bg-emerald-950/50 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70"
                         : "hover:bg-slate-50/70 dark:hover:bg-slate-800/50"
                     }
                   >
@@ -302,7 +302,7 @@ export function OverallStandings({
               const isMe = p.userId === currentUserId;
               const isOpen = expandedId === p.userId;
               return (
-                <li key={p.userId} className={(isSeasonOver && p.rank === 1) ? "bg-amber-50/70 dark:bg-amber-950/40" : isMe ? "bg-emerald-50/70 dark:bg-emerald-950/30" : ""}>
+                <li key={p.userId} className={(isSeasonOver && p.rank === 1) ? "bg-amber-50/70 dark:bg-amber-950/40" : isMe ? "bg-emerald-100/60 dark:bg-emerald-950/50" : ""}>
                   <button
                     type="button"
                     onClick={() => setExpandedId(isOpen ? null : p.userId)}

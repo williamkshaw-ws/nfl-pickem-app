@@ -11,6 +11,7 @@ interface EliminatorPoolProps {
   eliminatorStatus: EliminatorStatus[];
   activeWeek: number;
   availableWeeks: number[];
+  currentUserId?: string;
 }
 
 export function EliminatorPool({
@@ -18,6 +19,7 @@ export function EliminatorPool({
   eliminatorStatus,
   activeWeek,
   availableWeeks,
+  currentUserId,
 }: EliminatorPoolProps) {
   // Sort users: Alive first, then by eliminated week (latest first)
   const sortedUsers = [...users].sort((a, b) => {
@@ -117,13 +119,20 @@ export function EliminatorPool({
             {sortedUsers.map((user) => {
               const statusObj = eliminatorStatus.find(s => s.userId === user.id);
               const isAlive = statusObj?.status === "Alive";
+              const isMe = user.id === currentUserId;
 
               return (
                 <tr
                   key={user.id}
-                  className={`group ${!isAlive ? "bg-slate-50/30 dark:bg-slate-900/40 opacity-75 grayscale-[0.5]" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"}`}
+                  className={`group transition-colors ${
+                    isMe
+                      ? "bg-emerald-100/60 dark:bg-emerald-950/50 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70"
+                      : !isAlive
+                      ? "bg-slate-50/30 dark:bg-slate-900/40 opacity-75 grayscale-[0.5]"
+                      : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
+                  }`}
                 >
-                  <td className="p-3">
+                  <td className={`p-3 ${isMe ? "border-l-4 border-emerald-500 pl-2" : ""}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center text-xs flex-shrink-0">
                         {user.name.charAt(0).toUpperCase()}

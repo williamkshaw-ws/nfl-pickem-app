@@ -365,6 +365,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               eliminatorStatus={data.eliminatorStatus}
               activeWeek={activeWeek}
               availableWeeks={data.availableWeeks}
+              currentUserId={user.id}
             />
           )}
 

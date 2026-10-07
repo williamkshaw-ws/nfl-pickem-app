@@ -501,7 +501,7 @@ export function PickMatrix({
                     <tr
                       className={
                         isMe
-                          ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-t-2 border-emerald-300 dark:border-emerald-800"
+                          ? "bg-emerald-100/60 dark:bg-emerald-950/50 border-t-2 border-emerald-400 dark:border-emerald-700"
                           : "bg-slate-50/90 dark:bg-slate-800/80 border-t-2 border-slate-200/90 dark:border-slate-700/80"
                       }
                     >
@@ -509,7 +509,7 @@ export function PickMatrix({
                         colSpan={totalCols}
                         className={`sticky left-0 py-1.5 px-3 z-10 backdrop-blur-xs text-left ${
                           isMe
-                            ? "bg-emerald-50/95 dark:bg-emerald-950/95 border-l-4 border-emerald-500 pl-2.5"
+                            ? "bg-emerald-100/75 dark:bg-emerald-950/90 border-l-4 border-emerald-500 pl-2.5"
                             : "bg-slate-50/95 dark:bg-slate-800/95"
                         }`}
                       >
@@ -522,11 +522,6 @@ export function PickMatrix({
                             <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">
                               {user.name}
                             </span>
-                            {isMe && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[9px] font-black uppercase tracking-wider border border-emerald-300 dark:border-emerald-800/60 shadow-2xs shrink-0">
-                                You
-                              </span>
-                            )}
                             <span
                               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${contention.badgeColor}`}
                               title={contention.detail}
@@ -597,7 +592,7 @@ export function PickMatrix({
                     <tr
                       className={
                         isMe
-                          ? "bg-emerald-50/20 dark:bg-emerald-950/15 hover:bg-emerald-50/35 dark:hover:bg-emerald-950/25 transition-colors"
+                          ? "bg-emerald-100/35 dark:bg-emerald-950/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/45 transition-colors"
                           : "hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
                       }
                     >
