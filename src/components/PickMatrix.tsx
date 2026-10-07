@@ -486,6 +486,7 @@ export function PickMatrix({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
               {rankedPlayers.map((stat) => {
                 const user = stat.user;
+                const isMe = user.id === currentUserId;
                 const contention = playerContentionMap.get(user.id) || {
                   status: "contending",
                   label: "In Contention",
@@ -497,10 +498,20 @@ export function PickMatrix({
                 return (
                   <React.Fragment key={user.id}>
                     {/* Player Subheader Row */}
-                    <tr className="bg-slate-50/90 dark:bg-slate-800/80 border-t-2 border-slate-200/90 dark:border-slate-700/80">
+                    <tr
+                      className={
+                        isMe
+                          ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-t-2 border-emerald-300 dark:border-emerald-800"
+                          : "bg-slate-50/90 dark:bg-slate-800/80 border-t-2 border-slate-200/90 dark:border-slate-700/80"
+                      }
+                    >
                       <td
                         colSpan={totalCols}
-                        className="sticky left-0 py-1.5 px-3 z-10 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs text-left"
+                        className={`sticky left-0 py-1.5 px-3 z-10 backdrop-blur-xs text-left ${
+                          isMe
+                            ? "bg-emerald-50/95 dark:bg-emerald-950/95 border-l-4 border-emerald-500 pl-2.5"
+                            : "bg-slate-50/95 dark:bg-slate-800/95"
+                        }`}
                       >
                         <div className="flex items-center justify-between gap-2 max-w-full">
                           {/* Left: Rank, Name, Contention, Points (XX/YY correct), Games Back */}
@@ -511,6 +522,11 @@ export function PickMatrix({
                             <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">
                               {user.name}
                             </span>
+                            {isMe && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[9px] font-black uppercase tracking-wider border border-emerald-300 dark:border-emerald-800/60 shadow-2xs shrink-0">
+                                You
+                              </span>
+                            )}
                             <span
                               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${contention.badgeColor}`}
                               title={contention.detail}
@@ -578,7 +594,13 @@ export function PickMatrix({
                     </tr>
 
                     {/* Picks Data Row */}
-                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                    <tr
+                      className={
+                        isMe
+                          ? "bg-emerald-50/20 dark:bg-emerald-950/15 hover:bg-emerald-50/35 dark:hover:bg-emerald-950/25 transition-colors"
+                          : "hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
+                      }
+                    >
                       {/* Pick Cells */}
                       {sortedGames.map((game) => {
                         const pickedTeamId = stat.userPicksMap[game.id];
