@@ -22,7 +22,7 @@ import { OverallStandings } from "@/components/OverallStandings";
 import { PickMatrix } from "@/components/PickMatrix";
 import { EliminatorPool } from "@/components/EliminatorPool";
 import { CommissionerHub } from "@/components/CommissionerHub";
-import { Loader2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 
 interface LeagueApiResponse {
@@ -486,8 +486,13 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       )}
 
       {notification && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full font-bold shadow-2xl z-50 animate-in slide-in-from-bottom-5">
-          {notification}
+        <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-900/95 dark:bg-slate-800/95 text-white border border-slate-700/80 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 sm:slide-in-from-right-3 duration-200 pointer-events-none max-w-sm">
+          {notification.toLowerCase().includes("fail") || notification.toLowerCase().includes("error") ? (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
+          <span className="text-xs font-bold tracking-tight text-slate-100">{notification}</span>
         </div>
       )}
     </div>
