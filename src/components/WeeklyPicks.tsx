@@ -631,10 +631,46 @@ export function WeeklyPicks({
                 </>
               ) : (
                 <>
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${pickedCount === totalGamesCount ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
-                  <div className="text-sm font-black text-white leading-tight">
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                    pickedCount === totalGamesCount && (!eliminatorEnabled || isUserEliminated || !!survivorTeam)
+                      ? "bg-emerald-400"
+                      : "bg-amber-400 animate-pulse"
+                  }`} />
+                  <div className="text-xs sm:text-sm font-black text-white leading-tight whitespace-nowrap">
                     {pickedCount} / {totalGamesCount} Picks
                   </div>
+                  {eliminatorEnabled && (
+                    <>
+                      <span className="text-slate-600 text-xs select-none">|</span>
+                      {isUserEliminated && !isCommissionerEditMode ? (
+                        <span className="text-[11px] text-slate-500 font-semibold truncate">
+                          Eliminated
+                        </span>
+                      ) : survivorTeam ? (
+                        <div
+                          className="flex items-center gap-1.5 bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 rounded-full text-rose-300 text-xs font-bold truncate"
+                          title={`Survivor: ${survivorTeam.displayName}`}
+                        >
+                          <TeamLogo
+                            src={survivorTeam.logo}
+                            alt={survivorTeam.abbreviation}
+                            width={15}
+                            height={15}
+                            className="w-3.5 h-3.5 object-contain shrink-0"
+                          />
+                          <span className="truncate">{survivorTeam.abbreviation}</span>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex items-center gap-1.5 text-amber-400 text-xs font-bold whitespace-nowrap"
+                          title="No survivor team selected for this week"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                          <span>No Survivor</span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </div>
