@@ -285,7 +285,7 @@ export function WeeklyPicks({
   const nextGame = upcomingGames[0];
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-4 pb-2 sm:pb-0">
       {/* Week Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 gap-2">
         <div>

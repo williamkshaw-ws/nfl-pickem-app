@@ -329,7 +329,7 @@ export function PickMatrix({
   const primaryWinner = weeklyWinners[0];
 
   return (
-    <div className="space-y-4 pb-12">
+    <div className="space-y-4">
       {/* Header and Controls */}
       <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
