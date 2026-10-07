@@ -155,7 +155,7 @@ export function OverallStandings({
   const showMyPosition = me && me.rank > 5;
 
   return (
-    <div className="space-y-3 pb-16 sm:pb-6">
+    <div className="space-y-3">
       {/* Headline strip */}
       <div className={`flex items-center justify-between gap-3 border rounded-2xl px-4 py-2.5 text-xs sm:text-sm ${isSeasonOver ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"}`}>
         <div className="flex items-center gap-2 min-w-0">

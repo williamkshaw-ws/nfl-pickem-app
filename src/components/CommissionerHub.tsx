@@ -331,7 +331,7 @@ export function CommissionerHub({
   };
 
   return (
-    <div className="space-y-6 pb-16 sm:pb-6">
+    <div className="space-y-6">
       {/* Commissioner Control Header */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -645,25 +645,14 @@ export function CommissionerHub({
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
-                          {/* Quick "Enter Picks" shortcut */}
-                          <button
-                            type="button"
-                            onClick={() => handleEnterPicksForUser(u.id)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs"
-                            title="Enter or override picks on behalf of this player"
-                          >
-                            <FileEdit className="w-3.5 h-3.5" />
-                            <span>Override Picks</span>
-                          </button>
-
-                          {/* Member management controls */}
-                          {!isCommish ? (
-                            <div className="flex items-center gap-1.5 w-[96px] justify-end shrink-0">
+                          {/* Member management controls for non-commissioners */}
+                          {!isCommish && (
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => setUserToTransfer(u)}
                                 title={`Transfer Commissioner role to ${u.name}`}
-                                className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition border border-slate-200 dark:border-slate-700"
+                                className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition border border-slate-200 dark:border-slate-700 cursor-pointer"
                               >
                                 <Crown className="w-3.5 h-3.5 text-amber-500" />
                               </button>
@@ -672,7 +661,7 @@ export function CommissionerHub({
                                 type="button"
                                 onClick={() => setUserToKick(u)}
                                 title={`Kick ${u.name} from league`}
-                                className="p-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-xl transition border border-amber-200 dark:border-amber-900/60"
+                                className="p-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-xl transition border border-amber-200 dark:border-amber-900/60 cursor-pointer"
                               >
                                 <UserMinus className="w-3.5 h-3.5" />
                               </button>
@@ -681,14 +670,23 @@ export function CommissionerHub({
                                 type="button"
                                 onClick={() => setUserToBan(u)}
                                 title={`Ban ${u.name} from platform`}
-                                className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl transition border border-rose-200 dark:border-rose-900/60"
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl transition border border-rose-200 dark:border-rose-900/60 cursor-pointer"
                               >
                                 <Ban className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                          ) : (
-                            <div className="w-[96px] shrink-0" aria-hidden="true" />
                           )}
+
+                          {/* Quick "Enter Picks" shortcut - placed last so it is consistently flush right on all rows */}
+                          <button
+                            type="button"
+                            onClick={() => handleEnterPicksForUser(u.id)}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                            title="Enter or override picks on behalf of this player"
+                          >
+                            <FileEdit className="w-3.5 h-3.5" />
+                            <span>Override Picks</span>
+                          </button>
                         </div>
                       </div>
                     );
