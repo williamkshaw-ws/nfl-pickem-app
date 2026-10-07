@@ -345,7 +345,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         onAddUser={handleAddUser}
       />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-32 sm:pb-12">
         <NavigationTabs 
           activeTab={activeTab} 
           onTabChange={handleTabChange} 

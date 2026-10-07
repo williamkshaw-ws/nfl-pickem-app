@@ -331,7 +331,7 @@ export function CommissionerHub({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16 sm:pb-6">
       {/* Commissioner Control Header */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -656,9 +656,9 @@ export function CommissionerHub({
                             <span>Override Picks</span>
                           </button>
 
-                          {/* Non-commissioner controls */}
-                          {!isCommish && (
-                            <>
+                          {/* Member management controls */}
+                          {!isCommish ? (
+                            <div className="flex items-center gap-1.5 w-[96px] justify-end shrink-0">
                               <button
                                 type="button"
                                 onClick={() => setUserToTransfer(u)}
@@ -685,7 +685,9 @@ export function CommissionerHub({
                               >
                                 <Ban className="w-3.5 h-3.5" />
                               </button>
-                            </>
+                            </div>
+                          ) : (
+                            <div className="w-[96px] shrink-0" aria-hidden="true" />
                           )}
                         </div>
                       </div>
