@@ -433,6 +433,8 @@ export function WeeklyPicks({
               className={`bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex flex-col transition-colors ${
                 isTiebreaker
                   ? "border-amber-300 dark:border-amber-700 ring-1 ring-amber-300/50 dark:ring-amber-700/50"
+                  : isLive
+                  ? "border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 dark:ring-emerald-700/30"
                   : userPickedWinner
                   ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/10 dark:bg-emerald-950/10"
                   : userPickedLoser
@@ -463,7 +465,10 @@ export function WeeklyPicks({
                   {isCompleted ? (
                     <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">Final</span>
                   ) : isLive ? (
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 animate-pulse">Live</span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>{game.status.detail || "Live"}</span>
+                    </span>
                   ) : null}
                 </div>
               </div>

@@ -356,13 +356,20 @@ export function PickMatrix({
               <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               <span>
                 <strong>{completedCount}</strong> of {totalGamesCount} games final
-                {liveCount > 0
-                  ? ` (${liveCount} live, ${remainingCount - liveCount} upcoming)`
-                  : remainingCount > 0
+                {liveCount === 0 && remainingCount > 0
                   ? ` (${remainingCount} left)`
-                  : " (Final)"}
+                  : liveCount === 0 && remainingCount === 0
+                  ? " (Final)"
+                  : ""}
               </span>
             </div>
+
+            {liveCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold border border-emerald-300/60 dark:border-emerald-800/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{liveCount} live</span>
+              </span>
+            )}
 
             {isWeekFinished && primaryWinner ? (
               <button
@@ -421,6 +428,8 @@ export function PickMatrix({
                       className={`p-1 text-center border-r border-slate-200 dark:border-slate-800 min-w-[50px] max-w-[58px] ${
                         game.isTiebreakerGame
                           ? "bg-amber-50/60 dark:bg-amber-950/30"
+                          : isLive
+                          ? "bg-emerald-50/60 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/30 dark:ring-emerald-500/20"
                           : "bg-slate-50 dark:bg-slate-800/80"
                       }`}
                     >
@@ -437,21 +446,29 @@ export function PickMatrix({
                             {game.awayTeam.abbreviation}
                           </span>
                         </div>
-                        <span
-                          className={`text-[8.5px] font-black my-0.5 leading-none ${
-                            isFinal
-                              ? "text-emerald-700 dark:text-emerald-400"
-                              : isLive
-                              ? "text-amber-600 dark:text-amber-400 animate-pulse font-black"
-                              : "text-slate-400 dark:text-slate-500"
-                          }`}
-                        >
-                          {isFinal && typeof game.awayScore === "number"
-                            ? `${game.awayScore}-${game.homeScore}`
-                            : isLive
-                            ? `${game.awayScore ?? 0}-${game.homeScore ?? 0}`
-                            : "VS"}
-                        </span>
+                        {isLive ? (
+                          <div
+                            className="flex items-center justify-center gap-1 my-0.5 leading-none"
+                            title={game.status.detail ? `Live: ${game.status.detail}` : "In Progress"}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                            <span className="text-[8.5px] font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                              {game.awayScore ?? 0}-{game.homeScore ?? 0}
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className={`text-[8.5px] font-black my-0.5 leading-none ${
+                              isFinal
+                                ? "text-emerald-700 dark:text-emerald-400"
+                                : "text-slate-400 dark:text-slate-500"
+                            }`}
+                          >
+                            {isFinal && typeof game.awayScore === "number"
+                              ? `${game.awayScore}-${game.homeScore}`
+                              : "VS"}
+                          </span>
+                        )}
                         <div className="flex items-center justify-center gap-1">
                           <TeamLogo
                             src={game.homeTeam.logo}
