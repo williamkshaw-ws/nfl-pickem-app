@@ -129,8 +129,8 @@ export async function GET(
       if (p.userId === caller.uid) return p;
       if (isCommissioner) return p;
 
-      // Future weeks are completely hidden for other players
-      if (p.week > activeWeek) {
+      // Future weeks beyond the current NFL week are completely hidden for other players
+      if (p.week > settings.currentWeek) {
         return {
           ...p,
           picks: {},
@@ -139,27 +139,37 @@ export async function GET(
         };
       }
 
-      if (p.week < activeWeek) {
+      const gamesForThisWeek = gamesByWeek[p.week] || [];
+
+      // If all games in a past week are already completed/locked, return full record
+      const allThisWeekLocked =
+        gamesForThisWeek.length > 0 &&
+        gamesForThisWeek.every((g: any) => isGameLocked(g, gamesForThisWeek, settings.lockPolicy, now));
+      if (p.week < settings.currentWeek && allThisWeekLocked) {
         return p;
       }
 
       const maskedPicks: Record<string, string> = { ...(p.picks || {}) };
-      for (const game of gamesForWeek) {
-        if (!isGameLocked(game, gamesForWeek, settings.lockPolicy, now)) {
+      for (const game of gamesForThisWeek) {
+        if (!isGameLocked(game, gamesForThisWeek, settings.lockPolicy, now)) {
           if (maskedPicks[game.id]) {
             maskedPicks[game.id] = "HIDDEN";
           }
         }
       }
 
-      const maskedTb = tbLocked ? p.tiebreaker : undefined;
+      const thisTbGame =
+        gamesForThisWeek.find((g: any) => g.isTiebreakerGame) ||
+        [...gamesForThisWeek].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      const thisTbLocked = thisTbGame ? isGameLocked(thisTbGame, gamesForThisWeek, settings.lockPolicy, now) : false;
+      const maskedTb = thisTbLocked ? p.tiebreaker : undefined;
 
       let maskedElim = p.eliminatorPick;
       if (p.eliminatorPick) {
-        const elimGame = gamesForWeek.find(
+        const elimGame = gamesForThisWeek.find(
           (g: any) => g.homeTeam.id === p.eliminatorPick || g.awayTeam.id === p.eliminatorPick
         );
-        if (elimGame && !isGameLocked(elimGame, gamesForWeek, settings.lockPolicy, now)) {
+        if (elimGame && !isGameLocked(elimGame, gamesForThisWeek, settings.lockPolicy, now)) {
           maskedElim = "HIDDEN";
         }
       }
@@ -231,9 +241,9 @@ export async function GET(
                 : game.awayTeam
               : undefined;
 
-            // If game is in the current active week and hasn't started yet, don't reveal team to other players
+            // Only reveal pick to other players once that game is locked/started
             const isPickLocked = game ? isGameLocked(game, gamesForW, settings.lockPolicy, now) : false;
-            const hideToCaller = w === activeWeek && u.id !== caller.uid && !isPickLocked;
+            const hideToCaller = u.id !== caller.uid && !isPickLocked;
 
             picksByWeek[w] = {
               teamId: hideToCaller ? "HIDDEN" : elimPick,

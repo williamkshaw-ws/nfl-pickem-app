@@ -2563,624 +2563,22 @@
     ],
     "2": [
       {
-        "id": "w2-g1",
+        "id": "401872932",
         "week": 2,
         "season": 2026,
         "seasonType": 2,
-        "date": "2026-10-02T00:15:00Z",
-        "name": "Pittsburgh Steelers at Cleveland Browns",
-        "shortName": "PIT @ CLE",
-        "homeTeam": {
-          "id": "5",
-          "name": "Browns",
-          "abbreviation": "CLE",
-          "displayName": "Cleveland Browns",
-          "shortDisplayName": "Browns",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png",
-          "color": "#311D00",
-          "record": "2-2"
-        },
-        "awayTeam": {
-          "id": "23",
-          "name": "Steelers",
-          "abbreviation": "PIT",
-          "displayName": "Pittsburgh Steelers",
-          "shortDisplayName": "Steelers",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png",
-          "color": "#FFB612",
-          "record": "2-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "CLE -1.5",
-          "overUnder": 41.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 24,
-        "awayScore": 21,
-        "winnerTeamId": "5"
-      },
-      {
-        "id": "w2-g2",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T13:30:00Z",
-        "name": "Indianapolis Colts at Washington Commanders",
-        "shortName": "IND @ WSH",
-        "homeTeam": {
-          "id": "28",
-          "name": "Commanders",
-          "abbreviation": "WSH",
-          "displayName": "Washington Commanders",
-          "shortDisplayName": "Commanders",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png",
-          "color": "#5A1414",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "11",
-          "name": "Colts",
-          "abbreviation": "IND",
-          "displayName": "Indianapolis Colts",
-          "shortDisplayName": "Colts",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png",
-          "color": "#002C5F",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "WSH -3.0",
-          "overUnder": 44.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 24,
-        "awayScore": 27,
-        "winnerTeamId": "11"
-      },
-      {
-        "id": "w2-g3",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "New England Patriots at Buffalo Bills",
-        "shortName": "NE @ BUF",
+        "date": "2026-09-18T00:15Z",
+        "name": "Detroit Lions at Buffalo Bills",
+        "shortName": "DET @ BUF",
         "homeTeam": {
           "id": "2",
           "name": "Bills",
           "abbreviation": "BUF",
           "displayName": "Buffalo Bills",
           "shortDisplayName": "Bills",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
-          "color": "#00338D",
-          "record": "3-0"
-        },
-        "awayTeam": {
-          "id": "17",
-          "name": "Patriots",
-          "abbreviation": "NE",
-          "displayName": "New England Patriots",
-          "shortDisplayName": "Patriots",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png",
-          "color": "#002244",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "BUF -7.5",
-          "overUnder": 43
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 31,
-        "awayScore": 20,
-        "winnerTeamId": "2"
-      },
-      {
-        "id": "w2-g4",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "New York Jets at Chicago Bears",
-        "shortName": "NYJ @ CHI",
-        "homeTeam": {
-          "id": "3",
-          "name": "Bears",
-          "abbreviation": "CHI",
-          "displayName": "Chicago Bears",
-          "shortDisplayName": "Bears",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png",
-          "color": "#0B162A",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "20",
-          "name": "Jets",
-          "abbreviation": "NYJ",
-          "displayName": "New York Jets",
-          "shortDisplayName": "Jets",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png",
-          "color": "#125740",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "CHI -2.5",
-          "overUnder": 39.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 14,
-        "awayScore": 17,
-        "winnerTeamId": "20"
-      },
-      {
-        "id": "w2-g5",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "Jacksonville Jaguars at Cincinnati Bengals",
-        "shortName": "JAX @ CIN",
-        "homeTeam": {
-          "id": "4",
-          "name": "Bengals",
-          "abbreviation": "CIN",
-          "displayName": "Cincinnati Bengals",
-          "shortDisplayName": "Bengals",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png",
-          "color": "#FB4F14",
-          "record": "1-2"
-        },
-        "awayTeam": {
-          "id": "30",
-          "name": "Jaguars",
-          "abbreviation": "JAX",
-          "displayName": "Jacksonville Jaguars",
-          "shortDisplayName": "Jaguars",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png",
-          "color": "#006778",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "CIN -4.0",
-          "overUnder": 47
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 30,
-        "awayScore": 27,
-        "winnerTeamId": "4"
-      },
-      {
-        "id": "w2-g6",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "Arizona Cardinals at New York Giants",
-        "shortName": "ARI @ NYG",
-        "homeTeam": {
-          "id": "19",
-          "name": "Giants",
-          "abbreviation": "NYG",
-          "displayName": "New York Giants",
-          "shortDisplayName": "Giants",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png",
-          "color": "#0B2265",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "22",
-          "name": "Cardinals",
-          "abbreviation": "ARI",
-          "displayName": "Arizona Cardinals",
-          "shortDisplayName": "Cardinals",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png",
-          "color": "#97233F",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "NYG -1.5",
-          "overUnder": 42
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 24,
-        "awayScore": 28,
-        "winnerTeamId": "22"
-      },
-      {
-        "id": "w2-g7",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "Los Angeles Rams at Philadelphia Eagles",
-        "shortName": "LAR @ PHI",
-        "homeTeam": {
-          "id": "21",
-          "name": "Eagles",
-          "abbreviation": "PHI",
-          "displayName": "Philadelphia Eagles",
-          "shortDisplayName": "Eagles",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png",
-          "color": "#004C54",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "14",
-          "name": "Rams",
-          "abbreviation": "LAR",
-          "displayName": "Los Angeles Rams",
-          "shortDisplayName": "Rams",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png",
-          "color": "#003594",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "PHI -3.5",
-          "overUnder": 45
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 21,
-        "awayScore": 20,
-        "winnerTeamId": "21"
-      },
-      {
-        "id": "w2-g8",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "Green Bay Packers at Tampa Bay Buccaneers",
-        "shortName": "GB @ TB",
-        "homeTeam": {
-          "id": "27",
-          "name": "Buccaneers",
-          "abbreviation": "TB",
-          "displayName": "Tampa Bay Buccaneers",
-          "shortDisplayName": "Buccaneers",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png",
-          "color": "#D3BC8D",
-          "record": "1-2"
-        },
-        "awayTeam": {
-          "id": "9",
-          "name": "Packers",
-          "abbreviation": "GB",
-          "displayName": "Green Bay Packers",
-          "shortDisplayName": "Packers",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png",
-          "color": "#203731",
-          "record": "2-1"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "GB -2.5",
-          "overUnder": 46.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 31,
-        "awayScore": 35,
-        "winnerTeamId": "9"
-      },
-      {
-        "id": "w2-g9",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "Tennessee Titans at Baltimore Ravens",
-        "shortName": "TEN @ BAL",
-        "homeTeam": {
-          "id": "33",
-          "name": "Ravens",
-          "abbreviation": "BAL",
-          "displayName": "Baltimore Ravens",
-          "shortDisplayName": "Ravens",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png",
-          "color": "#241773",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "10",
-          "name": "Titans",
-          "abbreviation": "TEN",
-          "displayName": "Tennessee Titans",
-          "shortDisplayName": "Titans",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png",
-          "color": "#0C2340",
-          "record": "0-3"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "BAL -6.5",
-          "overUnder": 41
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 23,
-        "awayScore": 20,
-        "winnerTeamId": "33"
-      },
-      {
-        "id": "w2-g10",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T17:00:00Z",
-        "name": "Dallas Cowboys at Houston Texans",
-        "shortName": "DAL @ HOU",
-        "homeTeam": {
-          "id": "34",
-          "name": "Texans",
-          "abbreviation": "HOU",
-          "displayName": "Houston Texans",
-          "shortDisplayName": "Texans",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png",
-          "color": "#03202F",
-          "record": "1-2"
-        },
-        "awayTeam": {
-          "id": "6",
-          "name": "Cowboys",
-          "abbreviation": "DAL",
-          "displayName": "Dallas Cowboys",
-          "shortDisplayName": "Cowboys",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png",
-          "color": "#003594",
-          "record": "2-1"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "DAL -1.5",
-          "overUnder": 46.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 17,
-        "awayScore": 26,
-        "winnerTeamId": "6"
-      },
-      {
-        "id": "w2-g11",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T20:05:00Z",
-        "name": "Miami Dolphins at Minnesota Vikings",
-        "shortName": "MIA @ MIN",
-        "homeTeam": {
-          "id": "16",
-          "name": "Vikings",
-          "abbreviation": "MIN",
-          "displayName": "Minnesota Vikings",
-          "shortDisplayName": "Vikings",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/min.png",
-          "color": "#4F2683",
-          "record": "3-0"
-        },
-        "awayTeam": {
-          "id": "15",
-          "name": "Dolphins",
-          "abbreviation": "MIA",
-          "displayName": "Miami Dolphins",
-          "shortDisplayName": "Dolphins",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
-          "color": "#008E97",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "MIN -3.5",
-          "overUnder": 42.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 24,
-        "awayScore": 21,
-        "winnerTeamId": "16"
-      },
-      {
-        "id": "w2-g12",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T20:25:00Z",
-        "name": "Kansas City Chiefs at Las Vegas Raiders",
-        "shortName": "KC @ LV",
-        "homeTeam": {
-          "id": "13",
-          "name": "Raiders",
-          "abbreviation": "LV",
-          "displayName": "Las Vegas Raiders",
-          "shortDisplayName": "Raiders",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png",
-          "color": "#000000",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "12",
-          "name": "Chiefs",
-          "abbreviation": "KC",
-          "displayName": "Kansas City Chiefs",
-          "shortDisplayName": "Chiefs",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png",
-          "color": "#E31837",
-          "record": "3-0"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "KC -4.5",
-          "overUnder": 44
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 24,
-        "awayScore": 27,
-        "winnerTeamId": "12"
-      },
-      {
-        "id": "w2-g13",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T20:25:00Z",
-        "name": "Denver Broncos at San Francisco 49ers",
-        "shortName": "DEN @ SF",
-        "homeTeam": {
-          "id": "25",
-          "name": "49ers",
-          "abbreviation": "SF",
-          "displayName": "San Francisco 49ers",
-          "shortDisplayName": "49ers",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png",
-          "color": "#AA0000",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "7",
-          "name": "Broncos",
-          "abbreviation": "DEN",
-          "displayName": "Denver Broncos",
-          "shortDisplayName": "Broncos",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/den.png",
-          "color": "#FB4F14",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "SF -6.5",
-          "overUnder": 40.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 31,
-        "awayScore": 20,
-        "winnerTeamId": "25"
-      },
-      {
-        "id": "w2-g14",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-04T20:25:00Z",
-        "name": "Los Angeles Chargers at Seattle Seahawks",
-        "shortName": "LAC @ SEA",
-        "homeTeam": {
-          "id": "26",
-          "name": "Seahawks",
-          "abbreviation": "SEA",
-          "displayName": "Seattle Seahawks",
-          "shortDisplayName": "Seahawks",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png",
-          "color": "#002244",
-          "record": "2-1"
-        },
-        "awayTeam": {
-          "id": "24",
-          "name": "Chargers",
-          "abbreviation": "LAC",
-          "displayName": "Los Angeles Chargers",
-          "shortDisplayName": "Chargers",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png",
-          "color": "#0080C6",
-          "record": "1-2"
-        },
-        "status": {
-          "state": "post",
-          "completed": true,
-          "detail": "Final",
-          "shortDetail": "Final"
-        },
-        "odds": {
-          "details": "SEA -2.5",
-          "overUnder": 43.5
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 14,
-        "awayScore": 17,
-        "winnerTeamId": "24"
-      },
-      {
-        "id": "w2-g15",
-        "week": 2,
-        "season": 2026,
-        "seasonType": 2,
-        "date": "2026-10-05T00:20:00Z",
-        "name": "Detroit Lions at Carolina Panthers",
-        "shortName": "DET @ CAR",
-        "homeTeam": {
-          "id": "29",
-          "name": "Panthers",
-          "abbreviation": "CAR",
-          "displayName": "Carolina Panthers",
-          "shortDisplayName": "Panthers",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/car.png",
-          "color": "#0085CA",
-          "record": "1-2"
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/buf.png",
+          "color": "#00338d",
+          "record": "2-0"
         },
         "awayTeam": {
           "id": "8",
@@ -3188,67 +2586,637 @@
           "abbreviation": "DET",
           "displayName": "Detroit Lions",
           "shortDisplayName": "Lions",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/det.png",
-          "color": "#0076B6",
-          "record": "2-1"
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/det.png",
+          "color": "#0076b6",
+          "record": "1-1"
         },
+        "homeScore": 41,
+        "awayScore": 31,
+        "winnerTeamId": "2",
         "status": {
           "state": "post",
-          "completed": true,
           "detail": "Final",
-          "shortDetail": "Final"
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
         },
-        "odds": {
-          "details": "DET -5.5",
-          "overUnder": 48
-        },
-        "isTiebreakerGame": false,
-        "homeScore": 30,
-        "awayScore": 27,
-        "winnerTeamId": "29"
+        "isTiebreakerGame": false
       },
       {
-        "id": "w2-g16",
+        "id": "401872933",
         "week": 2,
         "season": 2026,
         "seasonType": 2,
-        "date": "2026-10-06T00:15:00Z",
-        "name": "Atlanta Falcons at New Orleans Saints",
-        "shortName": "ATL @ NO",
+        "date": "2026-09-20T17:00Z",
+        "name": "Carolina Panthers at Atlanta Falcons",
+        "shortName": "CAR @ ATL",
         "homeTeam": {
-          "id": "18",
-          "name": "Saints",
-          "abbreviation": "NO",
-          "displayName": "New Orleans Saints",
-          "shortDisplayName": "Saints",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/no.png",
-          "color": "#D3BC8D",
-          "record": "1-2"
-        },
-        "awayTeam": {
           "id": "1",
           "name": "Falcons",
           "abbreviation": "ATL",
           "displayName": "Atlanta Falcons",
           "shortDisplayName": "Falcons",
-          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png",
-          "color": "#A71930",
-          "record": "1-2"
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/atl.png",
+          "color": "#a71930",
+          "record": "0-2"
         },
+        "awayTeam": {
+          "id": "29",
+          "name": "Panthers",
+          "abbreviation": "CAR",
+          "displayName": "Carolina Panthers",
+          "shortDisplayName": "Panthers",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/car.png",
+          "color": "#0085ca",
+          "record": "1-1"
+        },
+        "homeScore": 3,
+        "awayScore": 34,
+        "winnerTeamId": "29",
         "status": {
           "state": "post",
-          "completed": true,
           "detail": "Final",
-          "shortDetail": "Final"
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
         },
-        "odds": {
-          "details": "NO -2.0",
-          "overUnder": 43
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872937",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "Minnesota Vikings at Chicago Bears",
+        "shortName": "MIN @ CHI",
+        "homeTeam": {
+          "id": "3",
+          "name": "Bears",
+          "abbreviation": "CHI",
+          "displayName": "Chicago Bears",
+          "shortDisplayName": "Bears",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/chi.png",
+          "color": "#0b1c3a",
+          "record": "1-1"
         },
-        "isTiebreakerGame": true,
-        "homeScore": 24,
-        "awayScore": 28,
-        "winnerTeamId": "1"
+        "awayTeam": {
+          "id": "16",
+          "name": "Vikings",
+          "abbreviation": "MIN",
+          "displayName": "Minnesota Vikings",
+          "shortDisplayName": "Vikings",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/min.png",
+          "color": "#4f2683",
+          "record": "2-0"
+        },
+        "homeScore": 3,
+        "awayScore": 9,
+        "winnerTeamId": "16",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872939",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "Philadelphia Eagles at Tennessee Titans",
+        "shortName": "PHI @ TEN",
+        "homeTeam": {
+          "id": "10",
+          "name": "Titans",
+          "abbreviation": "TEN",
+          "displayName": "Tennessee Titans",
+          "shortDisplayName": "Titans",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ten.png",
+          "color": "#4495d2",
+          "record": "0-2"
+        },
+        "awayTeam": {
+          "id": "21",
+          "name": "Eagles",
+          "abbreviation": "PHI",
+          "displayName": "Philadelphia Eagles",
+          "shortDisplayName": "Eagles",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/phi.png",
+          "color": "#06424d",
+          "record": "2-0"
+        },
+        "homeScore": 20,
+        "awayScore": 24,
+        "winnerTeamId": "21",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872946",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "Pittsburgh Steelers at New England Patriots",
+        "shortName": "PIT @ NE",
+        "homeTeam": {
+          "id": "17",
+          "name": "Patriots",
+          "abbreviation": "NE",
+          "displayName": "New England Patriots",
+          "shortDisplayName": "Patriots",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ne.png",
+          "color": "#002a5c",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "23",
+          "name": "Steelers",
+          "abbreviation": "PIT",
+          "displayName": "Pittsburgh Steelers",
+          "shortDisplayName": "Steelers",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/pit.png",
+          "color": "#000000",
+          "record": "1-1"
+        },
+        "homeScore": 20,
+        "awayScore": 3,
+        "winnerTeamId": "17",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872936",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "Green Bay Packers at New York Jets",
+        "shortName": "GB @ NYJ",
+        "homeTeam": {
+          "id": "20",
+          "name": "Jets",
+          "abbreviation": "NYJ",
+          "displayName": "New York Jets",
+          "shortDisplayName": "Jets",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/nyj.png",
+          "color": "#115740",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "9",
+          "name": "Packers",
+          "abbreviation": "GB",
+          "displayName": "Green Bay Packers",
+          "shortDisplayName": "Packers",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/gb.png",
+          "color": "#204e32",
+          "record": "1-1"
+        },
+        "homeScore": 17,
+        "awayScore": 20,
+        "winnerTeamId": "9",
+        "status": {
+          "state": "post",
+          "detail": "Final/OT",
+          "shortDetail": "Final/OT",
+          "completed": true,
+          "clock": "0:00",
+          "period": 5
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872935",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "Cleveland Browns at Tampa Bay Buccaneers",
+        "shortName": "CLE @ TB",
+        "homeTeam": {
+          "id": "27",
+          "name": "Buccaneers",
+          "abbreviation": "TB",
+          "displayName": "Tampa Bay Buccaneers",
+          "shortDisplayName": "Buccaneers",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/tb.png",
+          "color": "#bd1c36",
+          "record": "0-2"
+        },
+        "awayTeam": {
+          "id": "5",
+          "name": "Browns",
+          "abbreviation": "CLE",
+          "displayName": "Cleveland Browns",
+          "shortDisplayName": "Browns",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/cle.png",
+          "color": "#472a08",
+          "record": "1-1"
+        },
+        "homeScore": 19,
+        "awayScore": 23,
+        "winnerTeamId": "5",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872938",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "New Orleans Saints at Baltimore Ravens",
+        "shortName": "NO @ BAL",
+        "homeTeam": {
+          "id": "33",
+          "name": "Ravens",
+          "abbreviation": "BAL",
+          "displayName": "Baltimore Ravens",
+          "shortDisplayName": "Ravens",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/bal.png",
+          "color": "#29126f",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "18",
+          "name": "Saints",
+          "abbreviation": "NO",
+          "displayName": "New Orleans Saints",
+          "shortDisplayName": "Saints",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/no.png",
+          "color": "#d3bc8d",
+          "record": "1-1"
+        },
+        "homeScore": 17,
+        "awayScore": 24,
+        "winnerTeamId": "18",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872934",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T17:00Z",
+        "name": "Cincinnati Bengals at Houston Texans",
+        "shortName": "CIN @ HOU",
+        "homeTeam": {
+          "id": "34",
+          "name": "Texans",
+          "abbreviation": "HOU",
+          "displayName": "Houston Texans",
+          "shortDisplayName": "Texans",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/hou.png",
+          "color": "#021018",
+          "record": "0-2"
+        },
+        "awayTeam": {
+          "id": "4",
+          "name": "Bengals",
+          "abbreviation": "CIN",
+          "displayName": "Cincinnati Bengals",
+          "shortDisplayName": "Bengals",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/cin.png",
+          "color": "#fb4f14",
+          "record": "2-0"
+        },
+        "homeScore": 6,
+        "awayScore": 20,
+        "winnerTeamId": "4",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872940",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T20:05Z",
+        "name": "Jacksonville Jaguars at Denver Broncos",
+        "shortName": "JAX @ DEN",
+        "homeTeam": {
+          "id": "7",
+          "name": "Broncos",
+          "abbreviation": "DEN",
+          "displayName": "Denver Broncos",
+          "shortDisplayName": "Broncos",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/den.png",
+          "color": "#0a2343",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "30",
+          "name": "Jaguars",
+          "abbreviation": "JAX",
+          "displayName": "Jacksonville Jaguars",
+          "shortDisplayName": "Jaguars",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/jax.png",
+          "color": "#007487",
+          "record": "1-1"
+        },
+        "homeScore": 20,
+        "awayScore": 13,
+        "winnerTeamId": "7",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872941",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T20:05Z",
+        "name": "Las Vegas Raiders at Los Angeles Chargers",
+        "shortName": "LV @ LAC",
+        "homeTeam": {
+          "id": "24",
+          "name": "Chargers",
+          "abbreviation": "LAC",
+          "displayName": "Los Angeles Chargers",
+          "shortDisplayName": "Chargers",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lac.png",
+          "color": "#0080c6",
+          "record": "0-2"
+        },
+        "awayTeam": {
+          "id": "13",
+          "name": "Raiders",
+          "abbreviation": "LV",
+          "displayName": "Las Vegas Raiders",
+          "shortDisplayName": "Raiders",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lv.png",
+          "color": "#000000",
+          "record": "2-0"
+        },
+        "homeScore": 14,
+        "awayScore": 26,
+        "winnerTeamId": "13",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872944",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T20:25Z",
+        "name": "Washington Commanders at Dallas Cowboys",
+        "shortName": "WSH @ DAL",
+        "homeTeam": {
+          "id": "6",
+          "name": "Cowboys",
+          "abbreviation": "DAL",
+          "displayName": "Dallas Cowboys",
+          "shortDisplayName": "Cowboys",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/dal.png",
+          "color": "#002a5c",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "28",
+          "name": "Commanders",
+          "abbreviation": "WSH",
+          "displayName": "Washington Commanders",
+          "shortDisplayName": "Commanders",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/wsh.png",
+          "color": "#5a1414",
+          "record": "0-2"
+        },
+        "homeScore": 37,
+        "awayScore": 20,
+        "winnerTeamId": "6",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872943",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T20:25Z",
+        "name": "Seattle Seahawks at Arizona Cardinals",
+        "shortName": "SEA @ ARI",
+        "homeTeam": {
+          "id": "22",
+          "name": "Cardinals",
+          "abbreviation": "ARI",
+          "displayName": "Arizona Cardinals",
+          "shortDisplayName": "Cardinals",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ari.png",
+          "color": "#a40227",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "26",
+          "name": "Seahawks",
+          "abbreviation": "SEA",
+          "displayName": "Seattle Seahawks",
+          "shortDisplayName": "Seahawks",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sea.png",
+          "color": "#002a5c",
+          "record": "2-0"
+        },
+        "homeScore": 7,
+        "awayScore": 31,
+        "winnerTeamId": "26",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872942",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-20T20:25Z",
+        "name": "Miami Dolphins at San Francisco 49ers",
+        "shortName": "MIA @ SF",
+        "homeTeam": {
+          "id": "25",
+          "name": "49ers",
+          "abbreviation": "SF",
+          "displayName": "San Francisco 49ers",
+          "shortDisplayName": "49ers",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sf.png",
+          "color": "#aa0000",
+          "record": "2-0"
+        },
+        "awayTeam": {
+          "id": "15",
+          "name": "Dolphins",
+          "abbreviation": "MIA",
+          "displayName": "Miami Dolphins",
+          "shortDisplayName": "Dolphins",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/mia.png",
+          "color": "#008e97",
+          "record": "0-2"
+        },
+        "homeScore": 35,
+        "awayScore": 13,
+        "winnerTeamId": "25",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872945",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-21T00:20Z",
+        "name": "Indianapolis Colts at Kansas City Chiefs",
+        "shortName": "IND @ KC",
+        "homeTeam": {
+          "id": "12",
+          "name": "Chiefs",
+          "abbreviation": "KC",
+          "displayName": "Kansas City Chiefs",
+          "shortDisplayName": "Chiefs",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/kc.png",
+          "color": "#e31837",
+          "record": "2-0"
+        },
+        "awayTeam": {
+          "id": "11",
+          "name": "Colts",
+          "abbreviation": "IND",
+          "displayName": "Indianapolis Colts",
+          "shortDisplayName": "Colts",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ind.png",
+          "color": "#003b75",
+          "record": "0-2"
+        },
+        "homeScore": 33,
+        "awayScore": 30,
+        "winnerTeamId": "12",
+        "status": {
+          "state": "post",
+          "detail": "Final/OT",
+          "shortDetail": "Final/OT",
+          "completed": true,
+          "clock": "0:00",
+          "period": 5
+        },
+        "isTiebreakerGame": false
+      },
+      {
+        "id": "401872947",
+        "week": 2,
+        "season": 2026,
+        "seasonType": 2,
+        "date": "2026-09-22T00:15Z",
+        "name": "New York Giants at Los Angeles Rams",
+        "shortName": "NYG @ LAR",
+        "homeTeam": {
+          "id": "14",
+          "name": "Rams",
+          "abbreviation": "LAR",
+          "displayName": "Los Angeles Rams",
+          "shortDisplayName": "Rams",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lar.png",
+          "color": "#003594",
+          "record": "1-1"
+        },
+        "awayTeam": {
+          "id": "19",
+          "name": "Giants",
+          "abbreviation": "NYG",
+          "displayName": "New York Giants",
+          "shortDisplayName": "Giants",
+          "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/nyg.png",
+          "color": "#003c7f",
+          "record": "1-1"
+        },
+        "homeScore": 28,
+        "awayScore": 6,
+        "winnerTeamId": "14",
+        "status": {
+          "state": "post",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "completed": true,
+          "clock": "0:00",
+          "period": 4
+        },
+        "isTiebreakerGame": true
       }
     ],
     "3": [
