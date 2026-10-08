@@ -8,6 +8,9 @@ import {
   Shield,
   CheckCircle2,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  Minus,
   Sparkles,
   Lock,
   Users,
@@ -24,8 +27,16 @@ import {
   Grid,
   Target,
   ChevronDown,
+  LogIn,
+  Eye,
+  EyeOff,
+  Loader2,
+  HelpCircle,
 } from "lucide-react";
 import { TeamLogo } from "@/components/TeamLogo";
+import { auth, db } from "@/lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 export function LandingPage() {
   const router = useRouter();
@@ -38,21 +49,29 @@ export function LandingPage() {
   const [createLeagueName, setCreateLeagueName] = useState("");
   const [createFormat, setCreateFormat] = useState<"both" | "pickem" | "survivor">("both");
 
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginIdentifier, setLoginIdentifier] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginShowPassword, setLoginShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
   const [activeDemoTab, setActiveDemoTab] = useState<"picks" | "matrix" | "survivor" | "standings">("picks");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // Close modals when pressing Escape key
   useEffect(() => {
-    if (!showJoinModal && !showCreateModal) return;
+    if (!showJoinModal && !showCreateModal && !showLoginModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowJoinModal(false);
         setShowCreateModal(false);
+        setShowLoginModal(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showJoinModal, showCreateModal]);
+  }, [showJoinModal, showCreateModal, showLoginModal]);
 
   const handleQuickJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +94,11 @@ export function LandingPage() {
     if (action === "register") {
       router.push(`/auth/register?join=${clean}`);
     } else {
-      router.push(`/auth/login?join=${clean}`);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("pending_join_code", clean);
+      }
+      setLoginError("");
+      setShowLoginModal(true);
     }
   };
 
@@ -86,13 +109,103 @@ export function LandingPage() {
       localStorage.setItem("pending_create_league_format", createFormat);
     }
     setShowCreateModal(false);
-    const query = cleanName
-      ? `?create=true&name=${encodeURIComponent(cleanName)}`
-      : "?create=true";
     if (action === "register") {
+      const query = cleanName
+        ? `?create=true&name=${encodeURIComponent(cleanName)}`
+        : "?create=true";
       router.push(`/auth/register${query}`);
     } else {
-      router.push(`/auth/login${query}`);
+      setLoginError("");
+      setShowLoginModal(true);
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+
+    try {
+      let email = loginIdentifier.trim();
+
+      if (!email.includes("@")) {
+        const lookupRes = await fetch("/api/auth/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: email }),
+        });
+        const lookupData = await lookupRes.json();
+        if (!lookupRes.ok || !lookupData.email) {
+          setLoginError(lookupData.error || "No account found with that username.");
+          setLoginLoading(false);
+          return;
+        }
+        email = lookupData.email;
+      }
+
+      const userCredential = await signInWithEmailAndPassword(auth, email, loginPassword);
+
+      if (!userCredential.user.emailVerified) {
+        await auth.signOut();
+        setLoginError("Please verify your email before logging in.");
+        setLoginLoading(false);
+        return;
+      }
+
+      setShowLoginModal(false);
+
+      const pendingJoin = typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null;
+      if (pendingJoin && pendingJoin.length === 5) {
+        localStorage.removeItem("pending_join_code");
+        window.location.href = `/?join=${pendingJoin.toUpperCase()}`;
+        return;
+      }
+
+      const pendingCreate = typeof window !== "undefined" ? localStorage.getItem("pending_create_league_name") : null;
+      if (pendingCreate) {
+        window.location.href = `/?create=true&name=${encodeURIComponent(pendingCreate)}`;
+        return;
+      }
+
+      const lastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
+      if (lastLeague) {
+        window.location.href = `/league/${lastLeague}`;
+        return;
+      }
+
+      try {
+        const q = query(collection(db, "memberships"), where("userId", "==", userCredential.user.uid));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const firstLeagueId = snapshot.docs[0].data().leagueId;
+          if (typeof window !== "undefined") {
+            localStorage.setItem("last_active_league", firstLeagueId);
+          }
+          window.location.href = `/league/${firstLeagueId}`;
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to query user leagues on login:", err);
+      }
+
+      window.location.href = "/";
+    } catch (err: any) {
+      if (err.code === "auth/user-disabled") {
+        setLoginError("This account has been disabled.");
+      } else if (
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password"
+      ) {
+        setLoginError("Invalid username, email, or password.");
+      } else if (err.code === "auth/too-many-requests") {
+        setLoginError("Too many failed attempts. Please try again later.");
+      } else if (err.code === "auth/network-request-failed") {
+        setLoginError("Network error. Please check your connection.");
+      } else {
+        setLoginError(err.message || "Failed to sign in.");
+      }
+      setLoginLoading(false);
     }
   };
 
@@ -163,12 +276,16 @@ export function LandingPage() {
 
           {/* Right Controls: Single line on mobile */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <Link
-              href="/auth/login"
-              className="px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors whitespace-nowrap"
+            <button
+              type="button"
+              onClick={() => {
+                setLoginError("");
+                setShowLoginModal(true);
+              }}
+              className="px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
             >
               Sign In
-            </Link>
+            </button>
 
             <button
               type="button"
@@ -263,30 +380,31 @@ export function LandingPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-xs">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                     J
                   </div>
                   <div className="hidden sm:flex flex-col text-left">
                     <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">Jimmy</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Member</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Account</span>
                   </div>
+                  <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-slate-400 ml-1" />
                 </div>
               </div>
 
               {/* Authentic App Navigation Tabs Bar */}
-              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center gap-4 sm:gap-8 overflow-x-auto text-xs font-bold no-scrollbar">
+              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center gap-6 sm:gap-8 overflow-x-auto text-xs sm:text-sm font-bold no-scrollbar">
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("picks")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     activeDemoTab === "picks"
-                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
-                      : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "border-slate-900 text-slate-900 dark:border-white dark:text-white"
+                      : "border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>My Picks</span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md inline-block min-w-[36px] text-center bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                     15/15
                   </span>
                 </button>
@@ -294,10 +412,10 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("matrix")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     activeDemoTab === "matrix"
-                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
-                      : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "border-slate-900 text-slate-900 dark:border-white dark:text-white"
+                      : "border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                   }`}
                 >
                   <Grid className="w-4 h-4" />
@@ -307,10 +425,10 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("survivor")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     activeDemoTab === "survivor"
-                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
-                      : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "border-slate-900 text-slate-900 dark:border-white dark:text-white"
+                      : "border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                   }`}
                 >
                   <Target className="w-4 h-4" />
@@ -320,10 +438,10 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("standings")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     activeDemoTab === "standings"
-                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
-                      : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      ? "border-slate-900 text-slate-900 dark:border-white dark:text-white"
+                      : "border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                   }`}
                 >
                   <Trophy className="w-4 h-4" />
@@ -335,8 +453,58 @@ export function LandingPage() {
               <div className="p-4 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
                 {activeDemoTab === "picks" && (
                   <div className="space-y-4">
-                    {/* Game Card 1: Live Game (KC @ BUF) */}
-                    <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 rounded-xl overflow-hidden shadow-xs flex flex-col">
+                    {/* Week Subheader (Matches WeeklyPicks.tsx) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 gap-2">
+                      <div>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                          Week 5 Picks
+                        </h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Picking as <strong className="text-slate-800 dark:text-slate-200">Jimmy</strong>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 w-fit shadow-xs">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Next kickoff: <strong className="text-slate-800 dark:text-slate-200">Sun 1:00 PM</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Survivor Pool Health & Status Banner (Matches WeeklyPicks.tsx) */}
+                    <div className="rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-colors bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border-emerald-200/80 dark:border-emerald-800/60">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-slate-800 text-white shadow-xs">
+                            <Target className="w-3.5 h-3.5 text-rose-400" />
+                            Survivor
+                          </span>
+
+                          <div className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>You are Alive</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 px-2.5 py-1 rounded-full">
+                            <Shield className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                            <span>
+                              <strong className="text-slate-900 dark:text-white">3</strong> of 4 survivors alive
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium bg-white/60 dark:bg-slate-800/60 sm:bg-transparent px-2 sm:px-0 py-1 sm:py-0 rounded-lg sm:rounded-none">
+                            <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                            <span>
+                              Next kickoff: <strong className="text-slate-800 dark:text-slate-200">Sun 1:00 PM</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Matchup Card 1: Live Game (KC @ BUF) */}
+                    <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex flex-col border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 dark:ring-emerald-700/30">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                           <Clock className="w-3.5 h-3.5" />
@@ -344,62 +512,68 @@ export function LandingPage() {
                           <span className="text-slate-300 dark:text-slate-600">|</span>
                           <span>KC -2.5</span>
                         </div>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                          <span>4th 2:14</span>
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>4th 2:14</span>
+                          </span>
+                        </div>
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Away Team: Chiefs (Picked) */}
-                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40">
-                          <div className="flex items-center gap-3">
+                        {/* Chiefs (Away - Selected + Survivor Pick) */}
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
+                          <div className="flex items-center gap-3 min-w-0">
                             <TeamLogo
-                              alt="KC"
                               src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
+                              alt="KC"
                               width={28}
                               height={28}
                               className="w-7 h-7 object-contain shrink-0"
                             />
-                            <div>
-                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                            <div className="text-left min-w-0">
+                              <div className="text-sm font-bold leading-tight truncate text-emerald-900 dark:text-emerald-200">
                                 Kansas City Chiefs
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">4-0 • Away</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2">
                             <span className="text-lg font-black text-slate-900 dark:text-white">28</span>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold bg-rose-500 text-white shadow-xs whitespace-nowrap">
+                              <Target className="w-3 h-3" />
+                              <span>Survivor</span>
+                            </div>
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           </div>
                         </div>
 
-                        {/* Home Team: Bills */}
-                        <div className="flex-1 p-3 flex items-center justify-between opacity-75">
-                          <div className="flex items-center gap-3">
+                        {/* Bills (Home) */}
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
                             <TeamLogo
-                              alt="BUF"
                               src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
+                              alt="BUF"
                               width={28}
                               height={28}
                               className="w-7 h-7 object-contain shrink-0"
                             />
-                            <div>
-                              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                            <div className="text-left min-w-0">
+                              <div className="text-sm font-bold leading-tight truncate text-slate-900 dark:text-white">
                                 Buffalo Bills
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">3-1 • Home</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-black text-slate-400 dark:text-slate-500">24</span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Game Card 2: Final Game (DET @ BAL) */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs flex flex-col">
+                    {/* Matchup Card 2: Final Game (DET @ BAL) */}
+                    <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex flex-col border-rose-300 dark:border-rose-900 bg-rose-50/10 dark:bg-rose-950/10">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                           <Clock className="w-3.5 h-3.5" />
@@ -407,53 +581,53 @@ export function LandingPage() {
                           <span className="text-slate-300 dark:text-slate-600">|</span>
                           <span>BAL -3.0</span>
                         </div>
-                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
-                          Final
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">Final</span>
+                        </div>
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Away: Lions (Picked) */}
-                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40">
-                          <div className="flex items-center gap-3">
+                        {/* Lions (Away - Selected) */}
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
+                          <div className="flex items-center gap-3 min-w-0">
                             <TeamLogo
-                              alt="DET"
                               src="https://a.espncdn.com/i/teamlogos/nfl/500/det.png"
+                              alt="DET"
                               width={28}
                               height={28}
                               className="w-7 h-7 object-contain shrink-0"
                             />
-                            <div>
-                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                            <div className="text-left min-w-0">
+                              <div className="text-sm font-bold leading-tight truncate text-emerald-900 dark:text-emerald-200">
                                 Detroit Lions
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">4-1 • Away</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2">
                             <span className="text-lg font-black text-slate-400 dark:text-slate-500">21</span>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           </div>
                         </div>
 
-                        {/* Home: Ravens (Winner) */}
-                        <div className="flex-1 p-3 flex items-center justify-between opacity-75">
-                          <div className="flex items-center gap-3">
+                        {/* Ravens (Home - Winner) */}
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
                             <TeamLogo
-                              alt="BAL"
                               src="https://a.espncdn.com/i/teamlogos/nfl/500/bal.png"
+                              alt="BAL"
                               width={28}
                               height={28}
                               className="w-7 h-7 object-contain shrink-0"
                             />
-                            <div>
-                              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                            <div className="text-left min-w-0">
+                              <div className="text-sm font-bold leading-tight truncate text-slate-900 dark:text-white">
                                 Baltimore Ravens
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">3-2 • Home</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2">
                             <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
                           </div>
                         </div>
@@ -466,46 +640,53 @@ export function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Tiebreaker Game Card */}
-                    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 shadow-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    {/* Tiebreaker Section (Pick'em only - 100% matches WeeklyPicks.tsx) */}
+                    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 shadow-xs mt-6">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                          <div className="flex items-center gap-1.5 mb-0.5">
+                          <div className="flex items-center gap-1.5 mb-1">
                             <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                            <h3 className="font-bold text-sm text-amber-900 dark:text-amber-200">
-                              Tiebreaker Prediction • Monday Night Football
-                            </h3>
+                            <h3 className="font-bold text-sm text-amber-900 dark:text-amber-200">Tiebreaker Prediction</h3>
                           </div>
                           <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
                             Tampa Bay Buccaneers @ Atlanta Falcons
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 sm:gap-3 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
-                          <div className="flex items-center gap-1.5">
-                            <TeamLogo
-                              src="https://a.espncdn.com/i/teamlogos/nfl/500/tb.png"
-                              alt="TB"
-                              width={20}
-                              height={20}
-                              className="w-5 h-5 object-contain shrink-0"
-                            />
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">TB 27</span>
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
+                            <div className="flex items-center gap-2">
+                              <TeamLogo
+                                src="https://a.espncdn.com/i/teamlogos/nfl/500/tb.png"
+                                alt="TB"
+                                width={22}
+                                height={22}
+                                className="w-5.5 h-5.5 object-contain shrink-0"
+                              />
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-8 text-right">TB</span>
+                              <div className="w-12 h-8 flex items-center justify-center text-sm font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-md">
+                                27
+                              </div>
+                            </div>
+                            <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 h-8 flex items-center justify-center text-sm font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-md">
+                                24
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-8">ATL</span>
+                              <TeamLogo
+                                src="https://a.espncdn.com/i/teamlogos/nfl/500/atl.png"
+                                alt="ATL"
+                                width={22}
+                                height={22}
+                                className="w-5.5 h-5.5 object-contain shrink-0"
+                              />
+                            </div>
+                            <div className="border-l border-slate-100 dark:border-slate-800 pl-3 ml-1 flex flex-col items-center justify-center min-w-[40px]">
+                              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</span>
+                              <span className="text-sm font-black text-slate-700 dark:text-slate-200">51</span>
+                            </div>
                           </div>
-                          <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">ATL 24</span>
-                            <TeamLogo
-                              src="https://a.espncdn.com/i/teamlogos/nfl/500/atl.png"
-                              alt="ATL"
-                              width={20}
-                              height={20}
-                              className="w-5 h-5 object-contain shrink-0"
-                            />
-                          </div>
-                          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold ml-1">
-                            (Total: 51)
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -514,146 +695,315 @@ export function LandingPage() {
 
                 {activeDemoTab === "matrix" && (
                   <div className="space-y-4">
-                    {/* League Picks Table Header Bar */}
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
-                      <div className="flex items-center gap-2">
-                        <Grid className="w-4 h-4 text-emerald-500" />
-                        <span>Week 5 League Picks Board</span>
+                    {/* Header and Controls (Matches PickMatrix.tsx) */}
+                    <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                      <div>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">Week 5 League Picks</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                          Compare all league picks, live scores, points, and games back.
+                        </p>
                       </div>
-                      <span className="text-slate-500 dark:text-slate-400 font-normal">
-                        15 Games • 12 Final • 2 Live • 1 Upcoming
-                      </span>
+
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl">
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Tiebreaker Rules</span>
+                      </div>
                     </div>
 
-                    {/* Table */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="p-3">Player</th>
-                            <th className="p-3 text-center">Score</th>
-                            <th className="p-3 text-center">KC @ BUF</th>
-                            <th className="p-3 text-center">DET @ BAL</th>
-                            <th className="p-3 text-center">GB @ MIN</th>
-                            <th className="p-3 text-center">TB @ ATL (TB)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          <tr className="bg-emerald-50/30 dark:bg-emerald-950/20">
-                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                              <span className="w-5 h-5 rounded bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center">
-                                J
-                              </span>
-                              <span>Jimmy (You)</span>
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
-                                #1
-                              </span>
-                            </td>
-                            <td className="p-3 text-center font-black text-emerald-600">12 - 2</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">KC ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">MIN ✓</td>
-                            <td className="p-3 text-center font-medium text-slate-400">🔒 8:15 PM</td>
-                          </tr>
+                    {/* Games Summary & Legend Bar (Matches PickMatrix.tsx) */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                            <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                            <span><strong>12</strong> of 16 games final (2 live)</span>
+                          </div>
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold border border-emerald-300/60 dark:border-emerald-800/60">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>2 live</span>
+                          </span>
+                        </div>
 
-                          <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                              <span className="w-5 h-5 rounded bg-indigo-600 text-white font-black text-[10px] flex items-center justify-center">
-                                S
-                              </span>
-                              <span>Sarah J.</span>
-                            </td>
-                            <td className="p-3 text-center font-black text-slate-700 dark:text-slate-300">11 - 3</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">KC ✓</td>
-                            <td className="p-3 text-center font-bold text-rose-500">DET ✗</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">MIN ✓</td>
-                            <td className="p-3 text-center font-medium text-slate-400">🔒 8:15 PM</td>
-                          </tr>
+                        <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
+                          <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
+                          </span>
+                          <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                            <span className="w-2 h-2 rounded-full bg-rose-500" /> Incorrect
+                          </span>
+                          <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                            <Target className="w-3 h-3 text-rose-500" /> Survivor
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                          <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                              <span className="w-5 h-5 rounded bg-amber-600 text-white font-black text-[10px] flex items-center justify-center">
-                                M
-                              </span>
-                              <span>Big Mike</span>
-                            </td>
-                            <td className="p-3 text-center font-black text-slate-700 dark:text-slate-300">10 - 4</td>
-                            <td className="p-3 text-center font-bold text-rose-500">BUF ✗</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
-                            <td className="p-3 text-center font-bold text-rose-500">GB ✗</td>
-                            <td className="p-3 text-center font-medium text-slate-400">🔒 8:15 PM</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    {/* Compact League Picks Grid Table (Matches PickMatrix.tsx) */}
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-center border-collapse">
+                          <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 select-none">
+                            <tr>
+                              <th className="p-2 sm:p-2.5 text-left border-r border-slate-200 dark:border-slate-800 min-w-[130px]">Player</th>
+                              <th className="p-2 sm:p-2.5 text-center border-r border-slate-200 dark:border-slate-800 min-w-[55px]">Score</th>
+                              <th className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 min-w-[65px] bg-emerald-50/60 dark:bg-emerald-950/30">
+                                <div className="text-[10px] font-black">KC @ BUF</div>
+                                <div className="text-[9px] text-emerald-600 font-bold">28-24 4Q</div>
+                              </th>
+                              <th className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 min-w-[65px]">
+                                <div className="text-[10px] font-black">DET @ BAL</div>
+                                <div className="text-[9px] text-slate-500 font-bold">21-24 F</div>
+                              </th>
+                              <th className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 min-w-[65px]">
+                                <div className="text-[10px] font-black">GB @ LAR</div>
+                                <div className="text-[9px] text-slate-500 font-bold">24-19 F</div>
+                              </th>
+                              <th className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 min-w-[75px] bg-amber-50/60 dark:bg-amber-950/30">
+                                <div className="text-[10px] font-black flex items-center justify-center gap-0.5 text-amber-900 dark:text-amber-200">
+                                  <Sparkles className="w-2.5 h-2.5" /> TB @ ATL
+                                </div>
+                                <div className="text-[9px] text-amber-700 font-bold">MNF TB</div>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                            {/* Jimmy (You) */}
+                            <tr className="bg-emerald-100/60 dark:bg-emerald-950/50">
+                              <td className="p-2 sm:p-2.5 text-left border-r border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">
+                                    J
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Jimmy</span>
+                                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                                </div>
+                              </td>
+                              <td className="p-2 sm:p-2.5 text-center border-r border-slate-200 dark:border-slate-800 font-black text-slate-900 dark:text-white">
+                                12 - 2
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>KC</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <Target className="w-3 h-3 text-rose-500" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>DET</span>
+                                  <X className="w-3.5 h-3.5 text-rose-500" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>GB</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-amber-500/10 font-bold text-amber-900 dark:text-amber-200">
+                                <span>TB (27-24)</span>
+                              </td>
+                            </tr>
+
+                            {/* Sarah M. */}
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                              <td className="p-2 sm:p-2.5 text-left border-r border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
+                                    S
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Sarah M.</span>
+                                </div>
+                              </td>
+                              <td className="p-2 sm:p-2.5 text-center border-r border-slate-200 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300">
+                                11 - 3
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>KC</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>BAL</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <Target className="w-3 h-3 text-rose-500" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>GB</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-amber-500/10 font-bold text-amber-900 dark:text-amber-200">
+                                <span>ATL (20-23)</span>
+                              </td>
+                            </tr>
+
+                            {/* Dave K. */}
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                              <td className="p-2 sm:p-2.5 text-left border-r border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
+                                    D
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Dave K.</span>
+                                </div>
+                              </td>
+                              <td className="p-2 sm:p-2.5 text-center border-r border-slate-200 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300">
+                                10 - 4
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>BUF</span>
+                                  <X className="w-3.5 h-3.5 text-rose-500" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>BAL</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold">
+                                <div className="inline-flex items-center gap-1">
+                                  <span>LAR</span>
+                                  <X className="w-3.5 h-3.5 text-rose-500" />
+                                </div>
+                              </td>
+                              <td className="p-1 sm:p-1.5 text-center border-r border-slate-200 dark:border-slate-800 bg-amber-500/10 font-bold text-amber-900 dark:text-amber-200">
+                                <span>TB (24-21)</span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {activeDemoTab === "survivor" && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold">
-                      <div className="flex items-center gap-2">
-                        <Crown className="w-4 h-4 text-amber-500" />
-                        <span>Survivor Battle: <strong>3 Alive</strong> • 1 Eliminated</span>
+                    {/* Header (Matches EliminatorPool.tsx) */}
+                    <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                      <div>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">Survivor Pool</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                          Pick one winner every week. Lose or tie and you&apos;re out.
+                        </p>
                       </div>
-                      <span className="text-xs text-amber-700/80 dark:text-amber-400/80">Week 5 Lock</span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="p-3">Player</th>
-                            <th className="p-3 text-center">Status</th>
-                            <th className="p-3 text-center">Wk 1</th>
-                            <th className="p-3 text-center">Wk 2</th>
-                            <th className="p-3 text-center">Wk 3</th>
-                            <th className="p-3 text-center">Wk 4</th>
-                            <th className="p-3 text-center">Wk 5</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">Jimmy (You)</td>
-                            <td className="p-3 text-center">
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[10px]">
-                                ALIVE
-                              </span>
-                            </td>
-                            <td className="p-3 text-center font-bold text-emerald-600">SEA ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">CLE ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">GB ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">PIT ✓</td>
-                            <td className="p-3 text-center font-black text-indigo-600 dark:text-indigo-400">KC (Yours)</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">Sarah J.</td>
-                            <td className="p-3 text-center">
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[10px]">
-                                ALIVE
-                              </span>
-                            </td>
-                            <td className="p-3 text-center font-bold text-emerald-600">MIA ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">BUF ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">DET ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">PHI ✓</td>
-                            <td className="p-3 text-center text-slate-400 font-medium">🔒 Hidden</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">Coach Tom</td>
-                            <td className="p-3 text-center">
-                              <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-black text-[10px]">
-                                OUT W3
-                              </span>
-                            </td>
-                            <td className="p-3 text-center font-bold text-emerald-600">DAL ✓</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
-                            <td className="p-3 text-center font-bold text-rose-600">CAR ✗</td>
-                            <td className="p-3 text-center text-slate-300">—</td>
-                            <td className="p-3 text-center text-slate-300">—</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold">
+                      <Shield className="w-4 h-4 text-emerald-500" />
+                      <span><strong>3 survivors alive</strong> entering Week 5 kickoff!</span>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                            <tr>
+                              <th className="p-3">Player</th>
+                              <th className="p-3 text-center">Status</th>
+                              <th className="p-3 text-center">Wk 1</th>
+                              <th className="p-3 text-center">Wk 2</th>
+                              <th className="p-3 text-center">Wk 3</th>
+                              <th className="p-3 text-center">Wk 4</th>
+                              <th className="p-3 text-center">Wk 5</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tr className="bg-emerald-50/50 dark:bg-emerald-950/40">
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">
+                                    J
+                                  </div>
+                                  <span>Jimmy (You)</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[10px] border border-emerald-300 dark:border-emerald-800">
+                                  ALIVE
+                                </span>
+                              </td>
+                              <td className="p-3 text-center font-bold text-emerald-600">KC ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">SF ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">BUF ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">DET ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  KC
+                                </span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
+                                    S
+                                  </div>
+                                  <span>Sarah M.</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[10px] border border-emerald-300 dark:border-emerald-800">
+                                  ALIVE
+                                </span>
+                              </td>
+                              <td className="p-3 text-center font-bold text-emerald-600">BUF ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">DAL ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">KC ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">MIN ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
+                            </tr>
+                            <tr>
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center text-xs">
+                                    D
+                                  </div>
+                                  <span>Dave K.</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[10px] border border-emerald-300 dark:border-emerald-800">
+                                  ALIVE
+                                </span>
+                              </td>
+                              <td className="p-3 text-center font-bold text-emerald-600">MIA ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">PHI ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">SEA ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">GB ✓</td>
+                              <td className="p-3 text-center text-slate-400 font-medium">🔒 PHI</td>
+                            </tr>
+                            <tr>
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-slate-600 text-white font-bold flex items-center justify-center text-xs">
+                                    M
+                                  </div>
+                                  <span>Marcus T.</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-black text-[10px] border border-rose-300 dark:border-rose-900">
+                                  OUT W3
+                                </span>
+                              </td>
+                              <td className="p-3 text-center font-bold text-emerald-600">CIN ✓</td>
+                              <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
+                              <td className="p-3 text-center font-bold text-rose-600">NYJ ✗</td>
+                              <td className="p-3 text-center text-slate-300 dark:text-slate-600">—</td>
+                              <td className="p-3 text-center text-slate-300 dark:text-slate-600">—</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -690,10 +1040,10 @@ export function LandingPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                            {/* Jimmy (You - Rank 1) */}
+                            {/* Jimmy (Rank 1 - You) */}
                             <tr className="bg-emerald-100/60 dark:bg-emerald-950/50">
                               <td className="py-2.5 pl-4 pr-2 font-black whitespace-nowrap text-slate-900 dark:text-white border-l-4 border-emerald-500">
-                                <span className="text-amber-500 font-black">#1</span>
+                                <span className="text-amber-600">🥇</span>
                               </td>
                               <td className="py-2.5 px-3 whitespace-nowrap">
                                 <div className="flex items-center gap-2.5">
@@ -705,11 +1055,11 @@ export function LandingPage() {
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                <span className="font-black text-slate-900 dark:text-white">54</span>
+                                <span className="font-black text-slate-900 dark:text-white">62</span>
                                 <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
                               </td>
                               <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
-                                72.0%
+                                82.7%
                               </td>
                               <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
                                 <span className="text-slate-300 dark:text-slate-600">—</span>
@@ -719,35 +1069,38 @@ export function LandingPage() {
                                   12/15 <Trophy className="w-3 h-3 text-amber-500" />
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-slate-400 font-semibold">
-                                —
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center text-emerald-600 text-[11px] font-bold">
+                                  <ArrowUp className="w-3 h-3" />
+                                  1
+                                </span>
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                 <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
-                                  <Trophy className="w-3 h-3" /> 1
+                                  <Trophy className="w-3 h-3" /> 2
                                 </span>
                               </td>
                             </tr>
 
-                            {/* Sarah J. (Rank 2) */}
+                            {/* Sarah M. (Rank 2) */}
                             <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
                               <td className="py-2.5 pl-5 pr-2 font-black whitespace-nowrap text-slate-700 dark:text-slate-300">
-                                #2
+                                <span className="text-slate-600">🥈</span>
                               </td>
                               <td className="py-2.5 px-3 whitespace-nowrap">
                                 <div className="flex items-center gap-2.5">
                                   <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
                                     S
                                   </div>
-                                  <span className="font-bold text-slate-900 dark:text-white">Sarah J.</span>
+                                  <span className="font-bold text-slate-900 dark:text-white">Sarah M.</span>
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                <span className="font-black text-slate-900 dark:text-white">52</span>
+                                <span className="font-black text-slate-900 dark:text-white">60</span>
                                 <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
                               </td>
                               <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
-                                69.3%
+                                80.0%
                               </td>
                               <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
                                 <span className="text-slate-700 dark:text-slate-300">2</span>
@@ -757,8 +1110,8 @@ export function LandingPage() {
                                   11/15
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                                ▲ 1
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <Minus className="w-3 h-3 text-slate-300 mx-auto" />
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                 <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
@@ -767,39 +1120,80 @@ export function LandingPage() {
                               </td>
                             </tr>
 
-                            {/* Big Mike (Rank 3) */}
+                            {/* Dave K. (Rank 3) */}
                             <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
                               <td className="py-2.5 pl-5 pr-2 font-black whitespace-nowrap text-slate-700 dark:text-slate-300">
-                                #3
+                                <span className="text-amber-700">🥉</span>
                               </td>
                               <td className="py-2.5 px-3 whitespace-nowrap">
                                 <div className="flex items-center gap-2.5">
                                   <div className="w-7 h-7 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                                    M
+                                    D
                                   </div>
-                                  <span className="font-bold text-slate-900 dark:text-white">Big Mike</span>
+                                  <span className="font-bold text-slate-900 dark:text-white">Dave K.</span>
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                <span className="font-black text-slate-900 dark:text-white">50</span>
+                                <span className="font-black text-slate-900 dark:text-white">57</span>
                                 <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
                               </td>
                               <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
-                                66.7%
+                                76.0%
                               </td>
                               <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
-                                <span className="text-slate-700 dark:text-slate-300">4</span>
+                                <span className="text-slate-700 dark:text-slate-300">5</span>
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                 <span className="font-semibold text-slate-700 dark:text-slate-300">
                                   10/15
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-rose-500 font-bold text-xs">
-                                ▼ 1
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center text-rose-600 text-[11px] font-bold">
+                                  <ArrowDown className="w-3 h-3" />
+                                  1
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
+                                  <Trophy className="w-3 h-3" /> 1
+                                </span>
+                              </td>
+                            </tr>
+
+                            {/* Marcus T. (Rank 4) */}
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                              <td className="py-2.5 pl-5 pr-2 font-bold whitespace-nowrap text-slate-500 dark:text-slate-400">
+                                4
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-lg bg-slate-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                    M
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Marcus T.</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-black text-slate-900 dark:text-white">54</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
+                                72.0%
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
+                                <span className="text-slate-700 dark:text-slate-300">8</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  9/15
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <Minus className="w-3 h-3 text-slate-300 mx-auto" />
                               </td>
                               <td className="py-2.5 px-3 text-center whitespace-nowrap text-slate-400 text-xs">
-                                0
+                                —
                               </td>
                             </tr>
                           </tbody>
@@ -815,10 +1209,10 @@ export function LandingPage() {
                           <span className="text-right">GB</span>
                         </div>
                         <ul className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                          {/* Jimmy */}
+                          {/* Jimmy (You) */}
                           <li className="bg-emerald-100/60 dark:bg-emerald-950/50">
                             <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left border-l-4 border-emerald-500 pl-2">
-                              <div className="text-sm font-black text-amber-500 text-center">#1</div>
+                              <div className="text-sm font-black text-center">🥇</div>
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
                                   J
@@ -831,31 +1225,31 @@ export function LandingPage() {
                                   <div className="text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5 whitespace-nowrap font-semibold">
                                     <span>Wk5 12/15</span>
                                     <span className="inline-flex items-center gap-0.5">
-                                      <Trophy className="w-2.5 h-2.5" /> 1
+                                      <Trophy className="w-2.5 h-2.5" /> 2
                                     </span>
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right whitespace-nowrap">
-                                <span className="font-black text-base text-slate-900 dark:text-white">54</span>
+                                <span className="font-black text-base text-slate-900 dark:text-white">62</span>
                                 <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">72.0%</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">82.7%</div>
                               </div>
                               <div className="text-right font-bold text-sm text-slate-300 dark:text-slate-600">—</div>
                             </div>
                           </li>
 
-                          {/* Sarah J. */}
+                          {/* Sarah M. */}
                           <li>
                             <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left">
-                              <div className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">#2</div>
+                              <div className="text-sm font-bold text-center">🥈</div>
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
                                   S
                                 </div>
                                 <div className="min-w-0">
                                   <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                    Sarah J.
+                                    Sarah M.
                                   </div>
                                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
                                     <span>Wk5 11/15</span>
@@ -866,37 +1260,66 @@ export function LandingPage() {
                                 </div>
                               </div>
                               <div className="text-right whitespace-nowrap">
-                                <span className="font-black text-base text-slate-900 dark:text-white">52</span>
+                                <span className="font-black text-base text-slate-900 dark:text-white">60</span>
                                 <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">69.3%</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">80.0%</div>
                               </div>
                               <div className="text-right font-bold text-sm text-slate-700 dark:text-slate-300">2</div>
                             </div>
                           </li>
 
-                          {/* Big Mike */}
+                          {/* Dave K. */}
                           <li>
                             <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left">
-                              <div className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">#3</div>
+                              <div className="text-sm font-bold text-center">🥉</div>
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-7 h-7 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                                  M
+                                  D
                                 </div>
                                 <div className="min-w-0">
                                   <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                    Big Mike
+                                    Dave K.
                                   </div>
                                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
                                     <span>Wk5 10/15</span>
+                                    <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400 font-semibold">
+                                      <Trophy className="w-2.5 h-2.5" /> 1
+                                    </span>
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right whitespace-nowrap">
-                                <span className="font-black text-base text-slate-900 dark:text-white">50</span>
+                                <span className="font-black text-base text-slate-900 dark:text-white">57</span>
                                 <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">66.7%</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">76.0%</div>
                               </div>
-                              <div className="text-right font-bold text-sm text-slate-700 dark:text-slate-300">4</div>
+                              <div className="text-right font-bold text-sm text-slate-700 dark:text-slate-300">5</div>
+                            </div>
+                          </li>
+
+                          {/* Marcus T. */}
+                          <li>
+                            <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left">
+                              <div className="text-sm font-bold text-slate-500 dark:text-slate-400 text-center">4</div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-slate-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                  M
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                    Marcus T.
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
+                                    <span>Wk5 9/15</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right whitespace-nowrap">
+                                <span className="font-black text-base text-slate-900 dark:text-white">54</span>
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">72.0%</div>
+                              </div>
+                              <div className="text-right font-bold text-sm text-slate-700 dark:text-slate-300">8</div>
                             </div>
                           </li>
                         </ul>
@@ -1452,6 +1875,152 @@ export function LandingPage() {
                 >
                   Already have an account? Sign in to create →
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          12. DEDICATED SIGN IN MODAL
+      ───────────────────────────────────────────────────────────── */}
+      {showLoginModal && (
+        <div
+          onClick={() => setShowLoginModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative"
+          >
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+              <LogIn className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Sign In
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+              Enter your username or email to access your leagues and picks.
+            </p>
+
+            {loginError && (
+              <div className="mt-4 p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <XCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Username or Email
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="e.g. jimmy or jimmy@example.com"
+                  value={loginIdentifier}
+                  onChange={(e) => {
+                    setLoginIdentifier(e.target.value);
+                    if (loginError) setLoginError("");
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Password
+                  </label>
+                  <Link
+                    href="/auth/forgot-password"
+                    onClick={() => setShowLoginModal(false)}
+                    className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    type={loginShowPassword ? "text" : "password"}
+                    required
+                    placeholder="Enter your password"
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      if (loginError) setLoginError("");
+                    }}
+                    className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLoginShowPassword(!loginShowPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                  >
+                    {loginShowPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-col gap-2.5">
+                <button
+                  type="submit"
+                  disabled={loginLoading || !loginIdentifier.trim() || !loginPassword.trim()}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {loginLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Signing In...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLoginModal(false);
+                      setShowCreateModal(true);
+                    }}
+                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                  >
+                    Create Free League →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLoginModal(false);
+                      setShowJoinModal(true);
+                    }}
+                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                  >
+                    Join with Code →
+                  </button>
+                </div>
               </div>
             </form>
           </div>
