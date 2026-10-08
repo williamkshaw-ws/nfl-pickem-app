@@ -739,13 +739,13 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
       {toast && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-3 px-4 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700/60 dark:border-slate-300 animate-in slide-in-from-bottom-5 fade-in duration-200 pointer-events-auto"
+          className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700/80 animate-in slide-in-from-bottom-5 fade-in duration-200 pointer-events-auto"
         >
           <div
-            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border ${
               toast.type === "success"
-                ? "bg-emerald-500/20 text-emerald-400 dark:text-emerald-600"
-                : "bg-rose-500/20 text-rose-400 dark:text-rose-600"
+                ? "bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
+                : "bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/60"
             }`}
           >
             {toast.type === "success" ? <Check className="w-4 h-4 stroke-[3]" /> : <AlertTriangle className="w-4 h-4" />}
@@ -754,7 +754,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           <button
             type="button"
             onClick={() => setToast(null)}
-            className="p-1 text-slate-400 hover:text-white dark:hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
+            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
