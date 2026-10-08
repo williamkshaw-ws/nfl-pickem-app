@@ -106,7 +106,8 @@ export async function GET(
         users.push({
           id: u.id,
           name: u.name || "Unknown",
-          avatarColor: "bg-slate-800",
+          username: u.username || "",
+          avatarColor: u.avatarColor || "bg-emerald-600",
         });
       });
     });

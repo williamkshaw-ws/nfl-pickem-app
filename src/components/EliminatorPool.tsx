@@ -134,7 +134,7 @@ export function EliminatorPool({
                 >
                   <td className={`p-3 ${isMe ? "border-l-4 border-emerald-500 pl-2" : ""}`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                      <div className={`w-7 h-7 rounded-lg ${user.avatarColor || "bg-emerald-600"} text-white font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-2xs`}>
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-bold text-slate-900 dark:text-white truncate max-w-[140px]">

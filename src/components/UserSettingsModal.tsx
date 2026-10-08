@@ -16,16 +16,12 @@ import {
   EyeOff,
   Palette,
   ShieldAlert,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { auth, db } from "@/lib/firebase";
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updatePassword,
-  signOut,
-} from "firebase/auth";
+import { updatePassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { authFetch } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
@@ -48,7 +44,7 @@ const AVATAR_COLORS = [
 ];
 
 export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSettingsModalProps) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
 
@@ -56,14 +52,13 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [avatarColor, setAvatarColor] = useState("bg-emerald-600");
+  const [emailNotifications, setEmailNotifications] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Password fields
-  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -81,21 +76,23 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
     if (user) {
       setName(user.name || "");
       setUsername(user.username || "");
+      if (user.avatarColor) setAvatarColor(user.avatarColor);
+      setEmailNotifications(user.emailNotifications ?? false);
     }
 
-    // Fetch avatarColor from Firestore if stored
+    // Fetch latest user doc from Firestore if available
     if (auth.currentUser?.uid) {
       getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
         if (snap.exists()) {
           const data = snap.data();
           if (data.avatarColor) setAvatarColor(data.avatarColor);
+          if (typeof data.emailNotifications === "boolean") setEmailNotifications(data.emailNotifications);
         }
       }).catch(() => {});
     }
 
     setProfileMessage(null);
     setPasswordMessage(null);
-    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setShowDeleteConfirm(false);
@@ -148,6 +145,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           name: cleanName,
           username: cleanUsername,
           avatarColor,
+          emailNotifications,
         }),
       });
 
@@ -157,6 +155,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
       }
 
       setProfileMessage({ type: "success", text: "Profile updated successfully!" });
+      await refreshUser();
       if (onProfileUpdated) onProfileUpdated();
     } catch (err: any) {
       setProfileMessage({ type: "error", text: err.message || "Failed to update profile." });
@@ -169,13 +168,13 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
     e.preventDefault();
     setPasswordMessage(null);
 
-    if (!currentPassword) {
-      setPasswordMessage({ type: "error", text: "Please enter your current password." });
+    if (newPassword.length < 8) {
+      setPasswordMessage({ type: "error", text: "Password must be at least 8 characters long." });
       return;
     }
 
-    if (newPassword.length < 6) {
-      setPasswordMessage({ type: "error", text: "New password must be at least 6 characters." });
+    if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setPasswordMessage({ type: "error", text: "Password must contain at least one letter and one number." });
       return;
     }
 
@@ -185,29 +184,29 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
     }
 
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser || !firebaseUser.email) {
+    if (!firebaseUser) {
       setPasswordMessage({ type: "error", text: "You must be logged in to update your password." });
       return;
     }
 
     setPasswordSaving(true);
     try {
-      // Re-authenticate user first
-      const credential = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
-      await reauthenticateWithCredential(firebaseUser, credential);
-
-      // Update password in Firebase Auth
       await updatePassword(firebaseUser, newPassword);
 
-      setPasswordMessage({ type: "success", text: "Password changed successfully!" });
-      setCurrentPassword("");
+      setPasswordMessage({ type: "success", text: "Password updated successfully!" });
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        setPasswordMessage({ type: "error", text: "Current password is incorrect." });
+      if (err.code === "auth/requires-recent-login") {
+        setPasswordMessage({
+          type: "error",
+          text: "For security, this action requires a recent sign in. Please sign out and sign back in to change your password.",
+        });
       } else if (err.code === "auth/weak-password") {
-        setPasswordMessage({ type: "error", text: "Password is too weak. Please use at least 6 characters." });
+        setPasswordMessage({
+          type: "error",
+          text: "Password is too weak. Please use at least 8 characters with letters and numbers.",
+        });
       } else if (err.code === "auth/too-many-requests") {
         setPasswordMessage({ type: "error", text: "Too many attempts. Please try again later." });
       } else {
@@ -368,7 +367,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                       type="button"
                       title={col.label}
                       onClick={() => setAvatarColor(col.class)}
-                      className={`w-7 h-7 rounded-full ${col.class} transition-transform flex items-center justify-center text-white ${
+                      className={`w-7 h-7 rounded-lg ${col.class} transition-transform flex items-center justify-center text-white ${
                         avatarColor === col.class
                           ? "ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-sm"
                           : "hover:scale-105 opacity-85 hover:opacity-100"
@@ -398,6 +397,33 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Email Notifications Preference */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <label htmlFor="emailNotifToggle" className="text-xs font-bold text-slate-900 dark:text-white block cursor-pointer">
+                      Thursday Kickoff Reminder
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">
+                      Receive an automated reminder email 2 hours before Thursday kickoff if your picks haven&apos;t been submitted yet.
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                  <input
+                    id="emailNotifToggle"
+                    type="checkbox"
+                    checked={emailNotifications}
+                    onChange={(e) => setEmailNotifications(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
               </div>
 
               <div className="flex justify-end pt-1">
@@ -509,29 +535,6 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
             )}
 
             <form onSubmit={handleUpdatePassword} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Current Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showCurrentPassword ? "text" : "password"}
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                    className="w-full px-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                  >
-                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -541,10 +544,10 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                     <input
                       type={showNewPassword ? "text" : "password"}
                       required
-                      minLength={6}
+                      minLength={8}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="At least 6 characters"
+                      placeholder="At least 8 characters"
                       className="w-full px-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                     />
                     <button
@@ -564,7 +567,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                   <input
                     type={showNewPassword ? "text" : "password"}
                     required
-                    minLength={6}
+                    minLength={8}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat new password"
@@ -573,11 +576,42 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                 </div>
               </div>
 
+              {/* Password Requirements Checklist */}
+              <div className="p-3 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl space-y-1.5 border border-slate-200/70 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Password Requirements:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                  <div className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                    <Check className={`w-3.5 h-3.5 stroke-[3] ${newPassword.length >= 8 ? "opacity-100" : "opacity-30"}`} />
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${/[a-zA-Z]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                    <Check className={`w-3.5 h-3.5 stroke-[3] ${/[a-zA-Z]/.test(newPassword) ? "opacity-100" : "opacity-30"}`} />
+                    <span>At least 1 letter</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${/[0-9]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                    <Check className={`w-3.5 h-3.5 stroke-[3] ${/[0-9]/.test(newPassword) ? "opacity-100" : "opacity-30"}`} />
+                    <span>At least 1 number</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${confirmPassword && newPassword === confirmPassword ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                    <Check className={`w-3.5 h-3.5 stroke-[3] ${confirmPassword && newPassword === confirmPassword ? "opacity-100" : "opacity-30"}`} />
+                    <span>Passwords match</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end pt-1">
                 <button
                   type="submit"
-                  disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-                  className="px-5 py-2.5 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white disabled:opacity-50 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-2"
+                  disabled={
+                    passwordSaving ||
+                    newPassword.length < 8 ||
+                    !/[a-zA-Z]/.test(newPassword) ||
+                    !/[0-9]/.test(newPassword) ||
+                    newPassword !== confirmPassword
+                  }
+                  className="px-5 py-2.5 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white disabled:opacity-40 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                 >
                   {passwordSaving ? (
                     <>

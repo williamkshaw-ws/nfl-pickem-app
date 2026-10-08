@@ -6,7 +6,7 @@ export async function PATCH(request: Request) {
   try {
     const caller = await requireUser(request);
     const body = await request.json();
-    const { name, username, avatarColor } = body || {};
+    const { name, username, avatarColor, emailNotifications } = body || {};
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       throw new HttpError(400, "Name cannot be empty");
@@ -46,6 +46,10 @@ export async function PATCH(request: Request) {
       updatedAt: new Date().toISOString(),
     };
 
+    if (typeof emailNotifications === "boolean") {
+      updateData.emailNotifications = emailNotifications;
+    }
+
     if (avatarColor && typeof avatarColor === "string") {
       updateData.avatarColor = avatarColor.trim();
     }
@@ -64,6 +68,7 @@ export async function PATCH(request: Request) {
         name: name.trim(),
         username: cleanUsername,
         avatarColor: updateData.avatarColor || undefined,
+        emailNotifications: updateData.emailNotifications ?? false,
       },
     });
   } catch (err: any) {

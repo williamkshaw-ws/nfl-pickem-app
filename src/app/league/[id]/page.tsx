@@ -367,7 +367,11 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
             <WeeklyPicks
               games={data.gamesByWeek[activeWeek] || []}
               activeWeek={activeWeek}
-              currentUser={{ id: user.id, name: user.name, avatarColor: "bg-emerald-600" } as any}
+              currentUser={{
+                id: user.id,
+                name: user.name,
+                avatarColor: data.users?.find((u: any) => u.id === user.id)?.avatarColor || user.avatarColor || "bg-emerald-600"
+              } as any}
               existingPicks={data.activeUserPicks}
               lockPolicy={data.settings.lockPolicy}
               eliminatorEnabled={data.settings.eliminatorEnabled}

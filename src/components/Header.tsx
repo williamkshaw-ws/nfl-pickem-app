@@ -236,7 +236,7 @@ export function Header({
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 dark:bg-emerald-600 flex items-center justify-center flex-shrink-0">
+            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} flex items-center justify-center flex-shrink-0 transition-colors shadow-xs`}>
               <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
             </div>
             <div className="flex items-center min-w-0 gap-2">
@@ -270,12 +270,12 @@ export function Header({
                 className="flex items-center gap-2 text-left transition-opacity hover:opacity-80"
               >
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${activeUser?.avatarColor || "bg-slate-800"} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} flex items-center justify-center text-white font-bold text-xs flex-shrink-0 shadow-xs transition-colors`}
                 >
-                  {activeUser?.name?.charAt(0) || "U"}
+                  {activeUser?.name?.charAt(0) || user?.name?.charAt(0) || "U"}
                 </div>
                 <div className="hidden sm:flex flex-col">
-                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[100px]">{activeUser?.name}</span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[100px]">{activeUser?.name || user?.name}</span>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Account</span>
                 </div>
                 <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-slate-400 ml-1" />
@@ -285,28 +285,14 @@ export function Header({
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                     
                     {/* User Profile Header */}
-                    <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-10 h-10 ${activeUser?.avatarColor || "bg-emerald-600"} text-white rounded-full flex items-center justify-center text-lg font-black flex-shrink-0 shadow-xs`}>
-                          {user?.name?.charAt(0).toUpperCase() || "U"}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">{user?.name}</h4>
-                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">@{user?.username}</span>
-                        </div>
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
+                      <div className={`w-10 h-10 ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} text-white rounded-xl flex items-center justify-center text-lg font-black flex-shrink-0 shadow-xs transition-colors`}>
+                        {user?.name?.charAt(0).toUpperCase() || activeUser?.name?.charAt(0).toUpperCase() || "U"}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setShowSettings(true);
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors text-xs font-bold"
-                        title="Open User Settings"
-                      >
-                        <Settings className="w-3.5 h-3.5" />
-                        <span>Settings</span>
-                      </button>
+                      <div className="min-w-0">
+                        <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">{user?.name || activeUser?.name}</h4>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">@{user?.username || activeUser?.name?.toLowerCase().replace(/\s+/g, "")}</span>
+                      </div>
                     </div>
 
                     {/* My Leagues Header (FIRST / AT TOP) */}

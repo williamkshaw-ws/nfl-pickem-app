@@ -560,8 +560,8 @@ export function CommissionerHub({
                         {/* Member Identity & Status */}
                         <div className="flex items-center gap-3 min-w-0">
                           <div
-                            className={`w-10 h-10 rounded-full ${
-                              u.avatarColor || "bg-slate-800"
+                            className={`w-10 h-10 rounded-xl ${
+                              u.avatarColor || "bg-emerald-600"
                             } text-white font-bold flex items-center justify-center text-sm flex-shrink-0 shadow-2xs`}
                           >
                             {u.name.charAt(0).toUpperCase()}
