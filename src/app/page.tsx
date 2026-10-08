@@ -46,14 +46,9 @@ export default function Home() {
         setJoinCode(join);
         setShowJoin(true);
         window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      }
-      const lastLeague = localStorage.getItem("last_active_league");
-      if (lastLeague) {
-        router.replace(`/league/${lastLeague}`);
       }
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
