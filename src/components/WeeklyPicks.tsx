@@ -614,12 +614,12 @@ export function WeeklyPicks({
 
       {/* Quick-Save Bar */}
       {(!allGamesLocked || isCommissionerEditMode) && (
-        <div className={`z-30 w-full max-w-md mx-auto ${embedded ? "mt-6" : "fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-2 duration-150 w-[calc(100%-24px)]"}`}>
-          <div className="bg-slate-900/95 backdrop-blur-md text-white rounded-full p-2 pl-4 flex items-center justify-between shadow-2xl border border-slate-700/80">
+        <div className={`z-40 w-full max-w-md mx-auto ${embedded ? "mt-6" : "fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-2 duration-150 w-[calc(100%-24px)]"}`}>
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white rounded-full p-2 pl-4 flex items-center justify-between shadow-2xl border border-slate-200 dark:border-slate-800 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
               {isSurvivorOnly ? (
                 <>
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${survivorTeam ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${survivorTeam ? "bg-emerald-500" : "bg-amber-400 animate-pulse"}`} />
                   {survivorTeam && (
                     <TeamLogo
                       src={survivorTeam.logo}
@@ -629,7 +629,7 @@ export function WeeklyPicks({
                       className="w-4.5 h-4.5 object-contain shrink-0"
                     />
                   )}
-                  <div className="text-sm font-black text-white leading-tight truncate">
+                  <div className="text-sm font-black text-slate-900 dark:text-white leading-tight truncate">
                     {survivorTeam ? `Survivor: ${survivorTeam.displayName}` : "No survivor selected"}
                   </div>
                 </>
@@ -637,22 +637,22 @@ export function WeeklyPicks({
                 <>
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                     pickedCount === totalGamesCount && (!eliminatorEnabled || isUserEliminated || !!survivorTeam)
-                      ? "bg-emerald-400"
+                      ? "bg-emerald-500"
                       : "bg-amber-400 animate-pulse"
                   }`} />
-                  <div className="text-xs sm:text-sm font-black text-white leading-tight whitespace-nowrap">
+                  <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight whitespace-nowrap">
                     {pickedCount} / {totalGamesCount} Picks
                   </div>
                   {eliminatorEnabled && (
                     <>
-                      <span className="text-slate-600 text-xs select-none">|</span>
+                      <span className="text-slate-300 dark:text-slate-700 text-xs select-none">|</span>
                       {isUserEliminated && !isCommissionerEditMode ? (
-                        <span className="text-[11px] text-slate-500 font-semibold truncate">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold truncate">
                           Eliminated
                         </span>
                       ) : survivorTeam ? (
                         <div
-                          className="flex items-center gap-1.5 bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 rounded-full text-rose-300 text-xs font-bold truncate"
+                          className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 px-2 py-0.5 rounded-full text-rose-700 dark:text-rose-300 text-xs font-bold truncate"
                           title={`Survivor: ${survivorTeam.displayName}`}
                         >
                           <TeamLogo
@@ -666,10 +666,10 @@ export function WeeklyPicks({
                         </div>
                       ) : (
                         <div
-                          className="flex items-center gap-1.5 text-amber-400 text-xs font-bold whitespace-nowrap"
+                          className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 text-xs font-bold whitespace-nowrap"
                           title="No survivor team selected for this week"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
                           <span>No Survivor</span>
                         </div>
                       )}
@@ -681,7 +681,7 @@ export function WeeklyPicks({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-sm transition shadow-sm flex items-center gap-1.5 flex-shrink-0"
+              className="px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-sm transition shadow-sm flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
             >
               {isSaving ? (
                 <span>Saving...</span>

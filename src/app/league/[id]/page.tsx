@@ -345,7 +345,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         onAddUser={handleAddUser}
       />
 
-      <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-24 sm:pb-8">
+      <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-36 sm:pb-16">
         <NavigationTabs 
           activeTab={activeTab} 
           onTabChange={handleTabChange} 
@@ -490,13 +490,13 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       )}
 
       {notification && (
-        <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-900/95 dark:bg-slate-800/95 text-white border border-slate-700/80 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 sm:slide-in-from-right-3 duration-200 pointer-events-none max-w-sm">
+        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700/80 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 sm:slide-in-from-right-3 duration-200 pointer-events-none max-w-sm">
           {notification.toLowerCase().includes("fail") || notification.toLowerCase().includes("error") ? (
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
           ) : (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
           )}
-          <span className="text-xs font-bold tracking-tight text-slate-100">{notification}</span>
+          <span className="text-xs font-bold tracking-tight text-slate-900 dark:text-slate-100">{notification}</span>
         </div>
       )}
     </div>
