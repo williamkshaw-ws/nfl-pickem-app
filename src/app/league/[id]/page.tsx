@@ -96,7 +96,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (authLoading) return;
     if (!user && !auth.currentUser) {
-      router.push("/auth/login");
+      router.push("/");
       return;
     }
     loadLeagueData();

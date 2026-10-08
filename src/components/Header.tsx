@@ -120,12 +120,13 @@ export function Header({
 
   const handleLogout = async () => {
     try {
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
-      }
       await signOut(auth);
     } catch (err) {
       console.error("Failed to log out", err);
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     }
   };
 

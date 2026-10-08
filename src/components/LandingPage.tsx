@@ -226,10 +226,10 @@ export function LandingPage() {
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-xs">
-                    W
+                    J
                   </div>
                   <div className="hidden sm:flex flex-col text-left">
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">William</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">Jimmy</span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Member</span>
                   </div>
                 </div>
@@ -297,14 +297,6 @@ export function LandingPage() {
               <div className="p-4 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
                 {activeDemoTab === "picks" && (
                   <div className="space-y-4">
-                    {/* Status Subtitle */}
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400">
-                      <span>Week 5 Matchups (15 Games)</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-extrabold">
-                        <Check className="w-3.5 h-3.5" /> All 15 picks submitted
-                      </span>
-                    </div>
-
                     {/* Game Card 1: Live Game (KC @ BUF) - Spread only, no O/U */}
                     <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 rounded-xl overflow-hidden shadow-xs flex flex-col">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
@@ -488,9 +480,9 @@ export function LandingPage() {
                           <tr className="bg-emerald-50/30 dark:bg-emerald-950/20">
                             <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                               <span className="w-5 h-5 rounded bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center">
-                                W
+                                J
                               </span>
-                              <span>William (You)</span>
+                              <span>Jimmy (You)</span>
                               <span className="text-[10px] px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
                                 #1
                               </span>
@@ -560,7 +552,7 @@ export function LandingPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">William (You)</td>
+                            <td className="p-3 font-bold text-slate-900 dark:text-white">Jimmy (You)</td>
                             <td className="p-3 text-center">
                               <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[10px]">
                                 ALIVE
@@ -629,7 +621,7 @@ export function LandingPage() {
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           <tr className="bg-emerald-50/30 dark:bg-emerald-950/20 font-bold">
                             <td className="p-3 text-center text-amber-500 font-black">#1</td>
-                            <td className="p-3 text-slate-900 dark:text-white">William (You)</td>
+                            <td className="p-3 text-slate-900 dark:text-white">Jimmy (You)</td>
                             <td className="p-3 text-center font-black">54</td>
                             <td className="p-3 text-center">72.0%</td>
                             <td className="p-3 text-center text-slate-400">—</td>
@@ -910,7 +902,7 @@ export function LandingPage() {
             <input
               type="text"
               maxLength={5}
-              placeholder="e.g. 10047"
+              placeholder="e.g. X7K9Q"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               className="w-full sm:w-auto flex-1 uppercase tracking-widest text-center sm:text-left font-black px-4 py-3 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 text-sm outline-none shadow-md border border-white"
@@ -1040,7 +1032,7 @@ export function LandingPage() {
                   type="text"
                   maxLength={5}
                   autoFocus
-                  placeholder="e.g. 10047"
+                  placeholder="e.g. X7K9Q"
                   value={modalCode}
                   onChange={(e) => {
                     setModalCode(e.target.value.toUpperCase());

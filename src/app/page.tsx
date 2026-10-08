@@ -169,7 +169,7 @@ export default function Home() {
   const handleLogout = async () => {
     try {
       if (typeof window !== "undefined") {
-        window.location.href = "/auth/login";
+        window.location.href = "/";
       }
       await signOut(auth);
     } catch (err) {

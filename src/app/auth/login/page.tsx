@@ -6,7 +6,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, X } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function Login() {
@@ -22,17 +22,26 @@ export default function Login() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const code = params.get("join") || localStorage.getItem("pending_join_code");
+      const code = params.get("join");
       if (code && code.length === 5) {
         setJoinCode(code.toUpperCase());
-        localStorage.setItem("pending_join_code", code.toUpperCase());
       }
     }
   }, []);
 
+  const clearJoinCode = () => {
+    setJoinCode(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pending_join_code");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("join");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    }
+  };
+
   const navigateToLeagueOrHome = async (uid: string) => {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const join = params?.get("join") || (typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null);
+    const join = joinCode || params?.get("join");
     if (join && join.length === 5) {
       if (typeof window !== "undefined") {
         localStorage.removeItem("pending_join_code");
@@ -136,14 +145,19 @@ export default function Login() {
         )}
 
         {joinCode && (
-          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center gap-3">
-            <span className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-black text-xs shrink-0">
-              5#
-            </span>
+          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in">
             <div>
               <div>Joining League with code: <strong className="font-mono font-black tracking-wider text-slate-900 dark:text-white">{joinCode}</strong></div>
               <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-normal">Sign in to add this league to your account.</div>
             </div>
+            <button
+              type="button"
+              onClick={clearJoinCode}
+              title="Remove code"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
