@@ -9,6 +9,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { authFetch } from "@/lib/api-client";
+import { LandingPage } from "@/components/LandingPage";
 
 interface LeagueMembership {
   id: string;
@@ -57,7 +58,8 @@ export default function Home() {
   useEffect(() => {
     if (loading) return;
     if (!user && !auth.currentUser) {
-      router.replace("/auth/login");
+      // Unauthenticated visitor: stay on page to view LandingPage
+      setChecking(false);
       return;
     }
 
@@ -180,14 +182,19 @@ export default function Home() {
     }
   };
 
-  // If loading auth, resolving league destination, or navigating to a league, show clean spinner (never flash welcome screen)
-  if (loading || checking || memberships.length > 0) {
+  // If loading auth or resolving user league destination, show clean spinner (never flash welcome screen)
+  if (loading || (user && (checking || memberships.length > 0))) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
         <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-3" />
         <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Entering league...</p>
       </div>
     );
+  }
+
+  // Unauthenticated visitors: show the full landing page!
+  if (!user && !auth.currentUser) {
+    return <LandingPage />;
   }
 
   // Onboarding screen for brand new users with 0 leagues
