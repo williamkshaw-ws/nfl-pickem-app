@@ -614,7 +614,7 @@ export function WeeklyPicks({
 
       {/* Quick-Save Bar */}
       {(!allGamesLocked || isCommissionerEditMode) && (
-        <div className={`z-40 w-full max-w-md mx-auto ${embedded ? "mt-6" : "fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-2 duration-150 w-[calc(100%-24px)]"}`}>
+        <div className={`z-40 w-full max-w-md mx-auto ${embedded ? "mt-6" : "fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-2 duration-150 w-[calc(100%-24px)]"}`}>
           <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white rounded-full p-2 pl-4 flex items-center justify-between shadow-2xl border border-slate-200 dark:border-slate-800 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
               {isSurvivorOnly ? (

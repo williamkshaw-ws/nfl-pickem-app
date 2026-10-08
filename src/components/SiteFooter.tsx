@@ -16,7 +16,7 @@ export function SiteFooter() {
   return (
     <footer
       className={`border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 text-xs transition-colors mt-auto ${
-        isLeaguePage ? "pb-24 md:pb-6 pt-5" : "py-5"
+        isLeaguePage ? "pb-20 md:pb-6 pt-4" : "py-5"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
