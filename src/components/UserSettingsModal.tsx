@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   User as UserIcon,
@@ -48,6 +48,18 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
   const { theme, setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
 
+  const wasOpenRef = useRef(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast({ message, type });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
+
   // Profile fields
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -69,35 +81,58 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // Initialize values when opened
+  // Lock background scroll when modal is open
   useEffect(() => {
     if (!isOpen) return;
 
-    if (user) {
-      setName(user.name || "");
-      setUsername(user.username || "");
-      if (user.avatarColor) setAvatarColor(user.avatarColor);
-      setEmailNotifications(user.emailNotifications ?? false);
-    }
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
 
-    // Fetch latest user doc from Firestore if available
-    if (auth.currentUser?.uid) {
-      getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.avatarColor) setAvatarColor(data.avatarColor);
-          if (typeof data.emailNotifications === "boolean") setEmailNotifications(data.emailNotifications);
-        }
-      }).catch(() => {});
-    }
+    document.body.style.overflow = "hidden";
 
-    setProfileMessage(null);
-    setPasswordMessage(null);
-    setNewPassword("");
-    setConfirmPassword("");
-    setShowDeleteConfirm(false);
-    setDeleteConfirmationText("");
-    setDeleteError("");
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, [isOpen]);
+
+  // Clean up toast timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
+  // Initialize values when opened
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      if (user) {
+        setName(user.name || "");
+        setUsername(user.username || "");
+        if (user.avatarColor) setAvatarColor(user.avatarColor);
+        setEmailNotifications(user.emailNotifications ?? false);
+      }
+
+      // Fetch latest user doc from Firestore if available
+      if (auth.currentUser?.uid) {
+        getDoc(doc(db, "users", auth.currentUser.uid)).then((snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.avatarColor) setAvatarColor(data.avatarColor);
+            if (typeof data.emailNotifications === "boolean") setEmailNotifications(data.emailNotifications);
+          }
+        }).catch(() => {});
+      }
+
+      setProfileMessage(null);
+      setPasswordMessage(null);
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowDeleteConfirm(false);
+      setDeleteConfirmationText("");
+      setDeleteError("");
+    }
+    wasOpenRef.current = isOpen;
   }, [isOpen, user]);
 
   // Handle escape key
@@ -154,7 +189,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
         throw new Error(data.error || "Failed to update profile.");
       }
 
-      setProfileMessage({ type: "success", text: "Profile updated successfully!" });
+      showToast("Profile changes saved successfully!", "success");
       await refreshUser();
       if (onProfileUpdated) onProfileUpdated();
     } catch (err: any) {
@@ -193,7 +228,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
     try {
       await updatePassword(firebaseUser, newPassword);
 
-      setPasswordMessage({ type: "success", text: "Password updated successfully!" });
+      showToast("Password updated successfully!", "success");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
@@ -252,23 +287,23 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in overflow-y-auto overscroll-none"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-scale-up"
+        className="w-full max-w-xl my-auto max-h-[85dvh] sm:max-h-[90dvh] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-scale-up"
       >
-        {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/60 dark:bg-slate-900/60">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl ${avatarColor} text-white font-black flex items-center justify-center text-base shadow-sm`}>
+        {/* Sticky Modal Header */}
+        <div className="sticky top-0 z-20 px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-10 h-10 rounded-xl ${avatarColor} text-white font-black flex items-center justify-center text-base shadow-sm shrink-0`}>
               {name ? name.charAt(0).toUpperCase() : user?.name?.charAt(0).toUpperCase() || "U"}
             </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight truncate">
                 User Settings
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                 Manage your profile, theme, and security
               </p>
             </div>
@@ -277,14 +312,15 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+            aria-label="Close Settings"
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-8 custom-scrollbar">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-6 sm:space-y-8 custom-scrollbar overscroll-contain flex-1">
           {/* ─────────────────────────────────────────────────────────────
               1. PROFILE SECTION (Name & Username)
           ───────────────────────────────────────────────────────────── */}
@@ -296,19 +332,9 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
               </h4>
             </div>
 
-            {profileMessage && (
-              <div
-                className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-                  profileMessage.type === "success"
-                    ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                    : "bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
-                }`}
-              >
-                {profileMessage.type === "success" ? (
-                  <Check className="w-4 h-4 shrink-0 text-emerald-600" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-                )}
+            {profileMessage && profileMessage.type === "error" && (
+              <div className="p-3 rounded-xl text-xs font-semibold flex items-center gap-2 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-in fade-in duration-150">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{profileMessage.text}</span>
               </div>
             )}
@@ -517,19 +543,9 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
               </h4>
             </div>
 
-            {passwordMessage && (
-              <div
-                className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-                  passwordMessage.type === "success"
-                    ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                    : "bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
-                }`}
-              >
-                {passwordMessage.type === "success" ? (
-                  <Check className="w-4 h-4 shrink-0 text-emerald-600" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-                )}
+            {passwordMessage && passwordMessage.type === "error" && (
+              <div className="p-3 rounded-xl text-xs font-semibold flex items-center gap-2 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-in fade-in duration-150">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{passwordMessage.text}</span>
               </div>
             )}
@@ -576,30 +592,32 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                 </div>
               </div>
 
-              {/* Password Requirements Checklist */}
-              <div className="p-3 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl space-y-1.5 border border-slate-200/70 dark:border-slate-800">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                  Password Requirements:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                  <div className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
-                    <Check className={`w-3.5 h-3.5 stroke-[3] ${newPassword.length >= 8 ? "opacity-100" : "opacity-30"}`} />
-                    <span>At least 8 characters</span>
-                  </div>
-                  <div className={`flex items-center gap-1.5 ${/[a-zA-Z]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
-                    <Check className={`w-3.5 h-3.5 stroke-[3] ${/[a-zA-Z]/.test(newPassword) ? "opacity-100" : "opacity-30"}`} />
-                    <span>At least 1 letter</span>
-                  </div>
-                  <div className={`flex items-center gap-1.5 ${/[0-9]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
-                    <Check className={`w-3.5 h-3.5 stroke-[3] ${/[0-9]/.test(newPassword) ? "opacity-100" : "opacity-30"}`} />
-                    <span>At least 1 number</span>
-                  </div>
-                  <div className={`flex items-center gap-1.5 ${confirmPassword && newPassword === confirmPassword ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
-                    <Check className={`w-3.5 h-3.5 stroke-[3] ${confirmPassword && newPassword === confirmPassword ? "opacity-100" : "opacity-30"}`} />
-                    <span>Passwords match</span>
+              {/* Password Requirements Checklist - Only visible when typing */}
+              {(newPassword.length > 0 || confirmPassword.length > 0) && (
+                <div className="p-3 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl space-y-1.5 border border-slate-200/70 dark:border-slate-800 animate-in fade-in duration-150">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                    Password Requirements:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                    <div className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                      <Check className={`w-3.5 h-3.5 stroke-[3] ${newPassword.length >= 8 ? "opacity-100" : "opacity-30"}`} />
+                      <span>At least 8 characters</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${/[a-zA-Z]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                      <Check className={`w-3.5 h-3.5 stroke-[3] ${/[a-zA-Z]/.test(newPassword) ? "opacity-100" : "opacity-30"}`} />
+                      <span>At least 1 letter</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${/[0-9]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                      <Check className={`w-3.5 h-3.5 stroke-[3] ${/[0-9]/.test(newPassword) ? "opacity-100" : "opacity-30"}`} />
+                      <span>At least 1 number</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${confirmPassword && newPassword === confirmPassword ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>
+                      <Check className={`w-3.5 h-3.5 stroke-[3] ${confirmPassword && newPassword === confirmPassword ? "opacity-100" : "opacity-30"}`} />
+                      <span>Passwords match</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-end pt-1">
                 <button
@@ -710,12 +728,38 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl transition"
+            className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer"
           >
             Close
           </button>
         </div>
       </div>
+
+      {/* Toast Notification (Bottom Right Corner) */}
+      {toast && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-3 px-4 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700/60 dark:border-slate-300 animate-in slide-in-from-bottom-5 fade-in duration-200 pointer-events-auto"
+        >
+          <div
+            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+              toast.type === "success"
+                ? "bg-emerald-500/20 text-emerald-400 dark:text-emerald-600"
+                : "bg-rose-500/20 text-rose-400 dark:text-rose-600"
+            }`}
+          >
+            {toast.type === "success" ? <Check className="w-4 h-4 stroke-[3]" /> : <AlertTriangle className="w-4 h-4" />}
+          </div>
+          <span className="text-xs sm:text-sm font-bold pr-2">{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="p-1 text-slate-400 hover:text-white dark:hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
