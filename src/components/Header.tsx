@@ -8,13 +8,15 @@ import {
   Users,
   RefreshCw,
   ChevronDown,
+  ChevronRight,
   LogOut,
   PlusCircle,
   LogIn,
   Loader2,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -24,6 +26,7 @@ import { collection, query, where, getDocs, doc, setDoc, getDoc } from "firebase
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/api-client";
+import { UserSettingsModal } from "@/components/UserSettingsModal";
 
 interface HeaderProps {
   settings: LeagueSettings;
@@ -54,6 +57,7 @@ export function Header({
   onSelectWeek,
 }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
@@ -280,85 +284,35 @@ export function Header({
               {userDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                     
-                    {/* User Profile Bubble */}
-                    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-full flex items-center justify-center text-xl font-black">
-                          {user?.name?.charAt(0).toUpperCase()}
+                    {/* User Profile Header */}
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-10 h-10 ${activeUser?.avatarColor || "bg-emerald-600"} text-white rounded-full flex items-center justify-center text-lg font-black flex-shrink-0 shadow-xs`}>
+                          {user?.name?.charAt(0).toUpperCase() || "U"}
                         </div>
-                        <div>
-                          <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight">{user?.name}</h4>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">@{user?.username}</span>
+                        <div className="min-w-0">
+                          <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">{user?.name}</h4>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">@{user?.username}</span>
                         </div>
                       </div>
                       <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200/50 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition-colors"
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setShowSettings(true);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors text-xs font-bold"
+                        title="Open User Settings"
                       >
-                        <LogOut className="w-3.5 h-3.5" />
-                        Sign Out
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Settings</span>
                       </button>
                     </div>
 
-                    {/* Dark Mode / Theme Selector */}
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl mb-4">
-                      <div className="flex items-center justify-between mb-2 px-1">
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                          {resolvedTheme === "dark" ? (
-                            <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                          ) : (
-                            <Sun className="w-3.5 h-3.5 text-amber-500" />
-                          )}
-                          Theme
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 capitalize">
-                          {theme === "system" ? `System (${resolvedTheme})` : theme}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1 bg-slate-200/60 dark:bg-slate-950/60 p-1 rounded-xl">
-                        <button
-                          type="button"
-                          onClick={() => setTheme("system")}
-                          className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                            theme === "system"
-                              ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
-                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                          }`}
-                        >
-                          <Monitor className="w-3.5 h-3.5" />
-                          <span>System</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTheme("light")}
-                          className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                            theme === "light"
-                              ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
-                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                          }`}
-                        >
-                          <Sun className="w-3.5 h-3.5" />
-                          <span>Light</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTheme("dark")}
-                          className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                            theme === "dark"
-                              ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
-                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                          }`}
-                        >
-                          <Moon className="w-3.5 h-3.5" />
-                          <span>Dark</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* My Leagues Header */}
-                    <div className="flex items-center justify-between mb-3 px-1">
-                      <h4 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
-                        <Trophy className="w-4 h-4 text-amber-500" />
+                    {/* My Leagues Header (FIRST / AT TOP) */}
+                    <div className="flex items-center justify-between mb-2.5 px-1">
+                      <h4 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
                         My Leagues
                       </h4>
                       <div className="flex items-center gap-1">
@@ -386,7 +340,7 @@ export function Header({
                     </div>
 
                     {/* League List */}
-                    <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-3">
                       {loadingLeagues ? (
                         <div className="flex justify-center p-4">
                           <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
@@ -406,7 +360,7 @@ export function Header({
                                 }
                                 setUserDropdownOpen(false);
                               }}
-                              className={`block p-3 border rounded-2xl transition-all group relative overflow-hidden ${
+                              className={`block p-2.5 border rounded-2xl transition-all group relative overflow-hidden ${
                                 isCurrent
                                   ? "border-emerald-500/80 bg-emerald-50/70 dark:bg-emerald-950/40"
                                   : "border-slate-100 dark:border-slate-800/80 hover:border-emerald-200 dark:hover:border-emerald-700/60 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
@@ -415,7 +369,7 @@ export function Header({
                               <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-bl-full -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100/50 dark:group-hover:bg-emerald-900/30" />
                               <div className="relative z-10 flex items-center justify-between">
                                 <div className="flex items-center gap-2 truncate pr-2">
-                                  <h5 className={`font-bold text-sm truncate ${
+                                  <h5 className={`font-bold text-xs truncate ${
                                     isCurrent ? "text-emerald-900 dark:text-emerald-200 font-extrabold" : "text-slate-900 dark:text-white"
                                   }`}>
                                     {m.leagueName}
@@ -452,6 +406,41 @@ export function Header({
                         })
                       )}
                     </div>
+
+                    {/* Bottom Actions: Settings link & Sign Out at the bottom */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setShowSettings(true);
+                        }}
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                            <Settings className="w-4 h-4" />
+                          </div>
+                          <div className="text-left">
+                            <span className="text-xs font-bold block text-slate-900 dark:text-white">Settings</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">Name, username, password, theme & account</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors font-bold text-xs"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                          <LogOut className="w-4 h-4" />
+                        </div>
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+
                   </div>
               )}
             </div>
@@ -633,6 +622,13 @@ export function Header({
           </div>
         </div>
       )}
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onProfileUpdated={() => router.refresh()}
+      />
 
     </>
   );
