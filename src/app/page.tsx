@@ -23,7 +23,8 @@ export default function Home() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
-  const [checking, setChecking] = useState(true);
+  const [leagueChecked, setLeagueChecked] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [memberships, setMemberships] = useState<LeagueMembership[]>([]);
 
   // Modals for 0-league onboarding or direct join
@@ -67,14 +68,24 @@ export default function Home() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user && !auth.currentUser) {
-      // Unauthenticated visitor: stay on page to view LandingPage
-      setChecking(false);
+
+    const currentUid = user?.id || auth.currentUser?.uid;
+    if (!currentUid) {
+      setLeagueChecked(false);
+      setIsRedirecting(false);
       return;
     }
 
-    const currentUid = user?.id || auth.currentUser?.uid;
-    if (!currentUid) return;
+    const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
+    const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
+
+    // Fast-path: if last_active_league exists in localStorage and no join/create params, redirect immediately
+    const cachedLastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
+    if (cachedLastLeague && !hasJoinParam && !hasCreateParam) {
+      setIsRedirecting(true);
+      router.replace(`/league/${cachedLastLeague}`);
+      return;
+    }
 
     const checkLeagues = async () => {
       try {
@@ -92,9 +103,6 @@ export default function Home() {
           });
         });
 
-        const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
-        const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
-
         // If user already belongs to leagues and didn't come via a specific ?join= or ?create= invite
         if (m.length > 0 && !hasJoinParam && !hasCreateParam) {
           const lastLeagueId = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
@@ -105,15 +113,16 @@ export default function Home() {
             localStorage.setItem("last_active_league", targetLeagueId);
           }
 
+          setIsRedirecting(true);
           router.replace(`/league/${targetLeagueId}`);
           return;
         }
 
         setMemberships(m);
-        setChecking(false);
+        setLeagueChecked(true);
       } catch (err) {
         console.error("Failed to check leagues:", err);
-        setChecking(false);
+        setLeagueChecked(true);
       }
     };
 
@@ -193,19 +202,21 @@ export default function Home() {
     }
   };
 
-  // If loading auth or resolving user league destination, show clean spinner (never flash welcome screen)
-  if (loading || (user && (checking || memberships.length > 0))) {
+  const isAuthenticated = !!(user || auth.currentUser);
+
+  // 1. Unauthenticated visitors: show the full landing page!
+  if (!isAuthenticated && !loading) {
+    return <LandingPage />;
+  }
+
+  // 2. If authenticated (or auth still resolving): ALWAYS show clean spinner while checking or redirecting
+  if (loading || !leagueChecked || isRedirecting || memberships.length > 0) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
         <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-3" />
         <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Entering league...</p>
       </div>
     );
-  }
-
-  // Unauthenticated visitors: show the full landing page!
-  if (!user && !auth.currentUser) {
-    return <LandingPage />;
   }
 
   // Onboarding screen for brand new users with 0 leagues

@@ -69,6 +69,12 @@ export default function Login() {
       return;
     }
 
+    const cachedLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
+    if (cachedLeague) {
+      router.replace(`/league/${cachedLeague}`);
+      return;
+    }
+
     // Direct lookup of user's league memberships so they go straight to their league
     try {
       const q = query(collection(db, "memberships"), where("userId", "==", uid));
