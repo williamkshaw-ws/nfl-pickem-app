@@ -21,6 +21,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [createParam, setCreateParam] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -28,6 +29,11 @@ export default function Register() {
       const code = params.get("join");
       if (code && code.length === 5) {
         setJoinCode(code.toUpperCase());
+      }
+      const create = params.get("create");
+      if (create) {
+        const name = params.get("name");
+        setCreateParam(`?create=true${name ? `&name=${encodeURIComponent(name)}` : ""}`);
       }
     }
   }, []);
@@ -124,7 +130,7 @@ if (password !== confirmPassword) {
             We sent a verification link to <strong className="text-slate-900 dark:text-white">{email}</strong>. Please verify your email to continue.
           </p>
           <button
-            onClick={() => router.push(joinCode ? `/auth/login?join=${joinCode}` : "/auth/login")}
+            onClick={() => router.push(joinCode ? `/auth/login?join=${joinCode}` : (createParam ? `/auth/login${createParam}` : "/auth/login"))}
             className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition shadow-xs"
           >
             Go to Login
@@ -270,7 +276,7 @@ if (password !== confirmPassword) {
         <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Already have an account?{" "}
           <Link
-            href={joinCode ? `/auth/login?join=${joinCode}` : "/auth/login"}
+            href={joinCode ? `/auth/login?join=${joinCode}` : (createParam ? `/auth/login${createParam}` : "/auth/login")}
             className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
           >
             Log in

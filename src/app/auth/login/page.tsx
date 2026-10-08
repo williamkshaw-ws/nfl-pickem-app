@@ -18,6 +18,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [createParam, setCreateParam] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -25,6 +26,11 @@ export default function Login() {
       const code = params.get("join");
       if (code && code.length === 5) {
         setJoinCode(code.toUpperCase());
+      }
+      const create = params.get("create");
+      if (create) {
+        const name = params.get("name");
+        setCreateParam(`?create=true${name ? `&name=${encodeURIComponent(name)}` : ""}`);
       }
     }
   }, []);
@@ -47,6 +53,13 @@ export default function Login() {
         localStorage.removeItem("pending_join_code");
       }
       router.replace(`/?join=${join.toUpperCase()}`);
+      return;
+    }
+
+    const create = params?.get("create");
+    if (create) {
+      const name = params?.get("name");
+      router.replace(`/?create=true${name ? `&name=${encodeURIComponent(name)}` : ""}`);
       return;
     }
 
@@ -208,7 +221,7 @@ export default function Login() {
         <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Don&apos;t have an account?{" "}
           <Link
-            href={joinCode ? `/auth/register?join=${joinCode}` : "/auth/register"}
+            href={joinCode ? `/auth/register?join=${joinCode}` : (createParam ? `/auth/register${createParam}` : "/auth/register")}
             className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
           >
             Create one

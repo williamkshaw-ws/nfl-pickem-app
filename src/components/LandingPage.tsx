@@ -18,6 +18,8 @@ import {
   Zap,
   Sliders,
   X,
+  XCircle,
+  PlusCircle,
   Clock,
   Grid,
   Target,
@@ -31,24 +33,26 @@ export function LandingPage() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [modalCode, setModalCode] = useState("");
   const [modalError, setModalError] = useState("");
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createLeagueName, setCreateLeagueName] = useState("");
+  const [createFormat, setCreateFormat] = useState<"both" | "pickem" | "survivor">("both");
+
   const [activeDemoTab, setActiveDemoTab] = useState<"picks" | "matrix" | "survivor" | "standings">("picks");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // Playable interactive micro-demo selections for the preview
-  const [demoGame1Pick, setDemoGame1Pick] = useState<"KC" | "BUF">("KC");
-  const [demoGame2Pick, setDemoGame2Pick] = useState<"DET" | "BAL">("BAL");
-
-  // Close modal when pressing Escape key
+  // Close modals when pressing Escape key
   useEffect(() => {
-    if (!showJoinModal) return;
+    if (!showJoinModal && !showCreateModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowJoinModal(false);
+        setShowCreateModal(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showJoinModal]);
+  }, [showJoinModal, showCreateModal]);
 
   const handleQuickJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +76,23 @@ export function LandingPage() {
       router.push(`/auth/register?join=${clean}`);
     } else {
       router.push(`/auth/login?join=${clean}`);
+    }
+  };
+
+  const handleCreateModalSubmit = (action: "register" | "login") => {
+    const cleanName = createLeagueName.trim();
+    if (typeof window !== "undefined" && cleanName) {
+      localStorage.setItem("pending_create_league_name", cleanName);
+      localStorage.setItem("pending_create_league_format", createFormat);
+    }
+    setShowCreateModal(false);
+    const query = cleanName
+      ? `?create=true&name=${encodeURIComponent(cleanName)}`
+      : "?create=true";
+    if (action === "register") {
+      router.push(`/auth/register${query}`);
+    } else {
+      router.push(`/auth/login${query}`);
     }
   };
 
@@ -149,13 +170,14 @@ export function LandingPage() {
               Sign In
             </Link>
 
-            <Link
-              href="/auth/register"
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-1 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap"
             >
-              <span>Get Started</span>
+              <span>Create League</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            </button>
           </div>
         </div>
       </nav>
@@ -189,13 +211,14 @@ export function LandingPage() {
 
           {/* Call to action buttons */}
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-md mx-auto">
-            <Link
-              href="/auth/register"
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
               className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <span>Create Free League</span>
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
 
             <button
               type="button"
@@ -312,7 +335,7 @@ export function LandingPage() {
               <div className="p-4 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
                 {activeDemoTab === "picks" && (
                   <div className="space-y-4">
-                    {/* Game Card 1: Live Game (KC @ BUF) - Interactive */}
+                    {/* Game Card 1: Live Game (KC @ BUF) */}
                     <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 rounded-xl overflow-hidden shadow-xs flex flex-col">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -328,24 +351,8 @@ export function LandingPage() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Away Team: Chiefs */}
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={demoGame1Pick === "KC"}
-                          onClick={() => setDemoGame1Pick("KC")}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setDemoGame1Pick("KC");
-                            }
-                          }}
-                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
-                            demoGame1Pick === "KC"
-                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
-                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                          }`}
-                        >
+                        {/* Away Team: Chiefs (Picked) */}
+                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40">
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="KC"
@@ -355,7 +362,7 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className={`text-sm font-bold ${demoGame1Pick === "KC" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
                                 Kansas City Chiefs
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">4-0 • Away</div>
@@ -363,30 +370,12 @@ export function LandingPage() {
                           </div>
                           <div className="flex items-center gap-2.5">
                             <span className="text-lg font-black text-slate-900 dark:text-white">28</span>
-                            {demoGame1Pick === "KC" && (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            )}
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                           </div>
                         </div>
 
                         {/* Home Team: Bills */}
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={demoGame1Pick === "BUF"}
-                          onClick={() => setDemoGame1Pick("BUF")}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setDemoGame1Pick("BUF");
-                            }
-                          }}
-                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
-                            demoGame1Pick === "BUF"
-                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
-                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                          }`}
-                        >
+                        <div className="flex-1 p-3 flex items-center justify-between opacity-75">
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="BUF"
@@ -396,7 +385,7 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className={`text-sm font-bold ${demoGame1Pick === "BUF" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                              <div className="text-sm font-bold text-slate-900 dark:text-white">
                                 Buffalo Bills
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">3-1 • Home</div>
@@ -404,16 +393,13 @@ export function LandingPage() {
                           </div>
                           <div className="flex items-center gap-2.5">
                             <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
-                            {demoGame1Pick === "BUF" && (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            )}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Game Card 2: Final Game (DET @ BAL) - Interactive */}
-                    <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 bg-emerald-50/10 dark:bg-emerald-950/10 rounded-xl overflow-hidden shadow-xs flex flex-col">
+                    {/* Game Card 2: Final Game (DET @ BAL) */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs flex flex-col">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                           <Clock className="w-3.5 h-3.5" />
@@ -427,24 +413,8 @@ export function LandingPage() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Away: Lions */}
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={demoGame2Pick === "DET"}
-                          onClick={() => setDemoGame2Pick("DET")}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setDemoGame2Pick("DET");
-                            }
-                          }}
-                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
-                            demoGame2Pick === "DET"
-                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
-                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                          }`}
-                        >
+                        {/* Away: Lions (Picked) */}
+                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40">
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="DET"
@@ -454,7 +424,7 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className={`text-sm font-bold ${demoGame2Pick === "DET" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
                                 Detroit Lions
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">4-1 • Away</div>
@@ -462,30 +432,12 @@ export function LandingPage() {
                           </div>
                           <div className="flex items-center gap-2.5">
                             <span className="text-lg font-black text-slate-400 dark:text-slate-500">21</span>
-                            {demoGame2Pick === "DET" && (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            )}
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                           </div>
                         </div>
 
-                        {/* Home: Ravens */}
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={demoGame2Pick === "BAL"}
-                          onClick={() => setDemoGame2Pick("BAL")}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setDemoGame2Pick("BAL");
-                            }
-                          }}
-                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
-                            demoGame2Pick === "BAL"
-                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
-                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                          }`}
-                        >
+                        {/* Home: Ravens (Winner) */}
+                        <div className="flex-1 p-3 flex items-center justify-between opacity-75">
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="BAL"
@@ -495,7 +447,7 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className={`text-sm font-bold ${demoGame2Pick === "BAL" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                              <div className="text-sm font-bold text-slate-900 dark:text-white">
                                 Baltimore Ravens
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">3-2 • Home</div>
@@ -503,23 +455,14 @@ export function LandingPage() {
                           </div>
                           <div className="flex items-center gap-2.5">
                             <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
-                            {demoGame2Pick === "BAL" && (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            )}
                           </div>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-xs">
-                        {demoGame2Pick === "BAL" ? (
-                          <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Correct Pick (+1)
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-400">
-                            <X className="w-3.5 h-3.5" /> Incorrect Pick (Final: BAL 24, DET 21)
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-400">
+                          <XCircle className="w-3.5 h-3.5" /> Incorrect
+                        </span>
                       </div>
                     </div>
 
@@ -565,12 +508,6 @@ export function LandingPage() {
                           </span>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Micro Interactive Hint */}
-                    <div className="text-center pt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center justify-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Interactive demo: Tap any team card above to change your pick</span>
                     </div>
                   </div>
                 )}
@@ -722,53 +659,248 @@ export function LandingPage() {
                 )}
 
                 {activeDemoTab === "standings" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
-                      <div className="flex items-center gap-2">
-                        <Trophy className="w-4 h-4 text-amber-500" />
-                        <span>2026 Season Championship Leaderboard</span>
+                  <div className="space-y-3">
+                    {/* Headline strip - matches OverallStandings.tsx */}
+                    <div className="flex items-center justify-between gap-3 border rounded-2xl px-4 py-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <span className="font-bold truncate text-slate-900 dark:text-white">
+                          Jimmy leads by 2
+                        </span>
                       </div>
-                      <span className="text-slate-500 font-normal">Through Week 5</span>
+                      <span className="font-semibold whitespace-nowrap text-slate-500 dark:text-slate-400">
+                        2026 • Thru Wk 5
+                      </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="p-3 text-center">Rank</th>
-                            <th className="p-3">Player</th>
-                            <th className="p-3 text-center">Wins</th>
-                            <th className="p-3 text-center">Win %</th>
-                            <th className="p-3 text-center">GB</th>
-                            <th className="p-3 text-center">Wk 5</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          <tr className="bg-emerald-50/30 dark:bg-emerald-950/20 font-bold">
-                            <td className="p-3 text-center text-amber-500 font-black">#1</td>
-                            <td className="p-3 text-slate-900 dark:text-white">Jimmy (You)</td>
-                            <td className="p-3 text-center font-black">54</td>
-                            <td className="p-3 text-center">72.0%</td>
-                            <td className="p-3 text-center text-slate-400">—</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">+12</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 text-center font-bold text-slate-400">#2</td>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">Sarah J.</td>
-                            <td className="p-3 text-center font-black">52</td>
-                            <td className="p-3 text-center">69.3%</td>
-                            <td className="p-3 text-center text-slate-500">2.0</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">+11</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">Big Mike</td>
-                            <td className="p-3 text-center font-black">50</td>
-                            <td className="p-3 text-center">66.7%</td>
-                            <td className="p-3 text-center text-slate-500">4.0</td>
-                            <td className="p-3 text-center font-bold text-emerald-600">+10</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+                      {/* Desktop / tablet table */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-800">
+                            <tr>
+                              <th className="py-2.5 pl-5 pr-2 w-14">Rank</th>
+                              <th className="py-2.5 px-3">Player</th>
+                              <th className="py-2.5 px-3 text-center">Correct</th>
+                              <th className="py-2.5 px-3 text-center">Pct</th>
+                              <th className="py-2.5 px-3 text-center" title="Games behind the leader">GB</th>
+                              <th className="py-2.5 px-3 text-center">Wk 5</th>
+                              <th className="py-2.5 px-3 text-center">Move</th>
+                              <th className="py-2.5 px-3 text-center">Titles</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                            {/* Jimmy (You - Rank 1) */}
+                            <tr className="bg-emerald-100/60 dark:bg-emerald-950/50">
+                              <td className="py-2.5 pl-4 pr-2 font-black whitespace-nowrap text-slate-900 dark:text-white border-l-4 border-emerald-500">
+                                <span className="text-amber-500 font-black">#1</span>
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                    J
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Jimmy</span>
+                                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-black text-slate-900 dark:text-white">54</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
+                                72.0%
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
+                                <span className="text-slate-300 dark:text-slate-600">—</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
+                                  12/15 <Trophy className="w-3 h-3 text-amber-500" />
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-slate-400 font-semibold">
+                                —
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
+                                  <Trophy className="w-3 h-3" /> 1
+                                </span>
+                              </td>
+                            </tr>
+
+                            {/* Sarah J. (Rank 2) */}
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                              <td className="py-2.5 pl-5 pr-2 font-black whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                #2
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                    S
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Sarah J.</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-black text-slate-900 dark:text-white">52</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
+                                69.3%
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
+                                <span className="text-slate-700 dark:text-slate-300">2</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  11/15
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                                ▲ 1
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
+                                  <Trophy className="w-3 h-3" /> 1
+                                </span>
+                              </td>
+                            </tr>
+
+                            {/* Big Mike (Rank 3) */}
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                              <td className="py-2.5 pl-5 pr-2 font-black whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                #3
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                    M
+                                  </div>
+                                  <span className="font-bold text-slate-900 dark:text-white">Big Mike</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-black text-slate-900 dark:text-white">50</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs">/75</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
+                                66.7%
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
+                                <span className="text-slate-700 dark:text-slate-300">4</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  10/15
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-rose-500 font-bold text-xs">
+                                ▼ 1
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap text-slate-400 text-xs">
+                                0
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile: compact rows matching OverallStandings.tsx */}
+                      <div className="md:hidden">
+                        <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          <span className="text-center">#</span>
+                          <span>Player</span>
+                          <span className="text-right">Correct</span>
+                          <span className="text-right">GB</span>
+                        </div>
+                        <ul className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                          {/* Jimmy */}
+                          <li className="bg-emerald-100/60 dark:bg-emerald-950/50">
+                            <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left border-l-4 border-emerald-500 pl-2">
+                              <div className="text-sm font-black text-amber-500 text-center">#1</div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                  J
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-sm text-slate-900 dark:text-white truncate flex items-center gap-1">
+                                    <span>Jimmy</span>
+                                    <Crown className="w-3 h-3 text-amber-500 fill-amber-400" />
+                                  </div>
+                                  <div className="text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5 whitespace-nowrap font-semibold">
+                                    <span>Wk5 12/15</span>
+                                    <span className="inline-flex items-center gap-0.5">
+                                      <Trophy className="w-2.5 h-2.5" /> 1
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right whitespace-nowrap">
+                                <span className="font-black text-base text-slate-900 dark:text-white">54</span>
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">72.0%</div>
+                              </div>
+                              <div className="text-right font-bold text-sm text-slate-300 dark:text-slate-600">—</div>
+                            </div>
+                          </li>
+
+                          {/* Sarah J. */}
+                          <li>
+                            <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left">
+                              <div className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">#2</div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                  S
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                    Sarah J.
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
+                                    <span>Wk5 11/15</span>
+                                    <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400 font-semibold">
+                                      <Trophy className="w-2.5 h-2.5" /> 1
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right whitespace-nowrap">
+                                <span className="font-black text-base text-slate-900 dark:text-white">52</span>
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">69.3%</div>
+                              </div>
+                              <div className="text-right font-bold text-sm text-slate-700 dark:text-slate-300">2</div>
+                            </div>
+                          </li>
+
+                          {/* Big Mike */}
+                          <li>
+                            <div className="grid grid-cols-[2.25rem_1fr_auto_2.5rem] items-center gap-2 px-3 py-2.5 text-left">
+                              <div className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">#3</div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                  M
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                    Big Mike
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
+                                    <span>Wk5 10/15</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right whitespace-nowrap">
+                                <span className="font-black text-base text-slate-900 dark:text-white">50</span>
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500">/75</span>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">66.7%</div>
+                              </div>
+                              <div className="text-right font-bold text-sm text-slate-700 dark:text-slate-300">4</div>
+                            </div>
+                          </li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -797,7 +929,7 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto">
             {/* Mode 1: Weekly Pick'em */}
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between hover:border-emerald-500/50 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-6">
                   <CheckCircle2 className="w-6 h-6" />
@@ -827,15 +959,10 @@ export function LandingPage() {
                   </li>
                 </ul>
               </div>
-
-              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                <span>Play all 18 regular season weeks</span>
-                <ArrowRight className="w-4 h-4" />
-              </div>
             </div>
 
             {/* Mode 2: Survivor Pool */}
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between hover:border-amber-500/50 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-6">
                   <Shield className="w-6 h-6" />
@@ -865,11 +992,6 @@ export function LandingPage() {
                   </li>
                 </ul>
               </div>
-
-              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-amber-600 dark:text-amber-400">
-                <span>Survive until the final whistle</span>
-                <ArrowRight className="w-4 h-4" />
-              </div>
             </div>
           </div>
         </div>
@@ -894,7 +1016,7 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Feature 1 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
                 <Lock className="w-5 h-5" />
               </div>
@@ -905,7 +1027,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-4">
                 <Zap className="w-5 h-5" />
               </div>
@@ -916,7 +1038,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
                 <Grid className="w-5 h-5" />
               </div>
@@ -927,7 +1049,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 4 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
                 <Sliders className="w-5 h-5" />
               </div>
@@ -938,7 +1060,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 5 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
                 <Smartphone className="w-5 h-5" />
               </div>
@@ -949,7 +1071,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 6 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
                 <Users className="w-5 h-5" />
               </div>
@@ -1026,10 +1148,11 @@ export function LandingPage() {
             <input
               type="text"
               maxLength={5}
+              inputMode="numeric"
               autoCapitalize="characters"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="e.g. X7K9Q"
+              placeholder="e.g. 84920"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               className="w-full sm:w-auto flex-1 uppercase tracking-widest text-center sm:text-left font-black px-4 py-3 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 text-sm outline-none shadow-md border border-white"
@@ -1107,13 +1230,14 @@ export function LandingPage() {
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/auth/register"
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
               className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <span>Get Started Free</span>
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -1157,7 +1281,7 @@ export function LandingPage() {
               Join a League
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-              Enter the 5-character invite code provided by your commissioner.
+              Enter the 5-digit invite code provided by your commissioner.
             </p>
 
             <form
@@ -1175,10 +1299,11 @@ export function LandingPage() {
                   type="text"
                   maxLength={5}
                   autoFocus
+                  inputMode="numeric"
                   autoCapitalize="characters"
                   autoCorrect="off"
                   spellCheck={false}
-                  placeholder="e.g. X7K9Q"
+                  placeholder="e.g. 84920"
                   value={modalCode}
                   onChange={(e) => {
                     setModalCode(e.target.value.toUpperCase());
@@ -1208,6 +1333,124 @@ export function LandingPage() {
                   className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
                 >
                   Already have an account? Sign in and join →
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          11. DEDICATED CREATE LEAGUE MODAL
+      ───────────────────────────────────────────────────────────── */}
+      {showCreateModal && (
+        <div
+          onClick={() => setShowCreateModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative"
+          >
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+              <PlusCircle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Create a League
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+              Start your free NFL Pick&apos;em and Survivor pool in seconds.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateModalSubmit("register");
+              }}
+              className="mt-6 space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  League Name
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  maxLength={50}
+                  placeholder="e.g. Sunday Gridiron Club"
+                  value={createLeagueName}
+                  onChange={(e) => setCreateLeagueName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Pool Format
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateFormat("both")}
+                    className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
+                      createFormat === "both"
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
+                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    Both Pools
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateFormat("pickem")}
+                    className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
+                      createFormat === "pickem"
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
+                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    Pick&apos;em Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateFormat("survivor")}
+                    className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
+                      createFormat === "survivor"
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
+                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    Survivor Only
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-col gap-2.5">
+                <button
+                  type="submit"
+                  disabled={!createLeagueName.trim()}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <span>Continue to Register &amp; Create</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCreateModalSubmit("login")}
+                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                >
+                  Already have an account? Sign in to create →
                 </button>
               </div>
             </form>

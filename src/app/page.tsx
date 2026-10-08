@@ -47,6 +47,21 @@ export default function Home() {
         setShowJoin(true);
         window.history.replaceState({}, document.title, window.location.pathname);
       }
+      const create = params.get("create");
+      if (create) {
+        setShowCreate(true);
+        const nameParam = params.get("name") || (typeof window !== "undefined" ? localStorage.getItem("pending_create_league_name") : null);
+        if (nameParam) {
+          setNewLeagueName(nameParam);
+          if (typeof window !== "undefined") localStorage.removeItem("pending_create_league_name");
+        }
+        const formatParam = typeof window !== "undefined" ? localStorage.getItem("pending_create_league_format") : null;
+        if (formatParam) {
+          setLeagueFormat(formatParam);
+          if (typeof window !== "undefined") localStorage.removeItem("pending_create_league_format");
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
   }, []);
 
@@ -78,9 +93,10 @@ export default function Home() {
         });
 
         const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
+        const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
 
-        // If user already belongs to leagues and didn't come via a specific ?join= invite
-        if (m.length > 0 && !hasJoinParam) {
+        // If user already belongs to leagues and didn't come via a specific ?join= or ?create= invite
+        if (m.length > 0 && !hasJoinParam && !hasCreateParam) {
           const lastLeagueId = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
           const matchingLeague = m.find((l) => l.leagueId === lastLeagueId);
           const targetLeagueId = matchingLeague ? matchingLeague.leagueId : m[0].leagueId;
