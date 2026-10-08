@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
@@ -17,16 +18,37 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const navigateToLeagueOrHome = async (uid: string) => {
+    const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
+    if (lastLeague) {
+      router.replace(`/league/${lastLeague}`);
+      return;
+    }
+
+    // Direct lookup of user's league memberships so they go straight to their league
+    try {
+      const q = query(collection(db, "memberships"), where("userId", "==", uid));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const firstLeagueId = snapshot.docs[0].data().leagueId;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("last_active_league", firstLeagueId);
+        }
+        router.replace(`/league/${firstLeagueId}`);
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to resolve user league on login:", err);
+    }
+
+    router.replace("/");
+  };
+
   useEffect(() => {
     if (!authLoading && user) {
-      const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
-      if (lastLeague) {
-        router.replace(`/league/${lastLeague}`);
-      } else {
-        router.replace("/");
-      }
+      navigateToLeagueOrHome(user.id);
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,12 +83,7 @@ export default function Login() {
         return;
       }
 
-      const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
-      if (lastLeague) {
-        router.replace(`/league/${lastLeague}`);
-      } else {
-        router.replace("/");
-      }
+      await navigateToLeagueOrHome(userCredential.user.uid);
     } catch (err: any) {
       if (err.code === "auth/user-disabled") {
         setError("This account has been banned and cannot log in.");

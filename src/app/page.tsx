@@ -45,9 +45,14 @@ export default function Home() {
         setJoinCode(join);
         setShowJoin(true);
         window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+      const lastLeague = localStorage.getItem("last_active_league");
+      if (lastLeague) {
+        router.replace(`/league/${lastLeague}`);
       }
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;
@@ -92,9 +97,9 @@ export default function Home() {
         }
 
         setMemberships(m);
+        setChecking(false);
       } catch (err) {
         console.error("Failed to check leagues:", err);
-      } finally {
         setChecking(false);
       }
     };
@@ -175,8 +180,8 @@ export default function Home() {
     }
   };
 
-  // If loading auth or resolving user league destination, show clean spinner (no dashboard flash)
-  if (loading || checking) {
+  // If loading auth, resolving league destination, or navigating to a league, show clean spinner (never flash welcome screen)
+  if (loading || checking || memberships.length > 0) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
         <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-3" />
