@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -34,15 +34,30 @@ export function LandingPage() {
   const [activeDemoTab, setActiveDemoTab] = useState<"picks" | "matrix" | "survivor" | "standings">("picks");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // Playable interactive micro-demo selections for the preview
+  const [demoGame1Pick, setDemoGame1Pick] = useState<"KC" | "BUF">("KC");
+  const [demoGame2Pick, setDemoGame2Pick] = useState<"DET" | "BAL">("BAL");
+
+  // Close modal when pressing Escape key
+  useEffect(() => {
+    if (!showJoinModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowJoinModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showJoinModal]);
+
   const handleQuickJoin = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = inviteCode.trim().toUpperCase();
-    if (clean.length === 5) {
-      router.push(`/auth/register?join=${clean}`);
-    } else {
-      setShowJoinModal(true);
-      if (clean) setModalCode(clean);
+    if (clean.length > 0) {
+      setModalCode(clean);
     }
+    setModalError("");
+    setShowJoinModal(true);
   };
 
   const handleModalSubmit = (action: "register" | "login") => {
@@ -88,7 +103,7 @@ export function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-emerald-500 selection:text-white scroll-smooth">
       {/* ─────────────────────────────────────────────────────────────
           1. NAVIGATION BAR
       ───────────────────────────────────────────────────────────── */}
@@ -125,7 +140,7 @@ export function LandingPage() {
             </a>
           </div>
 
-          {/* Right Controls: Kept on single line on mobile (theme switcher moved to footer) */}
+          {/* Right Controls: Single line on mobile */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <Link
               href="/auth/login"
@@ -204,7 +219,7 @@ export function LandingPage() {
           ───────────────────────────────────────────────────────────── */}
           <div className="mt-14 max-w-5xl mx-auto text-left">
             <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
-              {/* Authentic App Header Strip (Matches Header.tsx exactly - no dropdown on league name) */}
+              {/* Authentic App Header Strip (Matches Header.tsx exactly) */}
               <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 dark:bg-emerald-600 flex items-center justify-center flex-shrink-0">
@@ -240,7 +255,7 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("picks")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                     activeDemoTab === "picks"
                       ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
                       : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -256,7 +271,7 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("matrix")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                     activeDemoTab === "matrix"
                       ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
                       : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -269,7 +284,7 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("survivor")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                     activeDemoTab === "survivor"
                       ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
                       : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -282,7 +297,7 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveDemoTab("standings")}
-                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                     activeDemoTab === "standings"
                       ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
                       : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -297,7 +312,7 @@ export function LandingPage() {
               <div className="p-4 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
                 {activeDemoTab === "picks" && (
                   <div className="space-y-4">
-                    {/* Game Card 1: Live Game (KC @ BUF) - Spread only, no O/U */}
+                    {/* Game Card 1: Live Game (KC @ BUF) - Interactive */}
                     <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 rounded-xl overflow-hidden shadow-xs flex flex-col">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -313,8 +328,24 @@ export function LandingPage() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Away Team: Chiefs (Picked) */}
-                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/20">
+                        {/* Away Team: Chiefs */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={demoGame1Pick === "KC"}
+                          onClick={() => setDemoGame1Pick("KC")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setDemoGame1Pick("KC");
+                            }
+                          }}
+                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
+                            demoGame1Pick === "KC"
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
+                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="KC"
@@ -324,7 +355,7 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                              <div className={`text-sm font-bold ${demoGame1Pick === "KC" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
                                 Kansas City Chiefs
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">4-0 • Away</div>
@@ -332,12 +363,30 @@ export function LandingPage() {
                           </div>
                           <div className="flex items-center gap-2.5">
                             <span className="text-lg font-black text-slate-900 dark:text-white">28</span>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            {demoGame1Pick === "KC" && (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            )}
                           </div>
                         </div>
 
                         {/* Home Team: Bills */}
-                        <div className="flex-1 p-3 flex items-center justify-between opacity-80">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={demoGame1Pick === "BUF"}
+                          onClick={() => setDemoGame1Pick("BUF")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setDemoGame1Pick("BUF");
+                            }
+                          }}
+                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
+                            demoGame1Pick === "BUF"
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
+                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="BUF"
@@ -347,18 +396,23 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                              <div className={`text-sm font-bold ${demoGame1Pick === "BUF" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
                                 Buffalo Bills
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">3-1 • Home</div>
                             </div>
                           </div>
-                          <span className="text-lg font-black text-slate-400 dark:text-slate-500">24</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
+                            {demoGame1Pick === "BUF" && (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Game Card 2: Final Game (DET @ BAL) - Spread only, no O/U */}
+                    {/* Game Card 2: Final Game (DET @ BAL) - Interactive */}
                     <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 bg-emerald-50/10 dark:bg-emerald-950/10 rounded-xl overflow-hidden shadow-xs flex flex-col">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -373,7 +427,24 @@ export function LandingPage() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        <div className="flex-1 p-3 flex items-center justify-between opacity-75">
+                        {/* Away: Lions */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={demoGame2Pick === "DET"}
+                          onClick={() => setDemoGame2Pick("DET")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setDemoGame2Pick("DET");
+                            }
+                          }}
+                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
+                            demoGame2Pick === "DET"
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
+                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="DET"
@@ -383,16 +454,38 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                              <div className={`text-sm font-bold ${demoGame2Pick === "DET" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
                                 Detroit Lions
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">4-1 • Away</div>
                             </div>
                           </div>
-                          <span className="text-lg font-black text-slate-400 dark:text-slate-500">21</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg font-black text-slate-400 dark:text-slate-500">21</span>
+                            {demoGame2Pick === "DET" && (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            )}
+                          </div>
                         </div>
 
-                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/20">
+                        {/* Home: Ravens */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={demoGame2Pick === "BAL"}
+                          onClick={() => setDemoGame2Pick("BAL")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setDemoGame2Pick("BAL");
+                            }
+                          }}
+                          className={`flex-1 p-3 flex items-center justify-between transition-all cursor-pointer select-none ${
+                            demoGame2Pick === "BAL"
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-inset ring-emerald-400/40"
+                              : "opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
                           <div className="flex items-center gap-3">
                             <TeamLogo
                               alt="BAL"
@@ -402,7 +495,7 @@ export function LandingPage() {
                               className="w-7 h-7 object-contain shrink-0"
                             />
                             <div>
-                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                              <div className={`text-sm font-bold ${demoGame2Pick === "BAL" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
                                 Baltimore Ravens
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400">3-2 • Home</div>
@@ -410,15 +503,23 @@ export function LandingPage() {
                           </div>
                           <div className="flex items-center gap-2.5">
                             <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            {demoGame2Pick === "BAL" && (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            )}
                           </div>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-xs">
-                        <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Correct Pick (+1)
-                        </span>
+                        {demoGame2Pick === "BAL" ? (
+                          <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Correct Pick (+1)
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-400">
+                            <X className="w-3.5 h-3.5" /> Incorrect Pick (Final: BAL 24, DET 21)
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -437,15 +538,39 @@ export function LandingPage() {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">TB 27</span>
+                        <div className="flex items-center gap-2 sm:gap-3 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
+                          <div className="flex items-center gap-1.5">
+                            <TeamLogo
+                              src="https://a.espncdn.com/i/teamlogos/nfl/500/tb.png"
+                              alt="TB"
+                              width={20}
+                              height={20}
+                              className="w-5 h-5 object-contain shrink-0"
+                            />
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">TB 27</span>
+                          </div>
                           <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">ATL 24</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">ATL 24</span>
+                            <TeamLogo
+                              src="https://a.espncdn.com/i/teamlogos/nfl/500/atl.png"
+                              alt="ATL"
+                              width={20}
+                              height={20}
+                              className="w-5 h-5 object-contain shrink-0"
+                            />
+                          </div>
                           <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold ml-1">
                             (Total: 51)
                           </span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Micro Interactive Hint */}
+                    <div className="text-center pt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center justify-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Interactive demo: Tap any team card above to change your pick</span>
                     </div>
                   </div>
                 )}
@@ -636,7 +761,6 @@ export function LandingPage() {
                             <td className="p-3 text-center font-bold text-emerald-600">+11</td>
                           </tr>
                           <tr>
-                            <td className="p-3 text-center font-bold text-slate-400">#3</td>
                             <td className="p-3 font-bold text-slate-900 dark:text-white">Big Mike</td>
                             <td className="p-3 text-center font-black">50</td>
                             <td className="p-3 text-center">66.7%</td>
@@ -657,7 +781,7 @@ export function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           4. TWO GAME MODES (PICK'EM & SURVIVOR)
       ───────────────────────────────────────────────────────────── */}
-      <section id="modes" className="py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60">
+      <section id="modes" className="scroll-mt-20 py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
@@ -673,7 +797,7 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto">
             {/* Mode 1: Weekly Pick'em */}
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between hover:border-emerald-500/50 transition-colors">
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between hover:border-emerald-500/50 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-6">
                   <CheckCircle2 className="w-6 h-6" />
@@ -711,7 +835,7 @@ export function LandingPage() {
             </div>
 
             {/* Mode 2: Survivor Pool */}
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between hover:border-amber-500/50 transition-colors">
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-3xl p-7 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between hover:border-amber-500/50 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-6">
                   <Shield className="w-6 h-6" />
@@ -754,7 +878,7 @@ export function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           5. KEY FEATURES / COMMISSIONER PERKS
       ───────────────────────────────────────────────────────────── */}
-      <section id="features" className="py-20 bg-slate-50 dark:bg-slate-950">
+      <section id="features" className="scroll-mt-20 py-20 bg-slate-50 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
@@ -770,7 +894,7 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Feature 1 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
                 <Lock className="w-5 h-5" />
               </div>
@@ -781,7 +905,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
               <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-4">
                 <Zap className="w-5 h-5" />
               </div>
@@ -792,7 +916,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
                 <Grid className="w-5 h-5" />
               </div>
@@ -803,7 +927,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 4 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
               <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
                 <Sliders className="w-5 h-5" />
               </div>
@@ -814,7 +938,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 5 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
               <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
                 <Smartphone className="w-5 h-5" />
               </div>
@@ -825,7 +949,7 @@ export function LandingPage() {
             </div>
 
             {/* Feature 6 */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-200">
               <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
                 <Users className="w-5 h-5" />
               </div>
@@ -841,7 +965,7 @@ export function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           6. HOW IT WORKS (3 SIMPLE STEPS)
       ───────────────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/40">
+      <section id="how-it-works" className="scroll-mt-20 py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
@@ -902,6 +1026,9 @@ export function LandingPage() {
             <input
               type="text"
               maxLength={5}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="e.g. X7K9Q"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
@@ -920,7 +1047,7 @@ export function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           8. FAQ ACCORDION SECTION
       ───────────────────────────────────────────────────────────── */}
-      <section id="faq" className="py-20 bg-white dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800/80">
+      <section id="faq" className="scroll-mt-20 py-20 bg-white dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800/80">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-xl mx-auto mb-12">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
@@ -942,13 +1069,17 @@ export function LandingPage() {
                   <button
                     type="button"
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full p-5 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400"
+                    className="w-full p-5 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                   >
                     <span>{faq.q}</span>
-                    <span className="text-slate-400 font-black text-lg">{isOpen ? "−" : "+"}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 shrink-0 ${
+                        isOpen ? "rotate-180 text-emerald-500" : "text-slate-400"
+                      }`}
+                    />
                   </button>
                   {isOpen && (
-                    <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-200/60 dark:border-slate-800/60">
+                    <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-200/60 dark:border-slate-800/60 animate-fade-in">
                       {faq.a}
                     </div>
                   )}
@@ -989,7 +1120,7 @@ export function LandingPage() {
                 setModalError("");
                 setShowJoinModal(true);
               }}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all flex items-center justify-center gap-2 active:scale-95"
             >
               <span>Join with Code</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -1002,12 +1133,18 @@ export function LandingPage() {
           10. DEDICATED JOIN WITH CODE MODAL
       ───────────────────────────────────────────────────────────── */}
       {showJoinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+        <div
+          onClick={() => setShowJoinModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative"
+          >
             <button
               type="button"
               onClick={() => setShowJoinModal(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1023,7 +1160,13 @@ export function LandingPage() {
               Enter the 5-character invite code provided by your commissioner.
             </p>
 
-            <div className="mt-6 space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleModalSubmit("register");
+              }}
+              className="mt-6 space-y-4"
+            >
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                   5-Digit League Code
@@ -1032,6 +1175,9 @@ export function LandingPage() {
                   type="text"
                   maxLength={5}
                   autoFocus
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="e.g. X7K9Q"
                   value={modalCode}
                   onChange={(e) => {
@@ -1047,8 +1193,7 @@ export function LandingPage() {
 
               <div className="pt-2 flex flex-col gap-2.5">
                 <button
-                  type="button"
-                  onClick={() => handleModalSubmit("register")}
+                  type="submit"
                   disabled={modalCode.trim().length !== 5}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
                 >
@@ -1065,7 +1210,7 @@ export function LandingPage() {
                   Already have an account? Sign in and join →
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
