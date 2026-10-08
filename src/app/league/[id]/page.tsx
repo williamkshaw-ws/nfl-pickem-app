@@ -300,7 +300,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
       </div>
     );
@@ -308,7 +308,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
 
   if (!user && !auth.currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
       </div>
     );
@@ -316,7 +316,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
 
   if (!data || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center p-8 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <p className="text-slate-500 dark:text-slate-400">Failed to load league. It may not exist or you lack access.</p>
@@ -332,7 +332,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     .map((p: any) => p.eliminatorPick as string);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Header
         settings={data.settings}
         users={data.users}
@@ -345,7 +345,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         onAddUser={handleAddUser}
       />
 
-      <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-6 sm:pb-8">
+      <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-6 sm:pb-8 w-full flex-1">
         <NavigationTabs 
           activeTab={activeTab} 
           onTabChange={handleTabChange} 

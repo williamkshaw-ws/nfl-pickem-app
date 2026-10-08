@@ -212,7 +212,7 @@ export default function Home() {
   // 2. If authenticated (or auth still resolving): ALWAYS show clean spinner while checking or redirecting
   if (loading || !leagueChecked || isRedirecting || memberships.length > 0) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 transition-colors">
         <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-3" />
         <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Entering league...</p>
       </div>
@@ -221,7 +221,7 @@ export default function Home() {
 
   // Onboarding screen for brand new users with 0 leagues
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       {/* Top Bar */}
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
