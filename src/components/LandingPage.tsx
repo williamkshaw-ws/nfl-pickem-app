@@ -424,11 +424,6 @@ export function LandingPage() {
                           Picking as <strong className="text-slate-800 dark:text-slate-200">Jimmy</strong>
                         </p>
                       </div>
-
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 w-fit shadow-xs">
-                        <Clock className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Next kickoff: <strong className="text-slate-800 dark:text-slate-200">Sun 1:00 PM</strong></span>
-                      </div>
                     </div>
 
                     {/* Survivor Pool Health & Status Banner (Matches WeeklyPicks.tsx) */}
