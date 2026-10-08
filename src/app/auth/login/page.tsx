@@ -17,8 +17,30 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("join") || localStorage.getItem("pending_join_code");
+      if (code && code.length === 5) {
+        setJoinCode(code.toUpperCase());
+        localStorage.setItem("pending_join_code", code.toUpperCase());
+      }
+    }
+  }, []);
 
   const navigateToLeagueOrHome = async (uid: string) => {
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const join = params?.get("join") || (typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null);
+    if (join && join.length === 5) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("pending_join_code");
+      }
+      router.replace(`/?join=${join.toUpperCase()}`);
+      return;
+    }
+
     const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
     if (lastLeague) {
       router.replace(`/league/${lastLeague}`);
@@ -113,6 +135,18 @@ export default function Login() {
           </div>
         )}
 
+        {joinCode && (
+          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center gap-3">
+            <span className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-black text-xs shrink-0">
+              5#
+            </span>
+            <div>
+              <div>Joining League with code: <strong className="font-mono font-black tracking-wider text-slate-900 dark:text-white">{joinCode}</strong></div>
+              <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-normal">Sign in to add this league to your account.</div>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email or Username</label>
@@ -159,7 +193,10 @@ export default function Login() {
 
         <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/auth/register" className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
+          <Link
+            href={joinCode ? `/auth/register?join=${joinCode}` : "/auth/register"}
+            className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+          >
             Create one
           </Link>
         </p>

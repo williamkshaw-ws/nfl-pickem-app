@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -20,6 +20,18 @@ export default function Register() {
   const [sentVerification, setSentVerification] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("join") || localStorage.getItem("pending_join_code");
+      if (code && code.length === 5) {
+        setJoinCode(code.toUpperCase());
+        localStorage.setItem("pending_join_code", code.toUpperCase());
+      }
+    }
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +115,7 @@ if (password !== confirmPassword) {
             We sent a verification link to <strong className="text-slate-900 dark:text-white">{email}</strong>. Please verify your email to continue.
           </p>
           <button
-            onClick={() => router.push("/auth/login")}
+            onClick={() => router.push(joinCode ? `/auth/login?join=${joinCode}` : "/auth/login")}
             className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition shadow-xs"
           >
             Go to Login
@@ -117,7 +129,19 @@ if (password !== confirmPassword) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Create Account</h2>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">Create your PocketPicks account.</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Create your PocketPicks account.</p>
+
+        {joinCode && (
+          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center gap-3">
+            <span className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-black text-xs shrink-0">
+              5#
+            </span>
+            <div>
+              <div>Joining League with code: <strong className="font-mono font-black tracking-wider text-slate-900 dark:text-white">{joinCode}</strong></div>
+              <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-normal">Your account will be linked to this league upon sign in.</div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-sm p-3 rounded-lg mb-6 border border-rose-100 dark:border-rose-900/50">
@@ -231,7 +255,10 @@ if (password !== confirmPassword) {
 
         <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
+          <Link
+            href={joinCode ? `/auth/login?join=${joinCode}` : "/auth/login"}
+            className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+          >
             Log in
           </Link>
         </p>

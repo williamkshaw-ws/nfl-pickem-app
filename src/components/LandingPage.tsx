@@ -10,7 +10,6 @@ import {
   ArrowRight,
   Sparkles,
   Lock,
-  Flame,
   Users,
   ChevronRight,
   Sun,
@@ -20,26 +19,49 @@ import {
   Crown,
   Smartphone,
   Zap,
-  HelpCircle,
-  Eye,
   Sliders,
+  X,
+  Clock,
+  Grid,
+  Target,
+  ChevronDown,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { TeamLogo } from "@/components/TeamLogo";
 
 export function LandingPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [inviteCode, setInviteCode] = useState("");
-  const [activeDemoTab, setActiveDemoTab] = useState<"pickem" | "survivor">("pickem");
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [modalCode, setModalCode] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [activeDemoTab, setActiveDemoTab] = useState<"picks" | "matrix" | "survivor" | "standings">("picks");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handleQuickJoin = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = inviteCode.trim().toUpperCase();
-    if (clean.length > 0) {
+    if (clean.length === 5) {
       router.push(`/auth/register?join=${clean}`);
     } else {
-      router.push("/auth/register");
+      setShowJoinModal(true);
+      if (clean) setModalCode(clean);
+    }
+  };
+
+  const handleModalSubmit = (action: "register" | "login") => {
+    const clean = modalCode.trim().toUpperCase();
+    if (clean.length !== 5) {
+      setModalError("Invite codes must be exactly 5 characters.");
+      return;
+    }
+    setModalError("");
+    setShowJoinModal(false);
+    if (action === "register") {
+      router.push(`/auth/register?join=${clean}`);
+    } else {
+      router.push(`/auth/login?join=${clean}`);
     }
   };
 
@@ -62,7 +84,7 @@ export function LandingPage() {
     },
     {
       q: "Can other players see my picks before games start?",
-      a: "Never. Anti-peeking game locks keep everyone's picks strictly hidden until the respective game kicks off. Once kickoff occurs, selections are unveiled in the live Pick Matrix.",
+      a: "Never. Anti-peeking game locks keep everyone's picks strictly hidden until the respective game kicks off. Once kickoff occurs, selections are unveiled in the live League Picks board.",
     },
     {
       q: "Do commissioners need to enter scores manually?",
@@ -192,7 +214,7 @@ export function LandingPage() {
 
           {/* Subtitle */}
           <p className="mt-6 text-base sm:text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-            Automated ESPN live scores, anti-peeking game locks, 3-tier tiebreakers, and real-time pick matrices. Built for friends, family, and office leagues.
+            Automated ESPN live scores, anti-peeking game locks, 3-tier tiebreakers, and real-time league picks boards. Built for friends, family, and office leagues.
           </p>
 
           {/* Call to action buttons */}
@@ -205,13 +227,17 @@ export function LandingPage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
 
-            <Link
-              href="/auth/login"
+            <button
+              type="button"
+              onClick={() => {
+                setModalError("");
+                setShowJoinModal(true);
+              }}
               className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <span>Join with Code</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
-            </Link>
+            </button>
           </div>
 
           <p className="mt-3.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
@@ -219,146 +245,353 @@ export function LandingPage() {
           </p>
 
           {/* ─────────────────────────────────────────────────────────────
-              3. INTERACTIVE PRODUCT DEMO / MOCKUP
+              3. AUTHENTIC APP INTERACTIVE PREVIEW
           ───────────────────────────────────────────────────────────── */}
-          <div className="mt-14 max-w-4xl mx-auto text-left">
-            <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white/90 dark:bg-slate-900/90 shadow-2xl overflow-hidden backdrop-blur-xl">
-              {/* Fake App Header Bar */}
-              <div className="bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-black">
-                    🏈
-                  </div>
-                  <div>
-                    <div className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                      Sunday Gridiron Club
-                      <span className="text-[10px] text-slate-400 font-semibold">&apos;26</span>
-                    </div>
-                  </div>
+          <div className="mt-14 max-w-5xl mx-auto text-left">
+            <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+              {/* Window Header / Browser Frame Bar */}
+              <div className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-400/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-amber-400/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-400/80 inline-block" />
+                  <span className="text-[11px] font-mono font-medium text-slate-400 ml-2 hidden sm:inline">
+                    pocketpicks.app/league/sunday-gridiron
+                  </span>
                 </div>
-
-                {/* Demo Tab Toggle */}
-                <div className="flex items-center bg-slate-200/80 dark:bg-slate-900/80 p-1 rounded-xl text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setActiveDemoTab("pickem")}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      activeDemoTab === "pickem"
-                        ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Weekly Pick&apos;em
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveDemoTab("survivor")}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      activeDemoTab === "survivor"
-                        ? "bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Survivor Pool
-                  </button>
+                <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Live App Experience</span>
                 </div>
               </div>
 
-              {/* Fake App Body Content */}
-              <div className="p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/40">
-                {activeDemoTab === "pickem" ? (
+              {/* Authentic App Header Strip */}
+              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black shadow-xs">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                    <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="font-black text-xs sm:text-sm text-slate-900 dark:text-white">
+                      Sunday Gridiron Club &apos;26
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                    <span>Wk 5</span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                    W
+                  </div>
+                </div>
+              </div>
+
+              {/* Authentic App Navigation Tabs Bar */}
+              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center gap-3 sm:gap-6 overflow-x-auto text-xs font-bold no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setActiveDemoTab("picks")}
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                    activeDemoTab === "picks"
+                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                      : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>My Picks</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    15/15
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDemoTab("matrix")}
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                    activeDemoTab === "matrix"
+                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                      : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Grid className="w-4 h-4" />
+                  <span>League Picks</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDemoTab("survivor")}
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                    activeDemoTab === "survivor"
+                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                      : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Target className="w-4 h-4" />
+                  <span>Survivor</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDemoTab("standings")}
+                  className={`py-3.5 border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+                    activeDemoTab === "standings"
+                      ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                      : "border-slate-200/0 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>Season Standings</span>
+                </button>
+              </div>
+
+              {/* Authentic Content Area based on Tab */}
+              <div className="p-4 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
+                {activeDemoTab === "picks" && (
                   <div className="space-y-4">
-                    {/* Live Game Matchup Card Mock */}
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                          <strong className="text-slate-900 dark:text-white font-bold">4th Quarter • 2:14</strong>
+                    {/* Status Subtitle */}
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400">
+                      <span>Week 5 Matchups (15 Games)</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-extrabold">
+                        <Check className="w-3.5 h-3.5" /> All 15 picks submitted
+                      </span>
+                    </div>
+
+                    {/* Game Card 1: Live Game (KC @ BUF) */}
+                    <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 rounded-xl overflow-hidden shadow-xs flex flex-col">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Sun 1:00 PM</span>
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
+                          <span>KC -2.5 • O/U 47.5</span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                          <span>4th 2:14</span>
                         </span>
-                        <span className="text-[11px] uppercase font-bold text-slate-400">Week 5 Matchup</span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 pt-3">
-                        {/* Team Away */}
-                        <div className="p-3 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-red-700 text-white font-black text-xs flex items-center justify-center">
-                              KC
-                            </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
+                        {/* Away Team: Chiefs (Picked) */}
+                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/20">
+                          <div className="flex items-center gap-3">
+                            <TeamLogo
+                              alt="KC"
+                              src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
+                              width={28}
+                              height={28}
+                              className="w-7 h-7 object-contain shrink-0"
+                            />
                             <div>
-                              <div className="font-extrabold text-sm text-slate-900 dark:text-white">Chiefs</div>
-                              <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">✓ Picked by you</div>
+                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                                Kansas City Chiefs
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">4-0 • Away</div>
                             </div>
                           </div>
-                          <span className="text-xl font-black text-slate-900 dark:text-white">28</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg font-black text-slate-900 dark:text-white">28</span>
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
                         </div>
 
-                        {/* Team Home */}
-                        <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between opacity-80">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-blue-700 text-white font-black text-xs flex items-center justify-center">
-                              BUF
-                            </div>
+                        {/* Home Team: Bills */}
+                        <div className="flex-1 p-3 flex items-center justify-between opacity-80">
+                          <div className="flex items-center gap-3">
+                            <TeamLogo
+                              alt="BUF"
+                              src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
+                              width={28}
+                              height={28}
+                              className="w-7 h-7 object-contain shrink-0"
+                            />
                             <div>
-                              <div className="font-extrabold text-sm text-slate-900 dark:text-white">Bills</div>
-                              <div className="text-[11px] text-slate-400 font-medium">Spread: -1.5</div>
+                              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                                Buffalo Bills
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">3-1 • Home</div>
                             </div>
                           </div>
-                          <span className="text-xl font-black text-slate-900 dark:text-white">24</span>
+                          <span className="text-lg font-black text-slate-400 dark:text-slate-500">24</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Matrix Snippet */}
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-xs">
-                      <div className="bg-slate-100 dark:bg-slate-800/80 px-4 py-2 font-bold uppercase text-[10px] text-slate-500 tracking-wider flex justify-between">
-                        <span>Live Pick Matrix</span>
-                        <span>Correct / Remaining</span>
+                    {/* Game Card 2: Final Game (DET @ BAL) */}
+                    <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 bg-emerald-50/10 dark:bg-emerald-950/10 rounded-xl overflow-hidden shadow-xs flex flex-col">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Sun 4:25 PM</span>
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
+                          <span>BAL -3.0 • O/U 50.5</span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                          Final
+                        </span>
                       </div>
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        <div className="px-4 py-2.5 flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/20">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-md bg-emerald-600 text-white font-black flex items-center justify-center text-[10px]">
-                              W
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
+                        <div className="flex-1 p-3 flex items-center justify-between opacity-75">
+                          <div className="flex items-center gap-3">
+                            <TeamLogo
+                              alt="DET"
+                              src="https://a.espncdn.com/i/teamlogos/nfl/500/det.png"
+                              width={28}
+                              height={28}
+                              className="w-7 h-7 object-contain shrink-0"
+                            />
+                            <div>
+                              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                                Detroit Lions
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">4-1 • Away</div>
                             </div>
-                            <span className="font-bold text-slate-900 dark:text-white">William (You)</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
-                              #1
-                            </span>
                           </div>
-                          <div className="font-black text-slate-900 dark:text-white">
-                            12/15 <span className="text-emerald-600 font-semibold">(80%)</span>
-                          </div>
+                          <span className="text-lg font-black text-slate-400 dark:text-slate-500">21</span>
                         </div>
 
-                        <div className="px-4 py-2.5 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-md bg-indigo-600 text-white font-black flex items-center justify-center text-[10px]">
-                              S
+                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/20">
+                          <div className="flex items-center gap-3">
+                            <TeamLogo
+                              alt="BAL"
+                              src="https://a.espncdn.com/i/teamlogos/nfl/500/bal.png"
+                              width={28}
+                              height={28}
+                              className="w-7 h-7 object-contain shrink-0"
+                            />
+                            <div>
+                              <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                                Baltimore Ravens
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">3-2 • Home</div>
                             </div>
-                            <span className="font-bold text-slate-900 dark:text-white">Sarah J.</span>
                           </div>
-                          <div className="font-black text-slate-900 dark:text-white">
-                            11/15 <span className="text-slate-400 font-semibold">(73%)</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                           </div>
                         </div>
+                      </div>
 
-                        <div className="px-4 py-2.5 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-md bg-amber-600 text-white font-black flex items-center justify-center text-[10px]">
-                              M
-                            </div>
-                            <span className="font-bold text-slate-900 dark:text-white">Big Mike</span>
+                      <div className="bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-xs">
+                        <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Correct Pick (+1)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tiebreaker Game Card */}
+                    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            <h3 className="font-bold text-sm text-amber-900 dark:text-amber-200">
+                              Tiebreaker Prediction • Monday Night Football
+                            </h3>
                           </div>
-                          <div className="font-black text-slate-900 dark:text-white">
-                            10/15 <span className="text-slate-400 font-semibold">(66%)</span>
-                          </div>
+                          <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
+                            Tampa Bay Buccaneers @ Atlanta Falcons
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">TB 27</span>
+                          <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">ATL 24</span>
+                          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold ml-1">
+                            (Total: 51)
+                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  /* Survivor Mockup View */
+                )}
+
+                {activeDemoTab === "matrix" && (
+                  <div className="space-y-4">
+                    {/* League Picks Table Header Bar */}
+                    <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
+                      <div className="flex items-center gap-2">
+                        <Grid className="w-4 h-4 text-emerald-500" />
+                        <span>Week 5 League Picks Board</span>
+                      </div>
+                      <span className="text-slate-500 dark:text-slate-400 font-normal">
+                        15 Games • 12 Final • 2 Live • 1 Upcoming
+                      </span>
+                    </div>
+
+                    {/* Table */}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="p-3">Player</th>
+                            <th className="p-3 text-center">Score</th>
+                            <th className="p-3 text-center">KC @ BUF</th>
+                            <th className="p-3 text-center">DET @ BAL</th>
+                            <th className="p-3 text-center">GB @ MIN</th>
+                            <th className="p-3 text-center">TB @ ATL (TB)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          <tr className="bg-emerald-50/30 dark:bg-emerald-950/20">
+                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              <span className="w-5 h-5 rounded bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center">
+                                W
+                              </span>
+                              <span>William (You)</span>
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
+                                #1
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-black text-emerald-600">12 - 2</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">KC ✓</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">MIN ✓</td>
+                            <td className="p-3 text-center font-medium text-slate-400">🔒 8:15 PM</td>
+                          </tr>
+
+                          <tr>
+                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              <span className="w-5 h-5 rounded bg-indigo-600 text-white font-black text-[10px] flex items-center justify-center">
+                                S
+                              </span>
+                              <span>Sarah J.</span>
+                            </td>
+                            <td className="p-3 text-center font-black text-slate-700 dark:text-slate-300">11 - 3</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">KC ✓</td>
+                            <td className="p-3 text-center font-bold text-rose-500">DET ✗</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">MIN ✓</td>
+                            <td className="p-3 text-center font-medium text-slate-400">🔒 8:15 PM</td>
+                          </tr>
+
+                          <tr>
+                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              <span className="w-5 h-5 rounded bg-amber-600 text-white font-black text-[10px] flex items-center justify-center">
+                                M
+                              </span>
+                              <span>Big Mike</span>
+                            </td>
+                            <td className="p-3 text-center font-black text-slate-700 dark:text-slate-300">10 - 4</td>
+                            <td className="p-3 text-center font-bold text-rose-500">BUF ✗</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">BAL ✓</td>
+                            <td className="p-3 text-center font-bold text-rose-500">GB ✗</td>
+                            <td className="p-3 text-center font-medium text-slate-400">🔒 8:15 PM</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {activeDemoTab === "survivor" && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold">
                       <div className="flex items-center gap-2">
@@ -368,7 +601,7 @@ export function LandingPage() {
                       <span className="text-xs text-amber-700/80 dark:text-amber-400/80">Week 5 Lock</span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
                           <tr>
@@ -426,6 +659,59 @@ export function LandingPage() {
                     </div>
                   </div>
                 )}
+
+                {activeDemoTab === "standings" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-amber-500" />
+                        <span>2026 Season Championship Leaderboard</span>
+                      </div>
+                      <span className="text-slate-500 font-normal">Through Week 5</span>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="p-3 text-center">Rank</th>
+                            <th className="p-3">Player</th>
+                            <th className="p-3 text-center">Wins</th>
+                            <th className="p-3 text-center">Win %</th>
+                            <th className="p-3 text-center">GB</th>
+                            <th className="p-3 text-center">Wk 5</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          <tr className="bg-emerald-50/30 dark:bg-emerald-950/20 font-bold">
+                            <td className="p-3 text-center text-amber-500 font-black">#1</td>
+                            <td className="p-3 text-slate-900 dark:text-white">William (You)</td>
+                            <td className="p-3 text-center font-black">54</td>
+                            <td className="p-3 text-center">72.0%</td>
+                            <td className="p-3 text-center text-slate-400">—</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">+12</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-center font-bold text-slate-400">#2</td>
+                            <td className="p-3 font-bold text-slate-900 dark:text-white">Sarah J.</td>
+                            <td className="p-3 text-center font-black">52</td>
+                            <td className="p-3 text-center">69.3%</td>
+                            <td className="p-3 text-center text-slate-500">2.0</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">+11</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-center font-bold text-slate-400">#3</td>
+                            <td className="p-3 font-bold text-slate-900 dark:text-white">Big Mike</td>
+                            <td className="p-3 text-center font-black">50</td>
+                            <td className="p-3 text-center">66.7%</td>
+                            <td className="p-3 text-center text-slate-500">4.0</td>
+                            <td className="p-3 text-center font-bold text-emerald-600">+10</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -473,7 +759,7 @@ export function LandingPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <span>Live Pick Matrix unveiling right at kickoff</span>
+                    <span>Live League Picks unveiling right at kickoff</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -572,11 +858,11 @@ export function LandingPage() {
             {/* Feature 3 */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
-                <Eye className="w-5 h-5" />
+                <Grid className="w-5 h-5" />
               </div>
-              <h4 className="font-black text-base text-slate-900 dark:text-white">The Pick Matrix</h4>
+              <h4 className="font-black text-base text-slate-900 dark:text-white">Live League Picks Board</h4>
               <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                A birds-eye view grid showing all league members, selections, and live winning percentages side-by-side.
+                A real-time birds-eye view grid showing all league members, selections, and live winning percentages side-by-side.
               </p>
             </div>
 
@@ -657,7 +943,7 @@ export function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Track the Drama Live</h3>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Watch the Pick Matrix update in real-time on Sunday and Monday as final scores roll in.
+                Watch the League Picks board update in real-time on Sunday and Monday as final scores roll in.
               </p>
             </div>
           </div>
@@ -673,7 +959,7 @@ export function LandingPage() {
             Have an invite code from your commissioner?
           </h3>
           <p className="mt-2 text-emerald-100 text-xs sm:text-sm max-w-md mx-auto">
-            Enter the 5-character league code below to jump straight in.
+            Enter the 5-character league code below to jump straight into your league.
           </p>
 
           <form onSubmit={handleQuickJoin} className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2 max-w-sm mx-auto">
@@ -761,40 +1047,92 @@ export function LandingPage() {
               <span>Get Started Free</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/auth/login"
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all"
+            <button
+              type="button"
+              onClick={() => {
+                setModalError("");
+                setShowJoinModal(true);
+              }}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all flex items-center justify-center gap-2"
             >
-              Sign In to Your League
-            </Link>
+              <span>Join with Code</span>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
           </div>
         </div>
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          10. FOOTER
+          10. DEDICATED JOIN WITH CODE MODAL
       ───────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 text-xs text-slate-500 dark:text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs font-black">
-              <Trophy className="w-3.5 h-3.5" />
-            </div>
-            <span className="font-extrabold text-slate-900 dark:text-white text-sm">PocketPicks</span>
-            <span>• NFL Pick&apos;em &amp; Survivor Pool</span>
-          </div>
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setShowJoinModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-          <div className="flex items-center gap-6">
-            <Link href="/auth/login" className="hover:text-slate-900 dark:hover:text-white transition-colors">
-              Sign In
-            </Link>
-            <Link href="/auth/register" className="hover:text-slate-900 dark:hover:text-white transition-colors">
-              Create Account
-            </Link>
-            <span>&copy; {new Date().getFullYear()} PocketPicks</span>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+              <Users className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Join a League
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+              Enter the 5-character invite code provided by your commissioner.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  5-Digit League Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={5}
+                  autoFocus
+                  placeholder="e.g. 10047"
+                  value={modalCode}
+                  onChange={(e) => {
+                    setModalCode(e.target.value.toUpperCase());
+                    if (modalError) setModalError("");
+                  }}
+                  className="w-full text-center tracking-[0.3em] font-mono text-2xl font-black py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 uppercase transition-colors"
+                />
+                {modalError && (
+                  <p className="text-rose-500 text-xs font-semibold mt-2">{modalError}</p>
+                )}
+              </div>
+
+              <div className="pt-2 flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleModalSubmit("register")}
+                  disabled={modalCode.trim().length !== 5}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <span>Continue to Register &amp; Join</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleModalSubmit("login")}
+                  disabled={modalCode.trim().length !== 5}
+                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                >
+                  Already have an account? Sign in and join →
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </footer>
+      )}
     </div>
   );
 }
