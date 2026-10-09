@@ -144,16 +144,6 @@ export async function GET(
       if (p.userId === caller.uid) return p;
       if (isCommissioner) return p;
 
-      // Future weeks beyond the current NFL week are completely hidden for other players
-      if (p.week > settings.currentWeek) {
-        return {
-          ...p,
-          picks: {},
-          tiebreaker: undefined,
-          eliminatorPick: undefined,
-        };
-      }
-
       const gamesForThisWeek = gamesByWeek[p.week] || [];
 
       // If all games in a past week are already completed/locked, return full record
@@ -164,11 +154,15 @@ export async function GET(
         return p;
       }
 
-      const maskedPicks: Record<string, string> = { ...(p.picks || {}) };
-      for (const game of gamesForThisWeek) {
-        if (!isGameLocked(game, gamesForThisWeek, settings.lockPolicy, now)) {
-          if (maskedPicks[game.id]) {
-            maskedPicks[game.id] = "HIDDEN";
+      const maskedPicks: Record<string, string> = {};
+      if (p.picks && typeof p.picks === "object") {
+        for (const [gameId, pickedTeamId] of Object.entries(p.picks)) {
+          if (!pickedTeamId) continue;
+          const game = gamesForThisWeek.find((g: any) => g.id === gameId);
+          if (game && isGameLocked(game, gamesForThisWeek, settings.lockPolicy, now)) {
+            maskedPicks[gameId] = pickedTeamId as string;
+          } else {
+            maskedPicks[gameId] = "HIDDEN";
           }
         }
       }
@@ -183,12 +177,14 @@ export async function GET(
         ? { isHidden: true, totalScore: 0, homeScore: 0, awayScore: 0 }
         : undefined;
 
-      let maskedElim = p.eliminatorPick;
+      let maskedElim: string | undefined = undefined;
       if (p.eliminatorPick) {
         const elimGame = gamesForThisWeek.find(
           (g: any) => g.homeTeam.id === p.eliminatorPick || g.awayTeam.id === p.eliminatorPick
         );
-        if (elimGame && !isGameLocked(elimGame, gamesForThisWeek, settings.lockPolicy, now)) {
+        if (elimGame && isGameLocked(elimGame, gamesForThisWeek, settings.lockPolicy, now)) {
+          maskedElim = p.eliminatorPick;
+        } else {
           maskedElim = "HIDDEN";
         }
       }
