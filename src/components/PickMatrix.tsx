@@ -401,15 +401,15 @@ export function PickMatrix({
           </div>
 
           <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
-            <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
+            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Correct
             </span>
-            <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-              <span className="w-2 h-2 rounded-full bg-rose-500" /> Incorrect
+            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" /> Incorrect
             </span>
             {eliminatorEnabled && (
               <span className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400">
-                <span className="w-3.5 h-2.5 rounded bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-700" /> Survivor Pick
+                <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" /> Survivor Pick
               </span>
             )}
           </div>
