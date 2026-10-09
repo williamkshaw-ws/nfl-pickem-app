@@ -362,11 +362,41 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   }
 
   if (!data || !user) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("last_active_league");
+    }
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-center p-8 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+      <div className="flex-1 flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+        <div className="text-center p-8 max-w-sm w-full bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <p className="text-slate-500 dark:text-slate-400">Failed to load league. It may not exist or you lack access.</p>
+          <p className="text-slate-700 dark:text-slate-300 font-bold mb-1">League Unavailable</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Failed to load league. It may not exist or you lack access.</p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("last_active_league");
+                  window.location.href = "/?landing=true";
+                }
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer"
+            >
+              Return to Landing Page
+            </button>
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("last_active_league");
+                  auth.signOut().then(() => {
+                    window.location.href = "/";
+                  });
+                }
+              }}
+              className="w-full py-2 px-4 rounded-xl text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-bold text-xs transition cursor-pointer"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );

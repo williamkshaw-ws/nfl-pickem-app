@@ -26,6 +26,11 @@ export default function Home() {
   const [leagueChecked, setLeagueChecked] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [memberships, setMemberships] = useState<LeagueMembership[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Modals for 0-league onboarding or direct join
   const [showCreate, setShowCreate] = useState(false);
@@ -72,6 +77,13 @@ export default function Home() {
     const currentUid = user?.id || auth.currentUser?.uid;
     if (!currentUid) {
       setLeagueChecked(false);
+      setIsRedirecting(false);
+      return;
+    }
+
+    const hasLandingParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("landing");
+    if (hasLandingParam) {
+      setLeagueChecked(true);
       setIsRedirecting(false);
       return;
     }
@@ -203,6 +215,13 @@ export default function Home() {
   };
 
   const isAuthenticated = !!(user || auth.currentUser);
+
+  const hasLandingParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("landing");
+
+  // SSR or before client mount, or if ?landing is passed: render LandingPage so server and client initial HTML match 100%
+  if (!mounted || hasLandingParam) {
+    return <LandingPage />;
+  }
 
   // 1. Unauthenticated visitors: show the full landing page!
   if (!isAuthenticated && !loading) {

@@ -346,10 +346,10 @@ export function LandingPage() {
           {/* ─────────────────────────────────────────────────────────────
               3. AUTHENTIC APP INTERACTIVE PREVIEW
           ───────────────────────────────────────────────────────────── */}
-          <div className="mt-14 max-w-5xl mx-auto text-left">
+          <div className="mt-8 sm:mt-14 max-w-5xl mx-auto text-left">
             <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
               {/* Authentic App Header Strip (Matches Header.tsx exactly) */}
-              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
+              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 dark:bg-emerald-600 flex items-center justify-center flex-shrink-0">
                     <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
@@ -381,34 +381,34 @@ export function LandingPage() {
               </div>
 
               {/* Authentic App Navigation Tabs Bar (Static Showcase) */}
-              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center gap-6 sm:gap-8 overflow-x-auto text-xs sm:text-sm font-bold no-scrollbar select-none">
-                <div className="py-3.5 border-b-2 border-slate-900 text-slate-900 dark:border-white dark:text-white flex items-center gap-2 whitespace-nowrap shrink-0">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 flex items-center gap-4 sm:gap-8 overflow-x-auto text-xs sm:text-sm font-bold no-scrollbar select-none">
+                <div className="py-2.5 sm:py-3.5 border-b-2 border-slate-900 text-slate-900 dark:border-white dark:text-white flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>My Picks</span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md inline-block min-w-[36px] text-center bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                     15/15
                   </span>
                 </div>
 
-                <div className="py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-2 whitespace-nowrap shrink-0">
-                  <Grid className="w-4 h-4" />
+                <div className="py-2.5 sm:py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
+                  <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>League Picks</span>
                 </div>
 
-                <div className="py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-2 whitespace-nowrap shrink-0">
-                  <Target className="w-4 h-4" />
+                <div className="py-2.5 sm:py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
+                  <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Survivor</span>
                 </div>
 
-                <div className="py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-2 whitespace-nowrap shrink-0">
-                  <Trophy className="w-4 h-4" />
+                <div className="py-2.5 sm:py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Season Standings</span>
                 </div>
               </div>
 
               {/* Authentic Content Area - Static My Picks Screen */}
-              <div className="p-4 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
-                <div className="space-y-4">
+              <div className="p-3 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
+                <div className="space-y-3 sm:space-y-4">
                     {/* Week Subheader (Matches WeeklyPicks.tsx) */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 gap-2">
                       <div>
@@ -524,7 +524,7 @@ export function LandingPage() {
                     </div>
 
                     {/* Matchup Card 2: Final Game (DET @ BAL) */}
-                    <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex flex-col border-rose-300 dark:border-rose-900 bg-rose-50/10 dark:bg-rose-950/10">
+                    <div className="hidden sm:flex bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex-col border-rose-300 dark:border-rose-900 bg-rose-50/10 dark:bg-rose-950/10">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                           <Clock className="w-3.5 h-3.5" />
@@ -592,7 +592,7 @@ export function LandingPage() {
                     </div>
 
                     {/* Tiebreaker Section (Pick'em only - 100% matches WeeklyPicks.tsx) */}
-                    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 shadow-xs mt-6">
+                    <div className="hidden sm:block bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 shadow-xs mt-6">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-1.5 mb-1">
