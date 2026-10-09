@@ -138,19 +138,39 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     };
   }, [authLoading, user, activeWeek, loadLeagueData, data?.gamesByWeek]);
 
+  // Reset scroll to top whenever changing tabs
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    const raf = requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [activeTab]);
+
   const handleWeekChange = (week: number) => {
     setActiveWeek(week);
     loadLeagueData(week, true);
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   };
 
   const handleTabChange = (newTab: TabType) => {
-    if (newTab === activeTab) return;
+    if (newTab === activeTab) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     if (activeTab === "picks" && hasUnsavedChanges) {
       setPendingNavigation({ type: "tab", target: newTab });
       setShowUnsavedModal(true);
       return;
     }
     setActiveTab(newTab);
+    window.scrollTo(0, 0);
   };
 
   const handleSelectWeek = (week: number) => {
