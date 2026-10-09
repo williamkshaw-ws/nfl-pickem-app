@@ -45,7 +45,7 @@ export function EliminatorPool({
 
   let survivorMessage: React.ReactNode = null;
   
-  if (alivePlayers.length === 1) {
+  if (sortedUsers.length > 1 && alivePlayers.length === 1) {
     survivorMessage = (
       <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 px-4 py-2.5 rounded-xl text-sm font-bold">
         <Trophy className="w-4 h-4 text-amber-500" />
@@ -75,7 +75,7 @@ export function EliminatorPool({
       <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h2 className="text-lg font-black text-slate-900 dark:text-white">Survivor Pool</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Pick one winner every week. Lose or tie and you&apos;re out.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Pick one winner every week. Lose or tie and you&apos;re out (unless all active survivors lose in the same week).</p>
         </div>
       </div>
 

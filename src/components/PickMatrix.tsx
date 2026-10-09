@@ -408,8 +408,8 @@ export function PickMatrix({
               <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" /> Incorrect
             </span>
             {eliminatorEnabled && (
-              <span className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400">
-                <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" /> Survivor Pick
+              <span className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400">
+                <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" /> Survivor Pick
               </span>
             )}
           </div>
@@ -599,7 +599,7 @@ export function PickMatrix({
                                       ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
                                       : stat.elimResult === "lost"
                                       ? "bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
-                                      : "bg-purple-100 dark:bg-purple-950/80 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-800"
+                                      : "bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-800"
                                   }`}
                                 >
                                   <TeamLogo
@@ -674,7 +674,7 @@ export function PickMatrix({
                                       ? isCorrect
                                         ? "bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 text-emerald-950 dark:text-emerald-200 font-black shadow-xs ring-1 ring-emerald-400/30"
                                         : "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
-                                      : "bg-purple-100 dark:bg-purple-950/70 border border-purple-300 dark:border-purple-700/80 text-purple-950 dark:text-purple-200 font-black shadow-xs ring-1 ring-purple-400/30"
+                                      : "bg-blue-100 dark:bg-blue-950/70 border border-blue-300 dark:border-blue-700/80 text-blue-950 dark:text-blue-200 font-black shadow-xs ring-1 ring-blue-400/30"
                                     : isCorrect
                                     ? "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-black"
                                     : isIncorrect

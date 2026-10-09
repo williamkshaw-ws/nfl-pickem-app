@@ -197,7 +197,7 @@ export function WeeklyPicks({
     if (isGameLocked && !isCommissionerEditMode) {
       if (isCurrentElimPick) {
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500 text-white shadow-xs whitespace-nowrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs whitespace-nowrap">
             <Target className="w-3 h-3" />
             <span>Survivor</span>
           </div>
@@ -220,10 +220,10 @@ export function WeeklyPicks({
         disabled={disabled}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap
           ${isCurrentElimPick
-            ? "bg-rose-500 text-white shadow-rose-200 dark:shadow-none"
+            ? "bg-blue-600 text-white shadow-blue-200 dark:shadow-none"
             : isUsed
               ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-              : "bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/80 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              : "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/80 hover:bg-blue-50 dark:hover:bg-blue-950/40"
           }`}
       >
         <Target className="w-3 h-3" />
@@ -317,7 +317,7 @@ export function WeeklyPicks({
             {/* Left: Player Status & Remaining Survivors */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-slate-800 text-white shadow-xs">
-                <Target className="w-3.5 h-3.5 text-rose-400" />
+                <Target className="w-3.5 h-3.5 text-blue-400" />
                 Survivor
               </span>
 
