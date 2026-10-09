@@ -121,6 +121,9 @@ export function PickMatrix({
       const userPicksMap = userPickRecord?.picks || {};
       const tb = userPickRecord?.tiebreaker;
       const elimPickTeamId = userPickRecord?.eliminatorPick;
+      const pickedCount = Object.keys(userPicksMap).filter(
+        (k) => userPicksMap[k] && userPicksMap[k] !== ""
+      ).length;
 
       let correctCount = 0;
       let incorrectCount = 0;
@@ -171,6 +174,7 @@ export function PickMatrix({
         correctCount,
         incorrectCount,
         maxPossible,
+        pickedCount,
         elimPickTeamId,
         elimTeam,
         elimResult,
@@ -560,6 +564,19 @@ export function PickMatrix({
                             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                               · {stat.gamesBack === 0 ? "Leader" : `${stat.gamesBack} ${stat.gamesBack === 1 ? "game back" : "games back"}`}
                             </span>
+                            {completedCount === 0 && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${
+                                  stat.pickedCount === sortedGames.length
+                                    ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                                    : stat.pickedCount > 0
+                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                }`}
+                              >
+                                {stat.pickedCount === sortedGames.length ? "✓ Picks In" : stat.pickedCount > 0 ? `${stat.pickedCount}/${sortedGames.length} Picks` : "No Picks"}
+                              </span>
+                            )}
                           </div>
 
                           {/* Right: Survivor Pick */}
@@ -616,9 +633,10 @@ export function PickMatrix({
                       {/* Pick Cells */}
                       {sortedGames.map((game) => {
                         const pickedTeamId = stat.userPicksMap[game.id];
+                        const hasPicked = Boolean(pickedTeamId);
                         const isFinal = game.status.completed;
                         const isLocked = checkIsGameLocked(game, games, lockPolicy);
-                        const isHidden = pickedTeamId === "HIDDEN" || (!isLocked && user.id !== currentUserId);
+                        const isHidden = hasPicked && (pickedTeamId === "HIDDEN" || (!isLocked && user.id !== currentUserId));
 
                         let pickedTeam: Team | undefined;
                         let isCorrect = false;
@@ -706,7 +724,7 @@ export function PickMatrix({
                             (() => {
                               const isTbLocked = checkIsGameLocked(tbGame, games, lockPolicy);
                               // Hide tiebreaker from other players until the tiebreaker game has kicked off
-                              if (!isTbLocked && user.id !== currentUserId) {
+                              if ((!isTbLocked && user.id !== currentUserId) || (stat.tb as any)?.isHidden) {
                                 return (
                                   <span
                                     className="text-[9px] font-bold text-slate-300 dark:text-slate-600"

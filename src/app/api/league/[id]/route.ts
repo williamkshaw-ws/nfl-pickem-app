@@ -177,7 +177,11 @@ export async function GET(
         gamesForThisWeek.find((g: any) => g.isTiebreakerGame) ||
         [...gamesForThisWeek].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
       const thisTbLocked = thisTbGame ? isGameLocked(thisTbGame, gamesForThisWeek, settings.lockPolicy, now) : false;
-      const maskedTb = thisTbLocked ? p.tiebreaker : undefined;
+      const maskedTb = thisTbLocked
+        ? p.tiebreaker
+        : p.tiebreaker
+        ? { isHidden: true, totalScore: 0, homeScore: 0, awayScore: 0 }
+        : undefined;
 
       let maskedElim = p.eliminatorPick;
       if (p.eliminatorPick) {
