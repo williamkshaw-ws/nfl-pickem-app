@@ -605,14 +605,14 @@ export function CommissionerHub({
                                 <span
                                   className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                                     hasSurvivor
-                                      ? "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/60"
+                                      ? "bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-900/60"
                                       : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
                                   }`}
                                 >
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full ${
                                       hasSurvivor
-                                        ? "bg-blue-600 dark:bg-blue-400"
+                                        ? "bg-fuchsia-600 dark:bg-fuchsia-400"
                                         : "bg-slate-400"
                                     }`}
                                   />
