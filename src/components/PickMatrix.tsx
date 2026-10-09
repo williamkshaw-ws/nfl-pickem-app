@@ -623,13 +623,7 @@ export function PickMatrix({
                     </tr>
 
                     {/* Picks Data Row */}
-                    <tr
-                      className={
-                        isMe
-                          ? "bg-emerald-100/35 dark:bg-emerald-950/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/45 transition-colors"
-                          : "hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
-                      }
-                    >
+                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                       {/* Pick Cells */}
                       {sortedGames.map((game) => {
                         const pickedTeamId = stat.userPicksMap[game.id];
@@ -676,9 +670,9 @@ export function PickMatrix({
                                         : "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
                                       : "bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-700/80 text-orange-950 dark:text-orange-200 font-black shadow-xs ring-1 ring-orange-400/30"
                                     : isCorrect
-                                    ? "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-black"
+                                    ? "bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 text-emerald-950 dark:text-emerald-200 font-black shadow-xs ring-1 ring-emerald-400/30"
                                     : isIncorrect
-                                    ? "bg-rose-500/10 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold opacity-60"
+                                    ? "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
                                     : "text-slate-800 dark:text-slate-200 font-bold"
                                 }`}
                               >

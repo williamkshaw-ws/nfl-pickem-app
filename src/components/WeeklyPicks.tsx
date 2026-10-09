@@ -412,13 +412,6 @@ export function WeeklyPicks({
           const userPickedWinner = isCompleted && userPick === game.winnerTeamId;
           const userPickedLoser = isCompleted && userPick && userPick !== game.winnerTeamId;
 
-          // Row highlight: green for pick'em selections, rose for the survivor team in survivor-only mode
-          const selectedRowClass = isSurvivorOnly
-            ? "bg-rose-50/80 dark:bg-rose-950/40"
-            : "bg-emerald-50/80 dark:bg-emerald-950/40";
-          const selectedTextClass = isSurvivorOnly
-            ? "text-rose-900 dark:text-rose-200"
-            : "text-emerald-900 dark:text-emerald-200";
           const rowInteractive = !isSurvivorOnly && !(isGameLocked && lockPolicy);
 
           return (
@@ -481,44 +474,68 @@ export function WeeklyPicks({
                 {[
                   { team: game.awayTeam, score: game.awayScore, selected: awaySelected, isWinner: isAwayWinner, fallback: "Away" },
                   { team: game.homeTeam, score: game.homeScore, selected: homeSelected, isWinner: isHomeWinner, fallback: "Home" },
-                ].map(({ team, score, selected, isWinner, fallback }) => (
-                  <div
-                    key={team.id}
-                    role={rowInteractive ? "button" : undefined}
-                    tabIndex={rowInteractive ? 0 : undefined}
-                    onClick={() => handlePickSelect(game.id, team.id, isGameLocked)}
-                    className={`flex-1 min-w-0 p-3 flex items-center justify-between transition-colors ${
-                      selected ? selectedRowClass : rowInteractive ? "hover:bg-slate-50 dark:hover:bg-slate-800/50" : ""
-                    } ${rowInteractive ? "cursor-pointer" : "cursor-default"}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <TeamLogo
-                        src={team.logo}
-                        alt={team.abbreviation || team.name}
-                        width={28}
-                        height={28}
-                        className="w-7 h-7 object-contain shrink-0"
-                      />
-                      <div className="text-left min-w-0">
-                        <div className={`text-sm font-bold leading-tight truncate ${selected ? selectedTextClass : "text-slate-900 dark:text-white"}`}>
-                          {team.displayName}
+                ].map(({ team, score, selected, isWinner, fallback }) => {
+                  const isPickWrong = selected && isCompleted && !isWinner;
+                  const itemRowClass = selected
+                    ? isPickWrong
+                      ? "bg-rose-50/80 dark:bg-rose-950/40"
+                      : isSurvivorOnly
+                      ? "bg-orange-50/80 dark:bg-orange-950/40"
+                      : "bg-emerald-50/80 dark:bg-emerald-950/40"
+                    : rowInteractive
+                    ? "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    : "";
+                  const itemTextClass = selected
+                    ? isPickWrong
+                      ? "text-rose-900 dark:text-rose-200"
+                      : isSurvivorOnly
+                      ? "text-orange-900 dark:text-orange-200"
+                      : "text-emerald-900 dark:text-emerald-200"
+                    : "text-slate-900 dark:text-white";
+
+                  return (
+                    <div
+                      key={team.id}
+                      role={rowInteractive ? "button" : undefined}
+                      tabIndex={rowInteractive ? 0 : undefined}
+                      onClick={() => handlePickSelect(game.id, team.id, isGameLocked)}
+                      className={`flex-1 min-w-0 p-3 flex items-center justify-between transition-colors ${itemRowClass} ${
+                        rowInteractive ? "cursor-pointer" : "cursor-default"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <TeamLogo
+                          src={team.logo}
+                          alt={team.abbreviation || team.name}
+                          width={28}
+                          height={28}
+                          className="w-7 h-7 object-contain shrink-0"
+                        />
+                        <div className="text-left min-w-0">
+                          <div className={`text-sm font-bold leading-tight truncate ${itemTextClass}`}>
+                            {team.displayName}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">{team.record || fallback}</div>
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{team.record || fallback}</div>
+                      </div>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        {renderSurvivorButton(team.id, selected, isGameLocked)}
+                        {selected && !isSurvivorOnly && (
+                          isPickWrong ? (
+                            <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                          ) : (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          )
+                        )}
+                        {(isCompleted || isLive) && typeof score === "number" && (
+                          <span className={`text-lg font-black min-w-[28px] text-right tabular-nums ${isWinner ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"}`}>
+                            {score}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      {renderSurvivorButton(team.id, selected, isGameLocked)}
-                      {selected && !isSurvivorOnly && (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      )}
-                      {(isCompleted || isLive) && typeof score === "number" && (
-                        <span className={`text-lg font-black min-w-[28px] text-right tabular-nums ${isWinner ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"}`}>
-                          {score}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Completed Game Result Status */}
