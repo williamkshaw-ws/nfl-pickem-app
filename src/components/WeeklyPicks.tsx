@@ -197,7 +197,7 @@ export function WeeklyPicks({
     if (isGameLocked && !isCommissionerEditMode) {
       if (isCurrentElimPick) {
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-fuchsia-600 text-white shadow-xs whitespace-nowrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white shadow-xs whitespace-nowrap">
             <Target className="w-3 h-3" />
             <span>Survivor</span>
           </div>
@@ -220,10 +220,10 @@ export function WeeklyPicks({
         disabled={disabled}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap
           ${isCurrentElimPick
-            ? "bg-fuchsia-600 text-white shadow-fuchsia-200 dark:shadow-none hover:bg-fuchsia-500"
+            ? "bg-orange-500 text-white shadow-orange-200 dark:shadow-none hover:bg-orange-600"
             : isUsed
               ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-              : "bg-white dark:bg-slate-800 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-200 dark:border-fuchsia-900/80 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/40"
+              : "bg-white dark:bg-slate-800 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-900/80 hover:bg-orange-50 dark:hover:bg-orange-950/40"
           }`}
       >
         <Target className="w-3 h-3" />
@@ -317,7 +317,7 @@ export function WeeklyPicks({
             {/* Left: Player Status & Remaining Survivors */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-slate-800 text-white shadow-xs">
-                <Target className="w-3.5 h-3.5 text-fuchsia-400" />
+                <Target className="w-3.5 h-3.5 text-orange-400" />
                 Survivor
               </span>
 

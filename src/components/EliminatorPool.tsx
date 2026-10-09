@@ -152,7 +152,7 @@ export function EliminatorPool({
                             <div className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded font-bold transition-colors ${
                               pick.result === "won" ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/60" : 
                               pick.result === "lost" ? "text-rose-700 dark:text-rose-300 bg-rose-50/80 dark:bg-rose-950/60" : 
-                              "text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800"
+                              "text-orange-950 dark:text-orange-200 bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-700/80 shadow-xs ring-1 ring-orange-400/30"
                             }`}>
                               <TeamLogo
                                 src={pick.logo}
