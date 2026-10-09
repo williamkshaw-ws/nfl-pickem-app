@@ -526,7 +526,7 @@ export function WeeklyPicks({
                 <div className="bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-xs">
                   {userPickedWinner ? (
                     <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> {isSurvivorOnly ? "Survived" : "Correct (+1)"}
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {isSurvivorOnly ? "Survived" : "Correct"}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-400">
