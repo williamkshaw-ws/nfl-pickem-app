@@ -57,24 +57,38 @@ export async function GET(
     const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;
     const now = Date.now();
 
-    // Check if background ESPN sync is needed (non-blocking stale-while-revalidate)
+    // Check if ESPN sync is needed
     const currentWeekGames = gamesByWeek[activeWeek] || [];
-    const hasLiveGames = currentWeekGames.some((g: any) => g.status?.state === "in");
+    const hasLiveGames = currentWeekGames.some((g: any) => 
+      g.status?.state === "in" || 
+      (!g.status?.completed && now >= new Date(g.date).getTime() && now <= new Date(g.date).getTime() + 4.5 * 3600 * 1000)
+    );
     const hasPendingGames = currentWeekGames.some((g: any) => !g.status?.completed);
-    const syncThrottle = hasLiveGames ? 45_000 : hasPendingGames ? 120_000 : 300_000;
+    const syncThrottle = hasLiveGames ? 20_000 : hasPendingGames ? 60_000 : 300_000;
 
     if (!lastAutoSyncByWeek[activeWeek] || now - lastAutoSyncByWeek[activeWeek] > syncThrottle) {
       lastAutoSyncByWeek[activeWeek] = now;
-      // Run sync in the background so the user request returns immediately without delay
-      syncWeekFromEspn(activeWeek, settings.seasonYear || 2026)
-        .then(() => {
-          if (activeWeek > 1 && !lastAutoSyncByWeek[activeWeek - 1]) {
-            syncWeekFromEspn(activeWeek - 1, settings.seasonYear || 2026).catch(() => {});
+      if (hasLiveGames) {
+        // Await fresh sync during live games so the response delivers the latest scores immediately
+        try {
+          const syncRes = await syncWeekFromEspn(activeWeek, settings.seasonYear || 2026);
+          if (syncRes.synced && syncRes.games) {
+            gamesByWeek[activeWeek] = syncRes.games;
           }
-        })
-        .catch((syncErr) => {
-          console.warn("Background ESPN sync warning:", syncErr);
-        });
+        } catch (syncErr) {
+          console.warn("ESPN sync warning:", syncErr);
+        }
+      } else {
+        syncWeekFromEspn(activeWeek, settings.seasonYear || 2026)
+          .then(() => {
+            if (activeWeek > 1 && !lastAutoSyncByWeek[activeWeek - 1]) {
+              syncWeekFromEspn(activeWeek - 1, settings.seasonYear || 2026).catch(() => {});
+            }
+          })
+          .catch((syncErr) => {
+            console.warn("Background ESPN sync warning:", syncErr);
+          });
+      }
     }
 
     const db = adminDb();

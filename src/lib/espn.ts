@@ -76,7 +76,7 @@ export async function fetchEspnWeekGames(
 
     const fullUrl = `${url}?${params.toString()}`;
     const res = await fetch(fullUrl, {
-      next: { revalidate: 60 }, // Cache for 60 seconds
+      next: { revalidate: 15 }, // Cache for 15 seconds to ensure near real-time live scores
       headers: {
         Accept: "application/json",
       },

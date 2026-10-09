@@ -102,14 +102,41 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     loadLeagueData();
   }, [authLoading, user, router, loadLeagueData]);
 
-  // Silently refresh live scores in the background every 45s without flashing loaders
+  // Silently refresh live scores in the background (every 20s during live games, otherwise 60s)
   useEffect(() => {
     if (authLoading || !user) return;
+
+    const games = data?.gamesByWeek[activeWeek] || [];
+    const now = Date.now();
+    const hasLiveGames = games.some(
+      (g: any) =>
+        g.status?.state === "in" ||
+        (!g.status?.completed &&
+          now >= new Date(g.date).getTime() &&
+          now <= new Date(g.date).getTime() + 4.5 * 3600 * 1000)
+    );
+    const pollInterval = hasLiveGames ? 20_000 : 60_000;
+
     const interval = setInterval(() => {
       loadLeagueData(activeWeek, true);
-    }, 45_000);
-    return () => clearInterval(interval);
-  }, [authLoading, user, activeWeek, loadLeagueData]);
+    }, pollInterval);
+
+    // Immediately fetch latest scores when tab becomes active / device unlocked
+    const handleFocusOrVisible = () => {
+      if (document.visibilityState === "visible") {
+        loadLeagueData(activeWeek, true);
+      }
+    };
+
+    window.addEventListener("focus", handleFocusOrVisible);
+    document.addEventListener("visibilitychange", handleFocusOrVisible);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocusOrVisible);
+      document.removeEventListener("visibilitychange", handleFocusOrVisible);
+    };
+  }, [authLoading, user, activeWeek, loadLeagueData, data?.gamesByWeek]);
 
   const handleWeekChange = (week: number) => {
     setActiveWeek(week);
