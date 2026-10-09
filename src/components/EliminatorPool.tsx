@@ -66,22 +66,7 @@ export function EliminatorPool({
           <span><strong className="font-black">{longestSurvivors[0].name}</strong> wins by surviving the longest (Out Wk {maxWeek})!</span>
         </div>
       );
-    } else if (longestSurvivors.length > 1) {
-      survivorMessage = (
-        <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 px-4 py-2.5 rounded-xl text-sm font-bold">
-          <Trophy className="w-4 h-4 text-amber-500" />
-          <span><strong className="font-black">{longestSurvivors.length}-way tie</strong> for the win! Multiple players made it to Week {maxWeek}.</span>
-        </div>
-      );
     }
-  } else if (alivePlayers.length > 1 && activeWeek === 18) {
-    // If we've reached the end and multiple are alive
-    survivorMessage = (
-      <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 px-4 py-2.5 rounded-xl text-sm font-bold">
-        <Trophy className="w-4 h-4 text-amber-500" />
-        <span><strong className="font-black">{alivePlayers.map(p => p.name).join(" & ")}</strong> tie by surviving the entire season!</span>
-      </div>
-    );
   }
 
   return (

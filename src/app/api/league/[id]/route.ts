@@ -229,17 +229,22 @@ export async function GET(
     // Calculate Eliminator / Survivor pool status
     let eliminatorStatus: any[] = [];
     if (settings.eliminatorEnabled) {
-      eliminatorStatus = users.map((u) => {
-        let status: "Alive" | "Eliminated" = "Alive";
-        let eliminatedWeek: number | undefined;
-        const picksByWeek: Record<number, any> = {};
+      const limit = Math.max(activeWeek, settings.currentWeek);
 
-        const limit = Math.max(activeWeek, settings.currentWeek);
+      // Pre-compute picks and outcomes for each user and week
+      const userPicksByWeek: Record<string, Record<number, any>> = {};
+      const userResultByWeek: Record<string, Record<number, "won" | "lost" | "pending">> = {};
+
+      for (const u of users) {
+        userPicksByWeek[u.id] = {};
+        userResultByWeek[u.id] = {};
+
         for (let w = 1; w <= limit; w++) {
           const userPick = rawAllPicks.find((p) => p.userId === u.id && p.week === w);
           const elimPick = userPick?.eliminatorPick;
+          const gamesForW = gamesByWeek[w] || [];
+
           if (elimPick) {
-            const gamesForW = gamesByWeek[w] || [];
             const game = gamesForW.find(
               (g: any) => g.homeTeam.id === elimPick || g.awayTeam.id === elimPick
             );
@@ -264,24 +269,86 @@ export async function GET(
             const isPickLocked = game ? isGameLocked(game, gamesForW, settings.lockPolicy, now) : false;
             const hideToCaller = u.id !== caller.uid && !isPickLocked;
 
-            picksByWeek[w] = {
+            const res: "won" | "lost" | "pending" = won ? "won" : lost ? "lost" : "pending";
+            userResultByWeek[u.id][w] = res;
+
+            userPicksByWeek[u.id][w] = {
               teamId: hideToCaller ? "HIDDEN" : elimPick,
               abbreviation: hideToCaller ? "Hidden" : pickedTeam?.abbreviation || elimPick,
               logo: hideToCaller ? undefined : pickedTeam?.logo,
-              result: won ? "won" : lost ? "lost" : "pending",
+              result: res,
             };
+          } else {
+            // User did not make an eliminator pick for week w
+            const isWeekPast = w < settings.currentWeek;
+            const isWeekComplete = gamesForW.length > 0 && gamesForW.every((g: any) => g.status?.completed);
+            const isWeekFullyLocked = gamesForW.length > 0 && gamesForW.every((g: any) => isGameLocked(g, gamesForW, settings.lockPolicy, now));
 
-            if (lost && status === "Alive") {
-              status = "Eliminated";
-              eliminatedWeek = w;
+            if (isWeekPast || isWeekComplete || isWeekFullyLocked) {
+              userResultByWeek[u.id][w] = "lost";
+            } else {
+              userResultByWeek[u.id][w] = "pending";
             }
           }
         }
+      }
+
+      // Track active survivors week by week
+      let activeSurvivors = users.map((u) => u.id);
+      const eliminatedWeekByUser: Record<string, number> = {};
+
+      for (let w = 1; w <= limit; w++) {
+        // Only evaluate weeks where at least one person in the league made a survivor pick
+        const weekHadSurvivorPicks = rawAllPicks.some((p) => p.week === w && !!p.eliminatorPick);
+        if (!weekHadSurvivorPicks) continue;
+
+        // If at most one survivor remains, pool has concluded
+        if (activeSurvivors.length <= 1) break;
+
+        const winners: string[] = [];
+        const inProgress: string[] = [];
+        const losers: string[] = [];
+
+        for (const uid of activeSurvivors) {
+          const res = userResultByWeek[uid][w];
+          if (res === "won") winners.push(uid);
+          else if (res === "pending") inProgress.push(uid);
+          else losers.push(uid);
+        }
+
+        if (inProgress.length > 0) {
+          // Week is still in progress for active survivors
+          if (winners.length > 0) {
+            // At least one survivor has already won; players who lost cannot be saved by mutual wipeout
+            for (const uid of losers) {
+              eliminatedWeekByUser[uid] = w;
+            }
+            activeSurvivors = activeSurvivors.filter((uid) => !losers.includes(uid));
+          }
+          // If winners.length === 0, wait until games finish (could be mutual wipeout)
+        } else {
+          // All games finished for active survivors in week w
+          if (winners.length > 0) {
+            // Regular elimination: losers are eliminated, winners survive
+            for (const uid of losers) {
+              eliminatedWeekByUser[uid] = w;
+            }
+            activeSurvivors = winners;
+          } else {
+            // MUTUAL WIPEOUT!
+            // Everyone remaining was eliminated with no winners.
+            // Under the resurrection rule, all active survivors stay alive and advance to next week.
+          }
+        }
+      }
+
+      eliminatorStatus = users.map((u) => {
+        const isAlive = activeSurvivors.includes(u.id);
         return {
           userId: u.id,
-          status,
-          eliminatedWeek,
-          picksByWeek,
+          status: isAlive ? "Alive" : "Eliminated",
+          eliminatedWeek: isAlive ? undefined : eliminatedWeekByUser[u.id],
+          picksByWeek: userPicksByWeek[u.id] || {},
         };
       });
     }
