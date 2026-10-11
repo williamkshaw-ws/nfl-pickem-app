@@ -135,7 +135,21 @@ export function PickMatrix({
         }
       });
 
-      const maxPossible = correctCount + remainingCount;
+      // Calculate true maximum possible points remaining
+      let potentialRemaining = 0;
+      remainingGames.forEach((g) => {
+        const isLocked = checkIsGameLocked(g, games, lockPolicy);
+        const pick = userPicksMap[g.id];
+        if (pick && pick !== "" && pick !== "HIDDEN") {
+          potentialRemaining++;
+        } else if (pick === "HIDDEN") {
+          potentialRemaining++;
+        } else if (!isLocked && lockPolicy !== "week") {
+          potentialRemaining++;
+        }
+      });
+
+      const maxPossible = correctCount + potentialRemaining;
 
       // Survivor result for this week
       let elimResult: "won" | "lost" | "in_play" | "pending" | "none" = "none";
@@ -181,7 +195,7 @@ export function PickMatrix({
         isElimGameLocked,
       };
     });
-  }, [allPicks, activeWeek, users, completedGames, remainingCount, sortedGames, games, lockPolicy, actualTbTotal]);
+  }, [allPicks, activeWeek, users, completedGames, remainingGames, sortedGames, games, lockPolicy, actualTbTotal]);
 
   // Highest current score
   const maxCurrentCorrect = useMemo(() => {
@@ -244,18 +258,9 @@ export function PickMatrix({
   const playerContentionMap = useMemo(() => {
     const map = new Map<string, { status: string; label: string; detail: string; badgeColor: string }>();
 
-    rankedPlayers.forEach((p) => {
-      if (completedCount === 0) {
-        map.set(p.user.id, {
-          status: "contending",
-          label: "In Contention",
-          detail: `${totalGamesCount} to play`,
-          badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
-        });
-        return;
-      }
-
-      if (isWeekFinished) {
+    // If active week is completely finished
+    if (isWeekFinished) {
+      rankedPlayers.forEach((p) => {
         if (p.isWeeklyWinner || (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0)) {
           map.set(p.user.id, {
             status: "winner",
@@ -263,22 +268,98 @@ export function PickMatrix({
             detail: `${p.correctCount} pts`,
             badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
           });
-          return;
+        } else {
+          map.set(p.user.id, {
+            status: "finished",
+            label: "Finished",
+            detail: `${p.correctCount} pts`,
+            badgeColor: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+          });
         }
+      });
+      return map;
+    }
+
+    // If 0 games have completed AND no games have locked/started yet
+    const anyGameLockedOrStarted = games.some((g) => checkIsGameLocked(g, games, lockPolicy));
+    if (completedCount === 0 && !anyGameLockedOrStarted) {
+      rankedPlayers.forEach((p) => {
         map.set(p.user.id, {
-          status: "finished",
-          label: "Finished",
-          detail: `${p.correctCount} pts`,
-          badgeColor: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+          status: "contending",
+          label: "In Contention",
+          detail: `${totalGamesCount} to play`,
+          badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
         });
+      });
+      return map;
+    }
+
+    // Step 1: Identify which players are mathematically eliminated
+    const eliminatedPlayers = new Set<string>();
+    const eliminationDetails = new Map<string, string>();
+
+    rankedPlayers.forEach((p) => {
+      // Condition 1: Player's absolute maximum possible points cannot reach the leader's current score
+      if (p.maxPossible < maxCurrentCorrect && maxCurrentCorrect > 0) {
+        eliminatedPlayers.add(p.user.id);
+        eliminationDetails.set(p.user.id, `Max: ${p.maxPossible} pts`);
         return;
       }
 
-      if (p.maxPossible < maxCurrentCorrect) {
+      // Condition 2: Head-to-head pick elimination against players with higher current scores
+      for (const other of rankedPlayers) {
+        if (other.user.id === p.user.id) continue;
+        if (other.correctCount <= p.correctCount) continue;
+
+        // How many games can `p` gain on `other` across the remaining uncompleted games?
+        let maxGainsOnOther = 0;
+        for (const g of remainingGames) {
+          const isLocked = checkIsGameLocked(g, games, lockPolicy);
+          const pPick = p.userPicksMap[g.id];
+          const oPick = other.userPicksMap[g.id];
+
+          if (pPick && pPick !== "" && pPick !== "HIDDEN") {
+            if (oPick && oPick !== "" && oPick !== "HIDDEN") {
+              if (pPick !== oPick) {
+                // Different picks: if p wins and other loses, p gains 1 game
+                maxGainsOnOther++;
+              }
+              // If pPick === oPick, both picked the same team so p can NEVER gain on other!
+            } else if (!isLocked) {
+              // other pick is not locked/known yet; other could pick differently
+              maxGainsOnOther++;
+            } else {
+              // Game locked and other has no pick; p can gain 1
+              maxGainsOnOther++;
+            }
+          } else if (!isLocked && lockPolicy !== "week") {
+            // p has no pick yet, but game is unlocked; p could still submit a pick
+            maxGainsOnOther++;
+          }
+        }
+
+        // If other's lead over p is strictly greater than the maximum games p can gain on other:
+        // Even if all remaining games go 100% in p's favor, p cannot even tie other!
+        if (p.correctCount + maxGainsOnOther < other.correctCount) {
+          eliminatedPlayers.add(p.user.id);
+          eliminationDetails.set(
+            p.user.id,
+            p.maxPossible < maxCurrentCorrect
+              ? `Max: ${p.maxPossible} pts`
+              : `Uncatchable (Max: ${p.maxPossible} pts)`
+          );
+          return;
+        }
+      }
+    });
+
+    // Step 2: Assign contention status
+    rankedPlayers.forEach((p) => {
+      if (eliminatedPlayers.has(p.user.id)) {
         map.set(p.user.id, {
           status: "eliminated",
           label: "Eliminated",
-          detail: `Max: ${p.maxPossible} pts`,
+          detail: eliminationDetails.get(p.user.id) || `Max: ${p.maxPossible} pts`,
           badgeColor: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900",
         });
         return;
@@ -286,8 +367,10 @@ export function PickMatrix({
 
       if (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0) {
         const others = rankedPlayers.filter((o) => o.user.id !== p.user.id);
-        const maxOther = Math.max(...others.map((o) => o.maxPossible), 0);
-        if (p.correctCount > maxOther) {
+        const allOthersEliminated = others.length > 0 && others.every((o) => eliminatedPlayers.has(o.user.id));
+        const maxOtherPossible = Math.max(...others.map((o) => o.maxPossible), 0);
+
+        if (allOthersEliminated || p.correctCount > maxOtherPossible) {
           map.set(p.user.id, {
             status: "clinched",
             label: "Clinched 1st",
@@ -296,6 +379,7 @@ export function PickMatrix({
           });
           return;
         }
+
         map.set(p.user.id, {
           status: "leader",
           label: "Leader",
@@ -314,7 +398,7 @@ export function PickMatrix({
     });
 
     return map;
-  }, [rankedPlayers, completedCount, isWeekFinished, maxCurrentCorrect, totalGamesCount]);
+  }, [rankedPlayers, completedCount, isWeekFinished, maxCurrentCorrect, totalGamesCount, games, remainingGames, lockPolicy]);
 
   const inContentionCount = useMemo(() => {
     return Array.from(playerContentionMap.values()).filter(
