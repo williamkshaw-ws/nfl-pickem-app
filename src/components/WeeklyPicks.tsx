@@ -21,6 +21,7 @@ import {
   Lock,
   Skull,
   Shield,
+  AlertCircle,
 } from "lucide-react";
 
 interface WeeklyPicksProps {
@@ -58,6 +59,10 @@ export function WeeklyPicks({
   onSavePicks,
 }: WeeklyPicksProps) {
   const isSurvivorOnly = !pickemEnabled && !!eliminatorEnabled;
+  const userElimStatus = eliminatorStatus?.find((s) => s.userId === currentUser.id);
+  const isUserEliminated = userElimStatus?.status === "Eliminated";
+  const eliminatedWeek = userElimStatus?.eliminatedWeek;
+  const isEliminatedPriorToThisWeek = isUserEliminated && (eliminatedWeek === undefined || eliminatedWeek < activeWeek);
 
   const [selectedPicks, setSelectedPicks] = useState<Record<string, string>>({});
   const [homeScoreInput, setHomeScoreInput] = useState<string>("");
@@ -156,7 +161,14 @@ export function WeeklyPicks({
 
   const handlePickSelect = (gameId: string, teamId: string, isGameLocked: boolean) => {
     // Survivor-only leagues don't pick game winners at all
-    if (isSurvivorOnly) return;
+    if (isSurvivorOnly) {
+      if (isEliminatedPriorToThisWeek && !isCommissionerEditMode) return;
+      if (isGameLocked && !isCommissionerEditMode) return;
+      const isCurrent = eliminatorPick === teamId;
+      setEliminatorPick(isCurrent ? "" : teamId);
+      setSaveSuccess(false);
+      return;
+    }
     if (isGameLocked && !isCommissionerEditMode) return;
 
     setSelectedPicks((prev) => ({
@@ -167,6 +179,7 @@ export function WeeklyPicks({
   };
 
   const handleSave = async () => {
+    if (isSurvivorOnly && isEliminatedPriorToThisWeek && !isCommissionerEditMode) return;
     setIsSaving(true);
     try {
       let tiebreaker: TiebreakerPrediction | undefined = undefined;
@@ -178,7 +191,8 @@ export function WeeklyPicks({
         };
       }
 
-      await onSavePicks(isSurvivorOnly ? {} : selectedPicks, tiebreaker, eliminatorPick || undefined);
+      const safeElimPick = isEliminatedPriorToThisWeek && !isCommissionerEditMode ? undefined : (eliminatorPick || undefined);
+      await onSavePicks(isSurvivorOnly ? {} : selectedPicks, tiebreaker, safeElimPick);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } finally {
@@ -191,6 +205,18 @@ export function WeeklyPicks({
 
     const isUsed = usedEliminatorTeams?.includes(teamId);
     const isCurrentElimPick = eliminatorPick === teamId;
+
+    if (isEliminatedPriorToThisWeek && !isCommissionerEditMode) {
+      if (isCurrentElimPick) {
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 whitespace-nowrap opacity-60">
+            <Skull className="w-3 h-3 text-rose-500" />
+            <span>Eliminated</span>
+          </div>
+        );
+      }
+      return null;
+    }
 
     // In combined mode, only offer the button on teams picked to win.
     // In survivor-only mode, every team gets the button.
@@ -269,9 +295,6 @@ export function WeeklyPicks({
     return g.status.completed || g.status.state === "in" || now >= new Date(g.date).getTime();
   });
 
-  const userElimStatus = eliminatorStatus?.find((s) => s.userId === currentUser.id);
-  const isUserEliminated = userElimStatus?.status === "Eliminated";
-  const eliminatedWeek = userElimStatus?.eliminatedWeek;
   const aliveCount = eliminatorStatus?.filter((s) => s.status === "Alive").length ?? 0;
   const totalCount = totalMembersCount || eliminatorStatus?.length || 0;
 
@@ -373,6 +396,15 @@ export function WeeklyPicks({
               ) : null}
             </div>
           </div>
+
+          {isEliminatedPriorToThisWeek && !isCommissionerEditMode && (
+            <div className="mt-3 pt-2.5 border-t border-rose-200/60 dark:border-rose-900/40 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-500" />
+              <span>
+                You were eliminated {eliminatedWeek ? `in Week ${eliminatedWeek}` : "in a prior week"} and can no longer make survivor picks for subsequent weeks.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -414,8 +446,9 @@ export function WeeklyPicks({
 
           const userPickedWinner = isCompleted && isPickCorrect(game, userPick);
           const userPickedLoser = isCompleted && Boolean(userPick) && !userPickedWinner;
-
-          const rowInteractive = !isSurvivorOnly && !(isGameLocked && lockPolicy);
+          const rowInteractive = isSurvivorOnly
+            ? (!isEliminatedPriorToThisWeek || isCommissionerEditMode) && !isGameLocked
+            : !(isGameLocked && lockPolicy);
 
           return (
             <div
@@ -660,21 +693,30 @@ export function WeeklyPicks({
           <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white rounded-full p-2 pl-4 flex items-center justify-between shadow-2xl border border-slate-200 dark:border-slate-800 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
               {isSurvivorOnly ? (
-                <>
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${survivorTeam ? "bg-emerald-500" : "bg-amber-400 animate-pulse"}`} />
-                  {survivorTeam && (
-                    <TeamLogo
-                      src={survivorTeam.logo}
-                      alt={survivorTeam.abbreviation}
-                      width={18}
-                      height={18}
-                      className="w-4.5 h-4.5 object-contain shrink-0"
-                    />
-                  )}
-                  <div className="text-sm font-black text-slate-900 dark:text-white leading-tight truncate">
-                    {survivorTeam ? `Survivor: ${survivorTeam.displayName}` : "No survivor selected"}
-                  </div>
-                </>
+                isEliminatedPriorToThisWeek && !isCommissionerEditMode ? (
+                  <>
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-rose-500" />
+                    <div className="text-xs sm:text-sm font-bold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                      Eliminated{eliminatedWeek ? ` (Wk ${eliminatedWeek})` : ""} — Cannot make picks
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${survivorTeam ? "bg-emerald-500" : "bg-amber-400 animate-pulse"}`} />
+                    {survivorTeam && (
+                      <TeamLogo
+                        src={survivorTeam.logo}
+                        alt={survivorTeam.abbreviation}
+                        width={18}
+                        height={18}
+                        className="w-4.5 h-4.5 object-contain shrink-0"
+                      />
+                    )}
+                    <div className="text-sm font-black text-slate-900 dark:text-white leading-tight truncate">
+                      {survivorTeam ? `Survivor: ${survivorTeam.displayName}` : "No survivor selected"}
+                    </div>
+                  </>
+                )
               ) : (
                 <>
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
@@ -722,8 +764,12 @@ export function WeeklyPicks({
             </div>
             <button
               onClick={handleSave}
-              disabled={isSaving}
-              className="px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-sm transition shadow-sm flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+              disabled={isSaving || (isSurvivorOnly && isEliminatedPriorToThisWeek && !isCommissionerEditMode)}
+              className={`px-5 py-2.5 rounded-full font-black text-sm transition shadow-sm flex items-center gap-1.5 flex-shrink-0 ${
+                isSurvivorOnly && isEliminatedPriorToThisWeek && !isCommissionerEditMode
+                  ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white cursor-pointer"
+              }`}
             >
               {isSaving ? (
                 <span>Saving...</span>

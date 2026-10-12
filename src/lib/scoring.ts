@@ -393,3 +393,176 @@ export function calculateSeasonStandings(
 
   return standings;
 }
+
+export interface SurvivorPickInfo {
+  teamId: string;
+  abbreviation: string;
+  logo?: string;
+  result: "won" | "lost" | "pending";
+}
+
+export interface SurvivorUserStatus {
+  userId: string;
+  status: "Alive" | "Eliminated";
+  eliminatedWeek?: number;
+  picksByWeek: Record<number, SurvivorPickInfo>;
+}
+
+/**
+ * Calculates Survivor / Eliminator pool status across all weeks.
+ * - Players who did not make a pick in any completed/locked week are eliminated in that week.
+ * - Players who lose a game are eliminated (unless saved by mutual wipeout).
+ * - Players eliminated in week W cannot have survivor picks in any subsequent week (w > W).
+ */
+export function calculateSurvivorStatus(
+  gamesByWeek: Record<number, any[]>,
+  users: { id: string; name?: string }[],
+  rawAllPicks: any[],
+  currentWeek: number,
+  limitWeek: number,
+  lockPolicy: string = "game",
+  currentUserId?: string,
+  now: number = Date.now()
+): SurvivorUserStatus[] {
+  const userPicksByWeek: Record<string, Record<number, SurvivorPickInfo>> = {};
+  const userResultByWeek: Record<string, Record<number, "won" | "lost" | "pending">> = {};
+
+  for (const u of users) {
+    userPicksByWeek[u.id] = {};
+    userResultByWeek[u.id] = {};
+
+    for (let w = 1; w <= limitWeek; w++) {
+      const userPick = rawAllPicks.find((p) => p.userId === u.id && p.week === w);
+      const elimPick = userPick?.eliminatorPick;
+      const gamesForW = gamesByWeek[w] || [];
+
+      if (elimPick) {
+        const game = gamesForW.find(
+          (g: any) => g.homeTeam.id === elimPick || g.awayTeam.id === elimPick
+        );
+
+        let won = false;
+        let lost = false;
+        if (game && game.status.completed) {
+          const homeScore = game.homeScore || 0;
+          const awayScore = game.awayScore || 0;
+          const isTie = homeScore === awayScore || game.winnerTeamId === "TIE";
+          if (isTie) {
+            won = true;
+          } else if (elimPick === game.homeTeam.id && homeScore > awayScore) {
+            won = true;
+          } else if (elimPick === game.awayTeam.id && awayScore > homeScore) {
+            won = true;
+          } else {
+            lost = true;
+          }
+        }
+
+        const pickedTeam = game
+          ? game.homeTeam.id === elimPick
+            ? game.homeTeam
+            : game.awayTeam
+          : undefined;
+
+        let isPickLocked = false;
+        if (game) {
+          if (lockPolicy === "first_game") {
+            const earliestTime = Math.min(...gamesForW.map((g: any) => new Date(g.date).getTime()));
+            isPickLocked = now >= earliestTime;
+          } else {
+            isPickLocked = now >= new Date(game.date).getTime();
+          }
+        }
+
+        const hideToCaller = currentUserId && u.id !== currentUserId && !isPickLocked;
+        const res: "won" | "lost" | "pending" = won ? "won" : lost ? "lost" : "pending";
+        userResultByWeek[u.id][w] = res;
+
+        userPicksByWeek[u.id][w] = {
+          teamId: hideToCaller ? "HIDDEN" : elimPick,
+          abbreviation: hideToCaller ? "Hidden" : pickedTeam?.abbreviation || elimPick,
+          logo: hideToCaller ? undefined : pickedTeam?.logo,
+          result: res,
+        };
+      } else {
+        const isWeekPast = w < currentWeek;
+        const isWeekComplete = gamesForW.length > 0 && gamesForW.every((g: any) => g.status?.completed);
+        let isWeekFullyLocked = false;
+        if (gamesForW.length > 0) {
+          if (lockPolicy === "first_game") {
+            const earliest = Math.min(...gamesForW.map((g: any) => new Date(g.date).getTime()));
+            isWeekFullyLocked = now >= earliest;
+          } else {
+            isWeekFullyLocked = gamesForW.every((g: any) => now >= new Date(g.date).getTime());
+          }
+        }
+
+        if (isWeekPast || isWeekComplete || isWeekFullyLocked) {
+          userResultByWeek[u.id][w] = "lost";
+        } else {
+          userResultByWeek[u.id][w] = "pending";
+        }
+      }
+    }
+  }
+
+  let activeSurvivors = users.map((u) => u.id);
+  const eliminatedWeekByUser: Record<string, number> = {};
+
+  for (let w = 1; w <= limitWeek; w++) {
+    const weekHadSurvivorPicks = rawAllPicks.some((p) => p.week === w && !!p.eliminatorPick);
+    if (!weekHadSurvivorPicks) continue;
+
+    if (activeSurvivors.length <= 1) break;
+
+    const winners: string[] = [];
+    const inProgress: string[] = [];
+    const losers: string[] = [];
+
+    for (const uid of activeSurvivors) {
+      const res = userResultByWeek[uid][w];
+      if (res === "won") winners.push(uid);
+      else if (res === "pending") inProgress.push(uid);
+      else losers.push(uid);
+    }
+
+    if (inProgress.length > 0) {
+      if (winners.length > 0) {
+        for (const uid of losers) {
+          eliminatedWeekByUser[uid] = w;
+        }
+        activeSurvivors = activeSurvivors.filter((uid) => !losers.includes(uid));
+      }
+    } else {
+      if (winners.length > 0) {
+        for (const uid of losers) {
+          eliminatedWeekByUser[uid] = w;
+        }
+        activeSurvivors = winners;
+      }
+    }
+  }
+
+  return users.map((u) => {
+    const isAlive = activeSurvivors.includes(u.id);
+    const eliminatedWeek = isAlive ? undefined : eliminatedWeekByUser[u.id];
+
+    // Exclude picks made in weeks AFTER elimination so eliminated users don't display picks
+    const cleanPicksByWeek: Record<number, SurvivorPickInfo> = {};
+    const userPicks = userPicksByWeek[u.id] || {};
+    for (const [wStr, pInfo] of Object.entries(userPicks)) {
+      const w = parseInt(wStr, 10);
+      if (eliminatedWeek && w > eliminatedWeek) {
+        continue;
+      }
+      cleanPicksByWeek[w] = pInfo;
+    }
+
+    return {
+      userId: u.id,
+      status: isAlive ? "Alive" : "Eliminated",
+      eliminatedWeek,
+      picksByWeek: cleanPicksByWeek,
+    };
+  });
+}

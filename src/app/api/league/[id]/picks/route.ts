@@ -9,6 +9,7 @@ import {
   HttpError,
 } from "@/lib/server-auth";
 import { getDatabase } from "@/lib/storage";
+import { calculateSurvivorStatus } from "@/lib/scoring";
 
 export async function POST(
   request: Request,
@@ -43,6 +44,7 @@ export async function POST(
     const existingElimPick = existingData?.eliminatorPick;
 
     const jsonDb = getDatabase();
+    const currentWeek = league.settings?.currentWeek || jsonDb.settings?.currentWeek || 1;
     const weekGames = jsonDb.gamesByWeek[targetWeek] || [];
     const lockPolicy = league.settings?.lockPolicy || "game";
     const now = Date.now();
@@ -95,6 +97,44 @@ export async function POST(
 
     // 2. Validate survivor pick
     if (eliminatorPick && typeof eliminatorPick === "string" && eliminatorPick !== existingElimPick) {
+      if (!isOverride) {
+        // Enforce that eliminated players cannot make survivor picks in subsequent weeks
+        const allLeaguePicksSnap = await db
+          .collection("picks")
+          .where("leagueId", "==", leagueId)
+          .get();
+        const allLeagueMembersSnap = await db
+          .collection("memberships")
+          .where("leagueId", "==", leagueId)
+          .get();
+
+        const memberUsers = allLeagueMembersSnap.docs.map((d) => ({ id: d.data().userId }));
+        const rawPicks = allLeaguePicksSnap.docs.map((d) => d.data());
+
+        const statuses = calculateSurvivorStatus(
+          jsonDb.gamesByWeek,
+          memberUsers,
+          rawPicks,
+          currentWeek,
+          Math.max(targetWeek, currentWeek),
+          lockPolicy,
+          caller.uid,
+          now
+        );
+
+        const myStatus = statuses.find((s) => s.userId === targetUserId);
+        if (
+          myStatus &&
+          myStatus.status === "Eliminated" &&
+          (myStatus.eliminatedWeek === undefined || myStatus.eliminatedWeek < targetWeek)
+        ) {
+          throw new HttpError(
+            400,
+            "You have been eliminated from the survivor pool and can no longer make survivor picks."
+          );
+        }
+      }
+
       const elimGame = weekGames.find(
         (g: any) => g.homeTeam.id === eliminatorPick || g.awayTeam.id === eliminatorPick
       );
