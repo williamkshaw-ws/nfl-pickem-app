@@ -4,8 +4,8 @@ import { getAuth, type Auth } from 'firebase-admin/auth';
 function formatPrivateKey(key: string | undefined): string | undefined {
   if (!key) return undefined;
   let formatted = key.trim();
-  // Strip outer quotes if present (e.g. from Render UI or .env string)
-  if (
+  // Strip outer quotes if present (handles single or double quotes, including nested quotes like '"..."')
+  while (
     (formatted.startsWith('"') && formatted.endsWith('"')) ||
     (formatted.startsWith("'") && formatted.endsWith("'"))
   ) {
