@@ -19,7 +19,6 @@ import {
   Settings,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { useTheme } from "@/components/ThemeProvider";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
@@ -66,7 +65,6 @@ export function Header({
   
   const { user } = useAuth();
   const router = useRouter();
-  const { theme, resolvedTheme, setTheme } = useTheme();
   
   const [memberships, setMemberships] = useState<LeagueMembership[]>([]);
   const [loadingLeagues, setLoadingLeagues] = useState(false);

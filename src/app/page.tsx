@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Sun, Moon, Monitor, Settings } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
+import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
@@ -22,7 +21,6 @@ interface LeagueMembership {
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
 
   const [leagueChecked, setLeagueChecked] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -247,43 +245,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Theme switcher */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => setTheme("light")}
-              title="Light theme"
-              className={`p-1.5 rounded-lg transition-all ${
-                theme === "light"
-                  ? "bg-white text-amber-500 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              }`}
-            >
-              <Sun className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setTheme("dark")}
-              title="Dark theme"
-              className={`p-1.5 rounded-lg transition-all ${
-                theme === "dark"
-                  ? "bg-slate-700 text-emerald-400 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              }`}
-            >
-              <Moon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setTheme("system")}
-              title="System theme"
-              className={`p-1.5 rounded-lg transition-all ${
-                theme === "system"
-                  ? "bg-white dark:bg-slate-700 text-blue-500 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              }`}
-            >
-              <Monitor className="w-4 h-4" />
-            </button>
-          </div>
-
           {/* User Settings Button */}
           <button
             onClick={() => setShowSettings(true)}
