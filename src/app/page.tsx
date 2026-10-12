@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Sun, Moon, Monitor, Settings } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { authFetch } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
+import { UserSettingsModal } from "@/components/UserSettingsModal";
 
 interface LeagueMembership {
   id: string;
@@ -39,6 +40,7 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
 
   const [showJoin, setShowJoin] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [joining, setJoining] = useState(false);
@@ -282,9 +284,22 @@ export default function Home() {
             </button>
           </div>
 
+          {/* User Settings Button */}
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Account Settings"
+            className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
+          >
+            <div className={`w-5 h-5 rounded-md ${user?.avatarColor || "bg-emerald-600"} text-white font-black flex items-center justify-center text-[10px] shrink-0`}>
+              {user?.name?.charAt(0).toUpperCase() || "U"}
+            </div>
+            <span>Settings</span>
+            <Settings className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+
           <button
             onClick={handleLogout}
-            className="px-3.5 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
+            className="px-3.5 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign Out
@@ -311,17 +326,28 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <button
               onClick={() => setShowCreate(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all active:scale-95"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               Create League
             </button>
             <button
               onClick={() => setShowJoin(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500 dark:hover:border-emerald-500 font-bold text-sm shadow-sm transition-all active:scale-95"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500 dark:hover:border-emerald-500 font-bold text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               Join League
+            </button>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center justify-center gap-1.5 mx-auto transition cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Account Settings &amp; Preferences</span>
             </button>
           </div>
         </div>
@@ -471,6 +497,13 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onProfileUpdated={() => router.refresh()}
+      />
     </div>
   );
 }

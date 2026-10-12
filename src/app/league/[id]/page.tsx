@@ -22,8 +22,9 @@ import { OverallStandings } from "@/components/OverallStandings";
 import { PickMatrix } from "@/components/PickMatrix";
 import { EliminatorPool } from "@/components/EliminatorPool";
 import { CommissionerHub } from "@/components/CommissionerHub";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
+import { UserSettingsModal } from "@/components/UserSettingsModal";
 
 interface LeagueApiResponse {
   settings: LeagueSettings;
@@ -53,6 +54,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   const [notification, setNotification] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState<boolean>(false);
+  const [showFallbackSettings, setShowFallbackSettings] = useState<boolean>(false);
   const [pendingNavigation, setPendingNavigation] = useState<
     { type: "tab"; target: TabType } | { type: "week"; target: number } | null
   >(null);
@@ -384,6 +386,13 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               Return to Landing Page
             </button>
             <button
+              onClick={() => setShowFallbackSettings(true)}
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Account Settings
+            </button>
+            <button
               onClick={() => {
                 if (typeof window !== "undefined") {
                   localStorage.removeItem("last_active_league");
@@ -398,6 +407,14 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
             </button>
           </div>
         </div>
+
+        {showFallbackSettings && (
+          <UserSettingsModal
+            isOpen={showFallbackSettings}
+            onClose={() => setShowFallbackSettings(false)}
+            onProfileUpdated={() => router.refresh()}
+          />
+        )}
       </div>
     );
   }
