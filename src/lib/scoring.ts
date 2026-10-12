@@ -509,36 +509,105 @@ export function calculateSurvivorStatus(
   let activeSurvivors = users.map((u) => u.id);
   const eliminatedWeekByUser: Record<string, number> = {};
 
-  for (let w = 1; w <= limitWeek; w++) {
-    const weekHadSurvivorPicks = rawAllPicks.some((p) => p.week === w && !!p.eliminatorPick);
-    if (!weekHadSurvivorPicks) continue;
+  // 1. Check Week 1 participation:
+  // In NFL survivor pools, players must participate from Week 1.
+  // If Week 1 is locked or completed, or currentWeek > 1:
+  // Any user who did not participate / make picks in Week 1 is eliminated in Week 1.
+  const week1Games = gamesByWeek[1] || [];
+  const isWeek1Locked =
+    currentWeek > 1 ||
+    (week1Games.length > 0 &&
+      week1Games.every(
+        (g: any) => g.status?.completed || now >= new Date(g.date).getTime()
+      ));
 
+  if (isWeek1Locked) {
+    for (const u of users) {
+      const hasWeek1Picks = rawAllPicks.some(
+        (p) => p.userId === u.id && p.week === 1 && (p.picks || p.eliminatorPick)
+      );
+      if (!hasWeek1Picks) {
+        eliminatedWeekByUser[u.id] = 1;
+      }
+    }
+    activeSurvivors = activeSurvivors.filter((uid) => !eliminatedWeekByUser[uid]);
+  }
+
+  // 2. Week by week survivor progression
+  for (let w = 1; w <= limitWeek; w++) {
     if (activeSurvivors.length <= 1) break;
+
+    const weekHadSurvivorPicks = rawAllPicks.some((p) => p.week === w && !!p.eliminatorPick);
+    if (!weekHadSurvivorPicks) {
+      // If no survivor picks in this week (e.g. prior to survivor starting),
+      // verify if any active survivor missed participating in this week
+      const gamesForW = gamesByWeek[w] || [];
+      const isWeekPastOrLocked =
+        w < currentWeek ||
+        (gamesForW.length > 0 &&
+          gamesForW.every(
+            (g: any) => g.status?.completed || now >= new Date(g.date).getTime()
+          ));
+      if (isWeekPastOrLocked) {
+        for (const uid of [...activeSurvivors]) {
+          const userHasPickThisWeek = rawAllPicks.some(
+            (p) => p.userId === uid && p.week === w && (p.picks || p.eliminatorPick)
+          );
+          if (!userHasPickThisWeek) {
+            eliminatedWeekByUser[uid] = w;
+            activeSurvivors = activeSurvivors.filter((id) => id !== uid);
+          }
+        }
+      }
+      continue;
+    }
 
     const winners: string[] = [];
     const inProgress: string[] = [];
-    const losers: string[] = [];
+    const pickLosers: string[] = [];
+    const noPickLosers: string[] = [];
 
     for (const uid of activeSurvivors) {
+      const userPick = rawAllPicks.find((p) => p.userId === uid && p.week === w);
       const res = userResultByWeek[uid][w];
-      if (res === "won") winners.push(uid);
-      else if (res === "pending") inProgress.push(uid);
-      else losers.push(uid);
+
+      if (res === "won") {
+        winners.push(uid);
+      } else if (res === "pending") {
+        inProgress.push(uid);
+      } else {
+        if (!userPick?.eliminatorPick) {
+          // Missed making a survivor pick
+          noPickLosers.push(uid);
+        } else {
+          // Picked a team that lost
+          pickLosers.push(uid);
+        }
+      }
     }
 
+    // Players who made NO PICK in a week with survivor picks are ALWAYS eliminated immediately!
+    for (const uid of noPickLosers) {
+      eliminatedWeekByUser[uid] = w;
+    }
+    activeSurvivors = activeSurvivors.filter((uid) => !noPickLosers.includes(uid));
+
+    // For players who made a pick that lost:
     if (inProgress.length > 0) {
       if (winners.length > 0) {
-        for (const uid of losers) {
+        for (const uid of pickLosers) {
           eliminatedWeekByUser[uid] = w;
         }
-        activeSurvivors = activeSurvivors.filter((uid) => !losers.includes(uid));
+        activeSurvivors = activeSurvivors.filter((uid) => !pickLosers.includes(uid));
       }
     } else {
       if (winners.length > 0) {
-        for (const uid of losers) {
+        for (const uid of pickLosers) {
           eliminatedWeekByUser[uid] = w;
         }
         activeSurvivors = winners;
+      } else {
+        // Mutual wipeout: everyone who picked and lost in this week is resurrected!
       }
     }
   }
