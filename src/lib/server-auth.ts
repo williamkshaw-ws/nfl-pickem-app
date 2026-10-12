@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getFirestore } from "firebase-admin/firestore";
-import { adminAuth } from "@/lib/firebase-admin";
+import { adminAuth, getFirebaseAdminApp } from "@/lib/firebase-admin";
 
 /** Error carrying an HTTP status so route handlers can return a clean response. */
 export class HttpError extends Error {
@@ -10,6 +10,7 @@ export class HttpError extends Error {
 }
 
 export function adminDb() {
+  getFirebaseAdminApp();
   return getFirestore();
 }
 
