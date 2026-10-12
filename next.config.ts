@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   compress: true,
   images: {
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days cache for team logos
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "inline",
     remotePatterns: [
       {
         protocol: "https",
