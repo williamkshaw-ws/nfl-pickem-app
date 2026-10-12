@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
-import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult } from "@/types/nfl";
+import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult, isPickCorrect, isGameTie, isSurvivorPickWon } from "@/types/nfl";
 import { Check, X, Clock, Trophy, Target, Crown, Sparkles, HelpCircle } from "lucide-react";
 import Image from "next/image";
 import { TeamLogo } from "./TeamLogo";
@@ -128,7 +128,7 @@ export function PickMatrix({
       let correctCount = 0;
       let incorrectCount = 0;
       completedGames.forEach((g) => {
-        if (userPicksMap[g.id] === g.winnerTeamId) {
+        if (isPickCorrect(g, userPicksMap[g.id])) {
           correctCount++;
         } else if (userPicksMap[g.id]) {
           incorrectCount++;
@@ -164,7 +164,7 @@ export function PickMatrix({
           isElimGameLocked = checkIsGameLocked(elimGame, games, lockPolicy);
           elimTeam = elimGame.homeTeam.id === elimPickTeamId ? elimGame.homeTeam : elimGame.awayTeam;
           if (elimGame.status.completed) {
-            elimResult = elimGame.winnerTeamId === elimPickTeamId ? "won" : "lost";
+            elimResult = isSurvivorPickWon(elimGame, elimPickTeamId) ? "won" : "lost";
           } else if (elimGame.status.state === "in") {
             elimResult = "in_play";
           } else {
@@ -722,9 +722,9 @@ export function PickMatrix({
 
                         if (pickedTeamId && pickedTeamId !== "HIDDEN") {
                           pickedTeam = game.homeTeam.id === pickedTeamId ? game.homeTeam : game.awayTeam;
-                          if (isFinal && game.winnerTeamId) {
-                            if (pickedTeamId === game.winnerTeamId) isCorrect = true;
-                            else isIncorrect = true;
+                          if (isFinal) {
+                            if (isPickCorrect(game, pickedTeamId)) isCorrect = true;
+                            else if (game.winnerTeamId || (typeof game.homeScore === "number" && typeof game.awayScore === "number")) isIncorrect = true;
                           }
                         }
 
@@ -897,6 +897,15 @@ export function PickMatrix({
                 </span>
                 <span className="text-slate-600 dark:text-slate-300">
                   If still tied on home score, closest to the away team&apos;s score.
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80">
+                <span className="font-bold text-emerald-800 dark:text-emerald-300 block mb-0.5">
+                  NFL Game Ties = Win
+                </span>
+                <span className="text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed block">
+                  Any game that finishes in a tie counts as a <strong>Win</strong> for all picks (both teams count as correct). In Survivor pools, picking either team in a tie advances you as a win.
                 </span>
               </div>
             </div>

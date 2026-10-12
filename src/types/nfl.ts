@@ -45,6 +45,32 @@ export interface Game {
   isTiebreakerGame?: boolean;
 }
 
+export function isGameTie(game: Game): boolean {
+  return Boolean(
+    game.status?.completed &&
+      ((typeof game.homeScore === "number" &&
+        typeof game.awayScore === "number" &&
+        game.homeScore === game.awayScore) ||
+        game.winnerTeamId === "TIE")
+  );
+}
+
+export function isPickCorrect(game: Game, pickedTeamId?: string): boolean {
+  if (!game.status?.completed || !pickedTeamId || pickedTeamId === "HIDDEN") return false;
+  if (isGameTie(game)) {
+    return pickedTeamId === game.homeTeam.id || pickedTeamId === game.awayTeam.id;
+  }
+  return pickedTeamId === game.winnerTeamId;
+}
+
+export function isSurvivorPickWon(game: Game, pickedTeamId?: string): boolean {
+  if (!game.status?.completed || !pickedTeamId || pickedTeamId === "HIDDEN") return false;
+  if (isGameTie(game)) {
+    return pickedTeamId === game.homeTeam.id || pickedTeamId === game.awayTeam.id;
+  }
+  return pickedTeamId === game.winnerTeamId;
+}
+
 export interface TiebreakerPrediction {
   homeScore: number;
   awayScore: number;

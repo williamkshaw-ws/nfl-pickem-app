@@ -38,6 +38,8 @@ interface HeaderProps {
   onSelectWeek: (week: number) => void;
   onSwitchUser: (userId: string) => void;
   onAddUser: (name: string) => Promise<void>;
+  onSyncEspn?: (week?: number) => void | Promise<void>;
+  isSyncing?: boolean;
 }
 
 interface LeagueMembership {
@@ -55,6 +57,8 @@ export function Header({
   availableWeeks,
   currentLeagueId,
   onSelectWeek,
+  onSyncEspn,
+  isSyncing,
 }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -260,6 +264,19 @@ export function Header({
                 </select>
                 <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500 dark:text-slate-400 absolute right-1.5 sm:right-2.5 pointer-events-none" />
               </div>
+
+              {onSyncEspn && (
+                <button
+                  type="button"
+                  onClick={() => onSyncEspn(activeWeek)}
+                  disabled={isSyncing}
+                  title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
+                  aria-label="Refresh ESPN scores"
+                  className="p-1 sm:p-1.5 rounded-md sm:rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
+                </button>
+              )}
             </div>
           </div>
 

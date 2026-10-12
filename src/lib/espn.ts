@@ -142,6 +142,8 @@ export async function fetchEspnWeekGames(
           winnerTeamId = homeTeam.id;
         } else if (awayScore > homeScore) {
           winnerTeamId = awayTeam.id;
+        } else if (homeScore === awayScore) {
+          winnerTeamId = "TIE";
         }
       }
 

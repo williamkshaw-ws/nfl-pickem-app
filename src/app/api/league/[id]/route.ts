@@ -250,9 +250,16 @@ export async function GET(
             if (game && game.status.completed) {
               const homeScore = game.homeScore || 0;
               const awayScore = game.awayScore || 0;
-              if (elimPick === game.homeTeam.id && homeScore > awayScore) won = true;
-              else if (elimPick === game.awayTeam.id && awayScore > homeScore) won = true;
-              else lost = true;
+              const isTie = homeScore === awayScore || game.winnerTeamId === "TIE";
+              if (isTie) {
+                won = true;
+              } else if (elimPick === game.homeTeam.id && homeScore > awayScore) {
+                won = true;
+              } else if (elimPick === game.awayTeam.id && awayScore > homeScore) {
+                won = true;
+              } else {
+                lost = true;
+              }
             }
 
             const pickedTeam = game

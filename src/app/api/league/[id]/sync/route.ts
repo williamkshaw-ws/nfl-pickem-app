@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   requireUser,
-  requireCommissioner,
+  requireMember,
   errorResponse,
   HttpError,
 } from "@/lib/server-auth";
@@ -14,7 +14,7 @@ export async function POST(
   try {
     const caller = await requireUser(request);
     const { id: leagueId } = await params;
-    const { league } = await requireCommissioner(leagueId, caller.uid);
+    const { league } = await requireMember(leagueId, caller.uid);
 
     const body = await request.json().catch(() => ({}));
     const targetWeek = Number(body.week) || league.settings?.currentWeek || 1;

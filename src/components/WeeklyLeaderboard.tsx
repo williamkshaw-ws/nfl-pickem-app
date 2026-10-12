@@ -555,7 +555,11 @@ export function WeeklyLeaderboard({
               </div>
             </div>
 
-            <div className="mt-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 text-[11px] text-blue-900 dark:text-blue-300 font-medium">
+            <div className="mt-4 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-900 dark:text-emerald-200 font-medium leading-relaxed">
+              🏈 <strong>NFL Game Ties = Win:</strong> Any game that ends in a tie counts as a <strong>Win</strong> for all picks (both teams count as correct). In Survivor pools, picking either team in a tie advances you as a win!
+            </div>
+
+            <div className="mt-2.5 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 text-[11px] text-blue-900 dark:text-blue-300 font-medium">
               ℹ️ Tiebreakers are only evaluated if two or more players finish with the identical number of correct picks.
             </div>
 

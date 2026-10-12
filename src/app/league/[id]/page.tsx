@@ -420,6 +420,8 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         onSelectWeek={handleSelectWeek}
         onSwitchUser={() => {}}
         onAddUser={handleAddUser}
+        onSyncEspn={handleSyncToEspn}
+        isSyncing={isSyncing}
       />
 
       <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-6 sm:pb-8 w-full flex-1">

@@ -5,6 +5,7 @@ import {
   WeeklyPlayerResult,
   SeasonPlayerStanding,
   TiebreakerStats,
+  isPickCorrect,
 } from "@/types/nfl";
 
 /**
@@ -41,9 +42,9 @@ export function calculateWeeklyResults(
       ? actualHome + actualAway
       : undefined;
 
-  // Games that have a winner determined
+  // Games that have completed (either has a winner or tied)
   const completedGames = games.filter(
-    (g) => g.status.completed && g.winnerTeamId
+    (g) => g.status.completed && (g.winnerTeamId || (typeof g.homeScore === "number" && typeof g.awayScore === "number"))
   );
   const totalCompleted = completedGames.length;
 
@@ -63,7 +64,7 @@ export function calculateWeeklyResults(
     if (userPickRecord && userPickRecord.picks) {
       completedGames.forEach((game) => {
         const pickedTeamId = userPickRecord.picks[game.id];
-        if (pickedTeamId && pickedTeamId === game.winnerTeamId) {
+        if (isPickCorrect(game, pickedTeamId)) {
           correctCount++;
         }
       });
@@ -281,7 +282,9 @@ export function calculateSeasonStandings(
   const completedGamesByWeek = new Map<number, Game[]>();
   weekNumbers.forEach((w) => {
     const games = allWeeksGames[w] || [];
-    const completed = games.filter((g) => g.status.completed && g.winnerTeamId);
+    const completed = games.filter(
+      (g) => g.status.completed && (g.winnerTeamId || (typeof g.homeScore === "number" && typeof g.awayScore === "number"))
+    );
     if (completed.length > 0) {
       completedGamesByWeek.set(w, completed);
     }
@@ -310,7 +313,7 @@ export function calculateSeasonStandings(
       if (userPickRecord && userPickRecord.picks) {
         weeksPlayed++;
         completedGames.forEach((g) => {
-          if (userPickRecord.picks[g.id] === g.winnerTeamId) {
+          if (isPickCorrect(g, userPickRecord.picks[g.id])) {
             weekCorrect++;
           }
         });

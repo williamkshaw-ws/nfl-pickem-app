@@ -7,6 +7,9 @@ import {
   User,
   UserPicks,
   TiebreakerPrediction,
+  EliminatorStatus,
+  isPickCorrect,
+  isGameTie,
 } from "@/types/nfl";
 import {
   CheckCircle2,
@@ -19,7 +22,6 @@ import {
   Skull,
   Shield,
 } from "lucide-react";
-import { EliminatorStatus } from "@/types/nfl";
 
 interface WeeklyPicksProps {
   games: Game[];
@@ -406,11 +408,12 @@ export function WeeklyPicks({
           const awaySelected = userPick === game.awayTeam.id;
           const homeSelected = userPick === game.homeTeam.id;
 
-          const isAwayWinner = isCompleted && game.winnerTeamId === game.awayTeam.id;
-          const isHomeWinner = isCompleted && game.winnerTeamId === game.homeTeam.id;
+          const isTie = isGameTie(game);
+          const isAwayWinner = isCompleted && (game.winnerTeamId === game.awayTeam.id || isTie);
+          const isHomeWinner = isCompleted && (game.winnerTeamId === game.homeTeam.id || isTie);
 
-          const userPickedWinner = isCompleted && userPick === game.winnerTeamId;
-          const userPickedLoser = isCompleted && userPick && userPick !== game.winnerTeamId;
+          const userPickedWinner = isCompleted && isPickCorrect(game, userPick);
+          const userPickedLoser = isCompleted && Boolean(userPick) && !userPickedWinner;
 
           const rowInteractive = !isSurvivorOnly && !(isGameLocked && lockPolicy);
 
@@ -426,6 +429,8 @@ export function WeeklyPicks({
                   ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/10 dark:bg-emerald-950/10"
                   : userPickedLoser
                   ? "border-rose-300 dark:border-rose-900 bg-rose-50/10 dark:bg-rose-950/10"
+                  : userPick && !isCompleted
+                  ? "border-sky-300 dark:border-sky-700/80 ring-1 ring-sky-300/30 dark:ring-sky-700/30"
                   : isSurvivorOnly && survivorInGame
                   ? "border-rose-300 dark:border-rose-800"
                   : "border-slate-200 dark:border-slate-800"
@@ -459,7 +464,9 @@ export function WeeklyPicks({
                     </span>
                   )}
                   {isCompleted ? (
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">Final</span>
+                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                      {isTie ? "Final (Tie)" : "Final"}
+                    </span>
                   ) : isLive ? (
                     <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -476,21 +483,29 @@ export function WeeklyPicks({
                   { team: game.homeTeam, score: game.homeScore, selected: homeSelected, isWinner: isHomeWinner, fallback: "Home" },
                 ].map(({ team, score, selected, isWinner, fallback }) => {
                   const isPickWrong = selected && isCompleted && !isWinner;
+                  const isPickWon = selected && isCompleted && isWinner;
+                  const isPickActive = selected && !isCompleted;
+
                   const itemRowClass = selected
                     ? isPickWrong
-                      ? "bg-rose-50/80 dark:bg-rose-950/40"
+                      ? "bg-rose-50/80 dark:bg-rose-950/40 ring-1 ring-inset ring-rose-400/30"
                       : isSurvivorOnly
                       ? "bg-orange-50/80 dark:bg-orange-950/40"
-                      : "bg-emerald-50/80 dark:bg-emerald-950/40"
+                      : isPickWon
+                      ? "bg-emerald-50/80 dark:bg-emerald-950/40 ring-1 ring-inset ring-emerald-400/30"
+                      : "bg-sky-50/90 dark:bg-sky-950/30 ring-1 ring-inset ring-sky-300 dark:ring-sky-600/40"
                     : rowInteractive
                     ? "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                     : "";
+
                   const itemTextClass = selected
                     ? isPickWrong
-                      ? "text-rose-900 dark:text-rose-200"
+                      ? "text-rose-900 dark:text-rose-200 font-bold"
                       : isSurvivorOnly
-                      ? "text-orange-900 dark:text-orange-200"
-                      : "text-emerald-900 dark:text-emerald-200"
+                      ? "text-orange-900 dark:text-orange-200 font-bold"
+                      : isPickWon
+                      ? "text-emerald-950 dark:text-emerald-200 font-black"
+                      : "text-sky-950 dark:text-sky-100 font-black"
                     : "text-slate-900 dark:text-white";
 
                   return (
@@ -504,13 +519,15 @@ export function WeeklyPicks({
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <TeamLogo
-                          src={team.logo}
-                          alt={team.abbreviation || team.name}
-                          width={28}
-                          height={28}
-                          className="w-7 h-7 object-contain shrink-0"
-                        />
+                        <div className="p-0.5 rounded-md dark:bg-white/10 dark:backdrop-blur-xs flex items-center justify-center shrink-0">
+                          <TeamLogo
+                            src={team.logo}
+                            alt={team.abbreviation || team.name}
+                            width={28}
+                            height={28}
+                            className="w-7 h-7 object-contain shrink-0"
+                          />
+                        </div>
                         <div className="text-left min-w-0">
                           <div className={`text-sm font-bold leading-tight truncate ${itemTextClass}`}>
                             {team.displayName}
@@ -523,8 +540,10 @@ export function WeeklyPicks({
                         {selected && !isSurvivorOnly && (
                           isPickWrong ? (
                             <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-                          ) : (
+                          ) : isPickWon ? (
                             <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          ) : (
+                            <CheckCircle2 className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0" />
                           )
                         )}
                         {(isCompleted || isLive) && typeof score === "number" && (

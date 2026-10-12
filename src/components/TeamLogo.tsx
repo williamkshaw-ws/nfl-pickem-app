@@ -56,7 +56,7 @@ export function TeamLogo({
       alt={alt || "NFL Team"}
       width={width}
       height={height}
-      className={`dark:drop-shadow-[0_0_1px_rgba(255,255,255,0.45)] ${className}`}
+      className={`dark:drop-shadow-[0_0_1.5px_rgba(255,255,255,0.65)] ${className}`}
       onError={() => {
         if (imgSrc.includes("/scoreboard/")) {
           setImgSrc(imgSrc.replace("/scoreboard/", "/"));
