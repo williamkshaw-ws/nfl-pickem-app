@@ -9,6 +9,7 @@ import {
   HttpError,
 } from "@/lib/server-auth";
 import { getDatabase, syncWeekFromEspn, detectCurrentWeek } from "@/lib/storage";
+import { hashLeaguePassword } from "@/lib/league-password";
 import { calculateWeeklyResults, calculateSeasonStandings } from "@/lib/scoring";
 
 // Throttle automatic ESPN sync on page load to at most once every 60 seconds per week
@@ -411,8 +412,56 @@ export async function PUT(
 
     const sanitizedUpdates: Record<string, any> = {};
     for (const key of allowedFields) {
-      if (key in body) {
-        sanitizedUpdates[key] = body[key];
+      if (!(key in body)) continue;
+      const value = body[key];
+      switch (key) {
+        case "leagueName": {
+          if (typeof value !== "string" || !value.trim() || value.trim().length > 50) {
+            throw new HttpError(400, "League name must be 1-50 characters");
+          }
+          sanitizedUpdates[key] = value.trim();
+          break;
+        }
+        case "seasonYear": {
+          const n = Number(value);
+          if (!Number.isInteger(n) || n < 2020 || n > 2100) throw new HttpError(400, "Invalid season year");
+          sanitizedUpdates[key] = n;
+          break;
+        }
+        case "currentWeek": {
+          const n = Number(value);
+          if (!Number.isInteger(n) || n < 1 || n > 18) throw new HttpError(400, "Week must be 1-18");
+          sanitizedUpdates[key] = n;
+          break;
+        }
+        case "lockPolicy": {
+          if (value !== "game" && value !== "day" && value !== "week") {
+            throw new HttpError(400, "Invalid lock policy");
+          }
+          sanitizedUpdates[key] = value;
+          break;
+        }
+        case "tiebreakerRuleSummary": {
+          if (typeof value !== "string" || value.length > 200) {
+            throw new HttpError(400, "Tiebreaker summary must be 200 characters or fewer");
+          }
+          sanitizedUpdates[key] = value.trim();
+          break;
+        }
+        case "pickemEnabled":
+        case "eliminatorEnabled": {
+          if (typeof value !== "boolean") throw new HttpError(400, `${key} must be true or false`);
+          sanitizedUpdates[key] = value;
+          break;
+        }
+        case "leaguePassword": {
+          if (typeof value !== "string" || value.trim().length > 64) {
+            throw new HttpError(400, "League password must be 64 characters or fewer");
+          }
+          // Never store plaintext; empty string clears the password
+          sanitizedUpdates[key] = hashLeaguePassword(value);
+          break;
+        }
       }
     }
 
@@ -422,7 +471,8 @@ export async function PUT(
       name: newSettings.leagueName || docSnap.data()?.name,
     });
 
-    return NextResponse.json({ success: true, settings: newSettings });
+    const { leaguePassword: _omit, ...publicSettings } = newSettings;
+    return NextResponse.json({ success: true, settings: { ...publicSettings, hasPassword: !!newSettings.leaguePassword } });
   } catch (err: any) {
     return errorResponse(err);
   }

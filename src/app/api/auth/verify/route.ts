@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
 import { Resend } from "resend";
 import { requireUser, escapeHtml, errorResponse, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
     const caller = await requireUser(req);
+    enforceRateLimit(`verify-email:${caller.uid}`, 3, 10 * 60 * 1000, "Verification email already sent recently. Please check your inbox and try again in a few minutes.");
     const { email, name } = await req.json();
 
     if (!email || typeof email !== "string") {
@@ -27,23 +29,16 @@ export async function POST(req: Request) {
     const urlObj = new URL(firebaseLink);
     const oobCode = urlObj.searchParams.get("oobCode");
     
-    // Determine the base URL dynamically from request headers or environment variable
-    const origin = req.headers.get("origin");
-    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
-    const proto = req.headers.get("x-forwarded-proto") || "https";
-
+    // Base URL comes only from trusted configuration (never from request headers,
+    // which an attacker could spoof to poison the emailed link).
     let baseUrl = "https://pocketpicks.app";
     if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")) {
-      baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-    } else if (origin && !origin.includes("localhost")) {
-      baseUrl = origin;
-    } else if (host && !host.includes("localhost")) {
-      baseUrl = `${proto}://${host}`;
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
     } else if (process.env.NODE_ENV === "development") {
       baseUrl = "http://localhost:3000";
     }
 
-    const customLink = `${baseUrl}/auth/verify?oobCode=${oobCode}`;
+    const customLink = `${baseUrl}/auth/verify?oobCode=${encodeURIComponent(oobCode || "")}`;
 
     const safeName = escapeHtml(typeof name === "string" && name.trim() ? name.trim() : "Player");
 

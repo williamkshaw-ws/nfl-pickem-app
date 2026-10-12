@@ -6,6 +6,7 @@ import {
   HttpError,
 } from "@/lib/server-auth";
 import { syncWeekFromEspn } from "@/lib/storage";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -15,6 +16,10 @@ export async function POST(
     const caller = await requireUser(request);
     const { id: leagueId } = await params;
     const { league } = await requireMember(leagueId, caller.uid);
+
+    // Any member may refresh scores, so cap how often it can hit ESPN / write data
+    enforceRateLimit(`sync-user:${caller.uid}`, 6, 60 * 1000, "Refreshing too fast. Please wait a moment.");
+    enforceRateLimit(`sync-league:${leagueId}`, 4, 30 * 1000, "Scores were just refreshed. Please wait a few seconds.");
 
     const body = await request.json().catch(() => ({}));
     const targetWeek = Number(body.week) || league.settings?.currentWeek || 1;

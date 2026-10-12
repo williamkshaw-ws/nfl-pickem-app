@@ -3,11 +3,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can read other user profiles (for leaderboard displays)
-    // but can only create and edit their own user profile document.
+    // A user can read ONLY their own profile (it contains their email).
+    // Other players' display data (names, avatars) is served by the backend API.
+    //
+    // Clients may create their own profile document once at registration with a
+    // strict whitelist of fields, and may not touch privileged fields such as
+    // `banned`. Profile edits (username, avatar, etc.) go through /api/user/profile.
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['id', 'name', 'username', 'email', 'createdAt'])
+        && request.resource.data.id == userId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 50
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('^[A-Za-z0-9_-]{3,20}$');
+
+      allow update, delete: if false;
     }
 
     // Memberships can only be read by the owner of the membership.

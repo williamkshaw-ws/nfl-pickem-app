@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
-import { requireUser, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
-import { timingSafeStringEqual } from "@/lib/admin-auth";
+import { requireVerifiedUser, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { verifyLeaguePassword, hashLeaguePassword } from "@/lib/league-password";
+import { enforceRateLimit, getClientIp, peekRateLimit, recordFailure, clearRateLimit } from "@/lib/rate-limit";
+
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
 
 export async function POST(request: Request) {
   try {
-    const caller = await requireUser(request);
+    const caller = await requireVerifiedUser(request);
+    const ip = getClientIp(request);
+
+    // Overall request throttles (per account and per IP) to stop code/password guessing
+    enforceRateLimit(`join-user:${caller.uid}`, 15, 10 * 60 * 1000, "Too many join attempts. Please wait a few minutes.");
+    enforceRateLimit(`join-ip:${ip}`, 40, 10 * 60 * 1000, "Too many join attempts. Please wait a few minutes.");
+
     const body = await request.json();
     const { code, password } = body;
 
@@ -13,6 +22,13 @@ export async function POST(request: Request) {
     }
 
     const cleanCode = code.trim();
+
+    // Lock out repeated wrong passwords per account+league
+    const failKey = `join-fail:${caller.uid}:${cleanCode}`;
+    if (peekRateLimit(failKey, 5, FAIL_WINDOW_MS)) {
+      throw new HttpError(429, "Too many incorrect passwords. Try again in 15 minutes.");
+    }
+
     const db = adminDb();
 
     const leagueDoc = await db.collection("leagues").doc(cleanCode).get();
@@ -25,9 +41,21 @@ export async function POST(request: Request) {
 
     // Check league password if one is required
     if (requiredPassword && typeof requiredPassword === "string" && requiredPassword.trim() !== "") {
-      const providedPassword = typeof password === "string" ? password.trim() : "";
-      if (!timingSafeStringEqual(providedPassword, requiredPassword.trim())) {
+      const providedPassword = typeof password === "string" ? password : "";
+      const { ok, needsUpgrade } = verifyLeaguePassword(providedPassword, requiredPassword);
+      if (!ok) {
+        recordFailure(failKey);
         throw new HttpError(403, "Incorrect league password");
+      }
+      clearRateLimit(failKey);
+
+      // Transparently upgrade legacy plaintext passwords to a salted hash
+      if (needsUpgrade) {
+        await db
+          .collection("leagues")
+          .doc(cleanCode)
+          .update({ "settings.leaguePassword": hashLeaguePassword(providedPassword) })
+          .catch((e) => console.warn("League password upgrade warning:", e));
       }
     }
 

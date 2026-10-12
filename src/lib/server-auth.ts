@@ -22,11 +22,20 @@ export async function requireUser(request: Request) {
   const match = header.match(/^Bearer (.+)$/i);
   if (!match) throw new HttpError(401, "Not signed in");
   try {
-    const decoded = await adminAuth.verifyIdToken(match[1]);
+    const decoded = await adminAuth.verifyIdToken(match[1], true);
     return { uid: decoded.uid, email: decoded.email, emailVerified: !!decoded.email_verified };
   } catch {
     throw new HttpError(401, "Invalid or expired session");
   }
+}
+
+/** Same as requireUser, but also requires a verified email address. */
+export async function requireVerifiedUser(request: Request) {
+  const caller = await requireUser(request);
+  if (!caller.emailVerified) {
+    throw new HttpError(403, "Please verify your email address before continuing");
+  }
+  return caller;
 }
 
 /** Loads the league and the caller's membership. Throws 404 / 403 as appropriate. */

@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
+    // Throttle username -> email lookups to blunt account/email enumeration
+    const ip = getClientIp(request);
+    enforceRateLimit(`lookup-min:${ip}`, 8, 60 * 1000, "Too many attempts. Please wait a minute and try again.");
+    enforceRateLimit(`lookup-hour:${ip}`, 40, 60 * 60 * 1000, "Too many attempts. Please try again later.");
+
     const body = await request.json();
     const { identifier } = body;
 
@@ -11,56 +17,34 @@ export async function POST(request: Request) {
     }
 
     const clean = identifier.trim();
-    if (!clean) {
+    if (!clean || clean.length > 64) {
       throw new HttpError(400, "Username cannot be empty");
     }
 
     const db = adminDb();
 
-    // 1. Direct match on username
     let snapshot = await db
       .collection("users")
-      .where("username", "==", clean)
+      .where("username", "==", clean.toLowerCase())
       .limit(1)
       .get();
 
-    // 2. Case-insensitive lowercase match
     if (snapshot.empty) {
       snapshot = await db
         .collection("users")
-        .where("username", "==", clean.toLowerCase())
+        .where("username", "==", clean)
         .limit(1)
         .get();
     }
 
-    // 3. Fallback scan if needed (for small user bases with casing differences)
-    if (snapshot.empty) {
-      const allUsersSnap = await db.collection("users").limit(100).get();
-      const match = allUsersSnap.docs.find(
-        (doc: any) => doc.data().username?.toLowerCase() === clean.toLowerCase()
-      );
-      if (match) {
-        const userData = match.data();
-        if (userData.banned) {
-          throw new HttpError(403, "This account has been disabled");
-        }
-        if (userData.email) {
-          return NextResponse.json({ email: userData.email });
-        }
-      }
-    }
+    // Identical response for "not found", "banned" and "no email" so the endpoint
+    // doesn't reveal which usernames exist or which accounts are disabled.
+    const notFound = () => new HttpError(404, "No account found with that username");
 
-    if (snapshot.empty) {
-      throw new HttpError(404, "No account found with that username");
-    }
+    if (snapshot.empty) throw notFound();
 
     const userData = snapshot.docs[0].data();
-    if (userData.banned) {
-      throw new HttpError(403, "This account has been disabled");
-    }
-    if (!userData.email) {
-      throw new HttpError(404, "Account does not have an associated email address");
-    }
+    if (userData.banned || !userData.email) throw notFound();
 
     return NextResponse.json({ email: userData.email });
   } catch (err: any) {

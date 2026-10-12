@@ -79,14 +79,27 @@ if (password !== confirmPassword) {
       return;
     }
 
+    const cleanName = name.trim();
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanName.length === 0 || cleanName.length > 50) {
+      setError("Name must be between 1 and 50 characters.");
+      setLoading(false);
+      return;
+    }
+    if (!/^[a-z0-9_-]{3,20}$/.test(cleanUsername)) {
+      setError("Username must be 3-20 characters and contain only letters, numbers, underscores, or dashes.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       await setDoc(doc(db, "users", user.uid), {
         id: user.uid,
-        name,
-        username,
+        name: cleanName,
+        username: cleanUsername,
         email,
         createdAt: new Date().toISOString(),
       });
@@ -99,7 +112,7 @@ if (password !== confirmPassword) {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ email, name }),
+        body: JSON.stringify({ email, name: cleanName }),
       });
       if (!res.ok) {
         throw new Error("Failed to send verification email. Please try again.");

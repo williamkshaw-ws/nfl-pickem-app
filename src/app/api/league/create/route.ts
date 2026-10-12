@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { randomInt } from "crypto";
-import { requireUser, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { requireVerifiedUser, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { hashLeaguePassword } from "@/lib/league-password";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { getDatabase, detectCurrentWeek } from "@/lib/storage";
 
 export async function POST(request: Request) {
   try {
-    const caller = await requireUser(request);
+    const caller = await requireVerifiedUser(request);
+    enforceRateLimit(`create-league:${caller.uid}`, 5, 60 * 60 * 1000, "You are creating leagues too quickly. Please try again later.");
     const body = await request.json();
     const { name, leagueFormat, leaguePassword } = body;
 
@@ -18,7 +21,11 @@ export async function POST(request: Request) {
       ? leagueFormat
       : "both";
 
-    const password = typeof leaguePassword === "string" ? leaguePassword.trim() : "";
+    const rawPassword = typeof leaguePassword === "string" ? leaguePassword.trim() : "";
+    if (rawPassword.length > 64) {
+      throw new HttpError(400, "League password must be 64 characters or fewer");
+    }
+    const password = hashLeaguePassword(rawPassword);
 
     const db = adminDb();
 

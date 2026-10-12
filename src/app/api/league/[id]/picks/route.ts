@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import {
-  requireUser,
+  requireVerifiedUser,
   requireMember,
   adminDb,
   errorResponse,
@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const caller = await requireUser(request);
+    const caller = await requireVerifiedUser(request);
     const { id: leagueId } = await params;
     const { league, isCommissioner } = await requireMember(leagueId, caller.uid);
 
@@ -50,9 +50,29 @@ export async function POST(
     // If caller is commissioner and requesting override (or acting on behalf of another user), allow override
     const isOverride = isCommissioner && (body.isOverride === true || targetUserId !== caller.uid);
 
+    if (eliminatorPick !== undefined && eliminatorPick !== null && typeof eliminatorPick !== "string") {
+      throw new HttpError(400, "Invalid survivor pick");
+    }
+
+    // Sanitize incoming picks: must be a plain object of string gameId -> string teamId,
+    // restricted to real games of this week (prevents storing arbitrary junk/huge payloads).
+    const validGameIds = new Set<string>(weekGames.map((g: any) => String(g.id)));
+    const safePicks: Record<string, string> = {};
+    if (picks && typeof picks === "object" && !Array.isArray(picks)) {
+      const entries = Object.entries(picks);
+      if (entries.length > 64) {
+        throw new HttpError(400, "Too many picks submitted");
+      }
+      for (const [gameId, pickedTeamId] of entries) {
+        if (typeof pickedTeamId !== "string" || pickedTeamId.length > 20) continue;
+        if (validGameIds.size > 0 && !validGameIds.has(gameId)) continue;
+        safePicks[gameId] = pickedTeamId;
+      }
+    }
+
     // 1. Validate pick'em locks
-    if (picks && typeof picks === "object") {
-      for (const [gameId, pickedTeamId] of Object.entries(picks)) {
+    {
+      for (const [gameId, pickedTeamId] of Object.entries(safePicks)) {
         const game = weekGames.find((g: any) => g.id === gameId);
         if (!game) continue;
 
@@ -102,12 +122,22 @@ export async function POST(
       }
     }
 
+    // Clearing a survivor pick after its game has locked is not allowed
+    if ((eliminatorPick === null || eliminatorPick === "") && existingElimPick && !isOverride) {
+      const existingElimGame = weekGames.find(
+        (g: any) => g.homeTeam.id === existingElimPick || g.awayTeam.id === existingElimPick
+      );
+      if (existingElimGame && isGameLocked(existingElimGame, weekGames, lockPolicy, now)) {
+        throw new HttpError(400, "Your survivor pick is locked and can't be removed");
+      }
+    }
+
     const pickData: any = {
       id: pickDocId,
       leagueId,
       userId: targetUserId,
       week: targetWeek,
-      picks: picks || {},
+      picks: safePicks,
       updatedAt: new Date().toISOString(),
     };
 

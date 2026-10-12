@@ -2,9 +2,23 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { HttpError } from "./server-auth";
 
-export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "AdminPass123!";
+// SECURITY: there are intentionally NO default credentials or secrets. If these
+// environment variables are not set, the admin portal is disabled entirely.
+export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "";
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 export const ADMIN_COOKIE_NAME = "pp_admin_session";
+export const ADMIN_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 hours
+
+const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET || "";
+
+/** True only when username, password and a sufficiently long signing secret are all configured. */
+export function isAdminConfigured(): boolean {
+  return (
+    ADMIN_USERNAME.length > 0 &&
+    ADMIN_PASSWORD.length >= 12 &&
+    ADMIN_SECRET.length >= 32
+  );
+}
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -20,18 +34,16 @@ export function timingSafeStringEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-const ADMIN_SECRET =
-  process.env.ADMIN_SESSION_SECRET ||
-  process.env.FIREBASE_PRIVATE_KEY ||
-  "pocketpicks_super_admin_secret_key_2026_secured";
-
 /**
  * Creates an HMAC-signed session token for the admin.
  */
 export function createAdminToken(): string {
+  if (!isAdminConfigured()) {
+    throw new HttpError(503, "Admin portal is not configured");
+  }
   const payload = {
     user: ADMIN_USERNAME,
-    exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    exp: Date.now() + ADMIN_SESSION_MAX_AGE_SECONDS * 1000,
   };
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const hmac = crypto.createHmac("sha256", ADMIN_SECRET).update(data).digest("base64url");
@@ -42,6 +54,7 @@ export function createAdminToken(): string {
  * Verifies an HMAC-signed session token.
  */
 export function verifyAdminToken(token: string | null | undefined): boolean {
+  if (!isAdminConfigured()) return false;
   if (!token || typeof token !== "string") return false;
   const parts = token.split(".");
   if (parts.length !== 2) return false;
