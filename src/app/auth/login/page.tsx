@@ -63,28 +63,18 @@ export default function Login() {
       return;
     }
 
-    const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
-    if (lastLeague) {
-      router.replace(`/league/${lastLeague}`);
-      return;
-    }
-
-    const cachedLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
-    if (cachedLeague) {
-      router.replace(`/league/${cachedLeague}`);
-      return;
-    }
-
     // Direct lookup of user's league memberships so they go straight to their league
     try {
       const q = query(collection(db, "memberships"), where("userId", "==", uid));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        const firstLeagueId = snapshot.docs[0].data().leagueId;
+        const lastLeague = typeof window !== 'undefined' ? localStorage.getItem("last_active_league") : null;
+        const matchingDoc = snapshot.docs.find((d) => d.data().leagueId === lastLeague);
+        const targetLeagueId = matchingDoc ? matchingDoc.data().leagueId : snapshot.docs[0].data().leagueId;
         if (typeof window !== 'undefined') {
-          localStorage.setItem("last_active_league", firstLeagueId);
+          localStorage.setItem("last_active_league", targetLeagueId);
         }
-        router.replace(`/league/${firstLeagueId}`);
+        router.replace(`/league/${targetLeagueId}`);
         return;
       }
     } catch (err) {

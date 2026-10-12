@@ -128,6 +128,10 @@ export function Header({
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("last_active_league");
+        localStorage.removeItem("pending_join_code");
+      }
       await signOut(auth);
     } catch (err) {
       console.error("Failed to log out", err);

@@ -161,21 +161,17 @@ export function LandingPage() {
         return;
       }
 
-      const lastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
-      if (lastLeague) {
-        window.location.href = `/league/${lastLeague}`;
-        return;
-      }
-
       try {
         const q = query(collection(db, "memberships"), where("userId", "==", userCredential.user.uid));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-          const firstLeagueId = snapshot.docs[0].data().leagueId;
+          const lastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
+          const matchingDoc = snapshot.docs.find((d) => d.data().leagueId === lastLeague);
+          const targetLeagueId = matchingDoc ? matchingDoc.data().leagueId : snapshot.docs[0].data().leagueId;
           if (typeof window !== "undefined") {
-            localStorage.setItem("last_active_league", firstLeagueId);
+            localStorage.setItem("last_active_league", targetLeagueId);
           }
-          window.location.href = `/league/${firstLeagueId}`;
+          window.location.href = `/league/${targetLeagueId}`;
           return;
         }
       } catch (err) {

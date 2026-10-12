@@ -91,14 +91,6 @@ export default function Home() {
     const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
     const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
 
-    // Fast-path: if last_active_league exists in localStorage and no join/create params, redirect immediately
-    const cachedLastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
-    if (cachedLastLeague && !hasJoinParam && !hasCreateParam) {
-      setIsRedirecting(true);
-      router.replace(`/league/${cachedLastLeague}`);
-      return;
-    }
-
     const checkLeagues = async () => {
       try {
         const q = query(collection(db, "memberships"), where("userId", "==", currentUid));
@@ -206,6 +198,8 @@ export default function Home() {
   const handleLogout = async () => {
     try {
       if (typeof window !== "undefined") {
+        localStorage.removeItem("last_active_league");
+        localStorage.removeItem("pending_join_code");
         window.location.href = "/";
       }
       await signOut(auth);
