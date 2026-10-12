@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireUser, adminDb, HttpError, errorResponse } from "@/lib/server-auth";
 import { adminAuth } from "@/lib/firebase-admin";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function PATCH(request: Request) {
   try {
     const caller = await requireUser(request);
+    enforceRateLimit(`profile-update:${caller.uid}`, 10, 10 * 60 * 1000, "Too many profile updates. Please wait a few minutes.");
+
     const body = await request.json();
     const { name, username, avatarColor, emailNotifications } = body || {};
 
@@ -23,22 +26,13 @@ export async function PATCH(request: Request) {
     if (!/^[a-z0-9_-]{3,20}$/.test(cleanUsername)) {
       throw new HttpError(
         400,
-        "Username must be 3-20 characters and contain only letters, numbers, underscores, or dashes"
+        "Username must be 3-20 characters and contain only lowercase letters, numbers, underscores, or dashes"
       );
     }
 
     const db = adminDb();
-
-    // Check username uniqueness
-    const usernameQuery = await db
-      .collection("users")
-      .where("username", "==", cleanUsername)
-      .get();
-
-    const conflict = usernameQuery.docs.find((d) => d.id !== caller.uid);
-    if (conflict) {
-      throw new HttpError(409, "That username is already taken. Please choose another.");
-    }
+    const userDocRef = db.collection("users").doc(caller.uid);
+    const newUsernameDocRef = db.collection("usernames").doc(cleanUsername);
 
     const updateData: Record<string, any> = {
       name: name.trim(),
@@ -54,7 +48,43 @@ export async function PATCH(request: Request) {
       updateData.avatarColor = avatarColor.trim();
     }
 
-    await db.collection("users").doc(caller.uid).set(updateData, { merge: true });
+    await db.runTransaction(async (tx) => {
+      const userSnap = await tx.get(userDocRef);
+      const currentUsername = userSnap.data()?.username;
+
+      if (currentUsername !== cleanUsername) {
+        // Check new username doc
+        const newUsernameSnap = await tx.get(newUsernameDocRef);
+        if (newUsernameSnap.exists && newUsernameSnap.data()?.uid !== caller.uid) {
+          throw new HttpError(409, "That username is already taken. Please choose another.");
+        }
+
+        // Check legacy users
+        const legacyQuery = await db
+          .collection("users")
+          .where("username", "==", cleanUsername)
+          .limit(1)
+          .get();
+
+        if (!legacyQuery.empty && legacyQuery.docs[0].id !== caller.uid) {
+          throw new HttpError(409, "That username is already taken. Please choose another.");
+        }
+
+        // Remove old username reservation if present
+        if (currentUsername) {
+          const oldUsernameDocRef = db.collection("usernames").doc(currentUsername);
+          tx.delete(oldUsernameDocRef);
+        }
+
+        tx.set(newUsernameDocRef, {
+          uid: caller.uid,
+          username: cleanUsername,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      tx.set(userDocRef, updateData, { merge: true });
+    });
 
     // Update Firebase Auth display name
     await adminAuth

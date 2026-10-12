@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { auth, db } from "@/lib/firebase";
-import { updatePassword, signOut } from "firebase/auth";
+import { updatePassword, signOut, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { authFetch } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
@@ -78,6 +78,8 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
   // Delete user fields
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
@@ -258,10 +260,20 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
       return;
     }
 
+    if (!deletePassword) {
+      setDeleteError("Please enter your current account password to confirm deletion.");
+      return;
+    }
+
     setDeleteLoading(true);
     setDeleteError("");
 
     try {
+      if (user?.email && auth.currentUser) {
+        const credential = EmailAuthProvider.credential(user.email, deletePassword);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+      }
+
       const res = await authFetch("/api/user/delete", {
         method: "POST",
       });
@@ -279,7 +291,11 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
       await signOut(auth);
       window.location.href = "/";
     } catch (err: any) {
-      setDeleteError(err.message || "Failed to delete account. Please try again.");
+      if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
+        setDeleteError("Incorrect password. Please verify your password and try again.");
+      } else {
+        setDeleteError(err.message || "Failed to delete account. Please try again.");
+      }
       setDeleteLoading(false);
     }
   };
@@ -678,23 +694,48 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                 </button>
               ) : (
                 <div className="pt-2 space-y-3 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-rose-300 dark:border-rose-900">
-                  <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                    Are you absolutely sure? Type <span className="font-mono bg-rose-100 dark:bg-rose-950 px-1 py-0.5 rounded text-rose-900 dark:text-rose-200">DELETE</span> to confirm:
-                  </p>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={deleteConfirmationText}
-                    onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                    placeholder="Type DELETE"
-                    className="w-full px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  />
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Current Password (to verify your identity):
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showDeletePassword ? "text" : "password"}
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        placeholder="Enter your current password"
+                        className="w-full px-3 py-2 pr-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDeletePassword(!showDeletePassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        {showDeletePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400 mb-1">
+                      Are you absolutely sure? Type <span className="font-mono bg-rose-100 dark:bg-rose-950 px-1 py-0.5 rounded text-rose-900 dark:text-rose-200">DELETE</span> to confirm:
+                    </p>
+                    <input
+                      type="text"
+                      value={deleteConfirmationText}
+                      onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                      placeholder="Type DELETE"
+                      className="w-full px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+
                   <div className="flex items-center gap-2 justify-end">
                     <button
                       type="button"
                       onClick={() => {
                         setShowDeleteConfirm(false);
                         setDeleteConfirmationText("");
+                        setDeletePassword("");
                         setDeleteError("");
                       }}
                       className="px-3.5 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
@@ -703,7 +744,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                     </button>
                     <button
                       type="button"
-                      disabled={deleteLoading || deleteConfirmationText.trim() !== "DELETE"}
+                      disabled={deleteLoading || deleteConfirmationText.trim() !== "DELETE" || !deletePassword}
                       onClick={handleDeleteUser}
                       className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded-lg font-bold text-xs shadow-sm transition flex items-center gap-1.5"
                     >

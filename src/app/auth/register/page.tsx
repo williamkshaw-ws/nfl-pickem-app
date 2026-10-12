@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, X } from "lucide-react";
@@ -95,17 +94,26 @@ if (password !== confirmPassword) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      const idToken = await user.getIdToken();
 
-      await setDoc(doc(db, "users", user.uid), {
-        id: user.uid,
-        name: cleanName,
-        username: cleanUsername,
-        email,
-        createdAt: new Date().toISOString(),
+      // Atomically create profile with unique username check
+      const profileRes = await fetch("/api/auth/register-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ name: cleanName, username: cleanUsername }),
       });
 
+      if (!profileRes.ok) {
+        const profileData = await profileRes.json().catch(() => ({}));
+        // Clean up newly minted Firebase Auth account so the email isn't stuck
+        await user.delete().catch(() => {});
+        throw new Error(profileData.error || "Failed to set up account profile.");
+      }
+
       // Trigger custom Resend verification email
-      const idToken = await user.getIdToken();
       const res = await fetch("/api/auth/verify", {
         method: "POST",
         headers: {

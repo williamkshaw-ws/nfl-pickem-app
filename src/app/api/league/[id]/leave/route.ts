@@ -6,6 +6,7 @@ import {
   HttpError,
   reassignLeagueCommissioner,
 } from "@/lib/server-auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -13,7 +14,12 @@ export async function POST(
 ) {
   try {
     const caller = await requireUser(request);
+    enforceRateLimit(`league-leave:${caller.uid}`, 5, 10 * 60 * 1000, "Too many league leave requests. Please wait a few minutes.");
+
     const { id: leagueId } = await params;
+    if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) {
+      throw new HttpError(404, "League not found");
+    }
 
     const db = adminDb();
     const membershipId = `${leagueId}_${caller.uid}`;

@@ -6,6 +6,7 @@ import {
   errorResponse,
   HttpError,
 } from "@/lib/server-auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -13,14 +14,20 @@ export async function POST(
 ) {
   try {
     const caller = await requireUser(request);
+    enforceRateLimit(`league-transfer:${caller.uid}`, 5, 10 * 60 * 1000, "Too many role transfer attempts. Please wait a few minutes.");
+
     const { id: leagueId } = await params;
+    if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) {
+      throw new HttpError(404, "League not found");
+    }
+
     await requireCommissioner(leagueId, caller.uid);
 
     const body = await request.json();
     const { newCommissionerId } = body || {};
 
-    if (!newCommissionerId || typeof newCommissionerId !== "string") {
-      throw new HttpError(400, "New commissioner user ID is required");
+    if (!newCommissionerId || typeof newCommissionerId !== "string" || !/^[A-Za-z0-9_-]{3,64}$/.test(newCommissionerId)) {
+      throw new HttpError(400, "Valid new commissioner user ID is required");
     }
 
     if (newCommissionerId === caller.uid) {
@@ -36,10 +43,21 @@ export async function POST(
       throw new HttpError(404, "Selected user is not a member of this league");
     }
 
-    // Check that target user is not banned
-    const targetUserSnap = await db.collection("users").doc(newCommissionerId).get();
+    // Check that target user is not banned globally or in this league
+    const [targetUserSnap, leagueDocSnap] = await Promise.all([
+      db.collection("users").doc(newCommissionerId).get(),
+      db.collection("leagues").doc(leagueId).get(),
+    ]);
+
     if (targetUserSnap.exists && targetUserSnap.data()?.banned) {
       throw new HttpError(400, "Cannot transfer commissioner role to a banned user");
+    }
+
+    const leagueBanned = Array.isArray(leagueDocSnap.data()?.bannedUserIds)
+      ? (leagueDocSnap.data()?.bannedUserIds as string[])
+      : [];
+    if (leagueBanned.includes(newCommissionerId)) {
+      throw new HttpError(400, "Cannot transfer commissioner role to a user banned from this league");
     }
 
     const callerMemberRef = db.collection("memberships").doc(`${leagueId}_${caller.uid}`);

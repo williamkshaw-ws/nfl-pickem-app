@@ -24,7 +24,12 @@ export async function requireUser(request: Request) {
   if (!match) throw new HttpError(401, "Not signed in");
   try {
     const decoded = await adminAuth.verifyIdToken(match[1], true);
-    return { uid: decoded.uid, email: decoded.email, emailVerified: !!decoded.email_verified };
+    return {
+      uid: decoded.uid,
+      email: decoded.email,
+      emailVerified: !!decoded.email_verified,
+      authTime: typeof (decoded as any).auth_time === "number" ? (decoded as any).auth_time : 0,
+    };
   } catch {
     throw new HttpError(401, "Invalid or expired session");
   }
@@ -132,9 +137,17 @@ export async function reassignLeagueCommissioner(
       joinedAt: doc.data().joinedAt as string | undefined,
     }));
 
-  // Exclude any banned users from being eligible to become commissioner
+  const leagueSnap = await db.collection("leagues").doc(leagueId).get();
+  const leagueBanned = Array.isArray(leagueSnap.data()?.bannedUserIds)
+    ? (leagueSnap.data()?.bannedUserIds as string[])
+    : [];
+
+  // Exclude any banned users (globally or league-level) from being eligible to become commissioner
   const eligibleMembers: typeof otherMembers = [];
   for (const m of otherMembers) {
+    if (leagueBanned.includes(m.userId)) {
+      continue;
+    }
     const userDoc = await db.collection("users").doc(m.userId).get();
     if (userDoc.exists && userDoc.data()?.banned) {
       continue;

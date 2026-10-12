@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   requireUser,
   requireCommissioner,
   adminDb,
   errorResponse,
   HttpError,
-  reassignLeagueCommissioner,
 } from "@/lib/server-auth";
-import { adminAuth } from "@/lib/firebase-admin";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -15,14 +15,20 @@ export async function POST(
 ) {
   try {
     const caller = await requireUser(request);
+    enforceRateLimit(`league-ban:${caller.uid}`, 10, 10 * 60 * 1000, "Too many ban requests. Please wait a few minutes.");
+
     const { id: leagueId } = await params;
+    if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) {
+      throw new HttpError(404, "League not found");
+    }
+
     await requireCommissioner(leagueId, caller.uid);
 
     const body = await request.json();
-    const { userId } = body;
+    const { userId } = body || {};
 
-    if (!userId || typeof userId !== "string") {
-      throw new HttpError(400, "User ID is required");
+    if (!userId || typeof userId !== "string" || !/^[A-Za-z0-9_-]{3,64}$/.test(userId)) {
+      throw new HttpError(400, "Valid user ID is required");
     }
 
     if (userId === caller.uid) {
@@ -30,49 +36,29 @@ export async function POST(
     }
 
     const db = adminDb();
+    const batch = db.batch();
 
-    // 1. If this user is commissioner of any leagues, reassign commissioner to the next eligible member
-    const commishLeaguesSnap = await db
-      .collection("leagues")
-      .where("commissionerId", "==", userId)
-      .get();
+    // 1. Add user to the league's banned list so they cannot rejoin
+    const leagueRef = db.collection("leagues").doc(leagueId);
+    batch.update(leagueRef, {
+      bannedUserIds: FieldValue.arrayUnion(userId),
+    });
 
-    for (const lDoc of commishLeaguesSnap.docs) {
-      await reassignLeagueCommissioner(db, lDoc.id, userId);
-    }
-
-    // 2. Disable user in Firebase Auth so their email cannot be used to log in
-    try {
-      await adminAuth.updateUser(userId, { disabled: true });
-      await adminAuth.revokeRefreshTokens(userId);
-    } catch (authErr: any) {
-      console.warn("Firebase Auth disable warning:", authErr);
-    }
-
-    // 2. Mark user document as banned in Firestore
-    await db.collection("users").doc(userId).set({
-      banned: true,
-      bannedAt: new Date().toISOString(),
-      bannedBy: caller.uid,
-    }, { merge: true }).catch(() => {});
-
-    // 3. Remove membership from this league
+    // 2. Remove membership from this league
     const membershipId = `${leagueId}_${userId}`;
     const memRef = db.collection("memberships").doc(membershipId);
-    await memRef.delete().catch(() => {});
+    batch.delete(memRef);
 
-    // 4. Delete user's picks in this league
+    // 3. Delete user's picks in this league
     const picksSnap = await db
       .collection("picks")
       .where("leagueId", "==", leagueId)
       .where("userId", "==", userId)
       .get();
 
-    if (!picksSnap.empty) {
-      const batch = db.batch();
-      picksSnap.docs.forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-    }
+    picksSnap.docs.forEach((doc) => batch.delete(doc.ref));
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, banned: true });
   } catch (err: any) {

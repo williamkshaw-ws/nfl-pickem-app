@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser, requireCommissioner, adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -7,14 +8,20 @@ export async function POST(
 ) {
   try {
     const caller = await requireUser(request);
+    enforceRateLimit(`league-kick:${caller.uid}`, 10, 10 * 60 * 1000, "Too many kick requests. Please wait a few minutes.");
+
     const { id: leagueId } = await params;
+    if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) {
+      throw new HttpError(404, "League not found");
+    }
+
     await requireCommissioner(leagueId, caller.uid);
 
     const body = await request.json();
-    const { userId } = body;
+    const { userId } = body || {};
 
-    if (!userId || typeof userId !== "string") {
-      throw new HttpError(400, "User ID is required");
+    if (!userId || typeof userId !== "string" || !/^[A-Za-z0-9_-]{3,64}$/.test(userId)) {
+      throw new HttpError(400, "Valid user ID is required");
     }
 
     if (userId === caller.uid) {

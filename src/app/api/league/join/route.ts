@@ -37,6 +37,11 @@ export async function POST(request: Request) {
     }
 
     const leagueData = leagueDoc.data()!;
+
+    if (Array.isArray(leagueData.bannedUserIds) && leagueData.bannedUserIds.includes(caller.uid)) {
+      throw new HttpError(403, "You have been removed and banned from this league by the commissioner.");
+    }
+
     const requiredPassword = leagueData.settings?.leaguePassword;
 
     // Check league password if one is required
