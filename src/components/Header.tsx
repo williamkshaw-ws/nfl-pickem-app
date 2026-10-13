@@ -82,7 +82,7 @@ export function Header({
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
 
-  const activeUser = users.find((u) => u.id === currentActiveUserId) || users[0];
+  const activeUser = currentActiveUserId ? users.find((u) => u.id === currentActiveUserId) || null : null;
 
   useEffect(() => {
     if (userDropdownOpen && user) {
@@ -250,47 +250,57 @@ export function Header({
                 {settings.leagueName} <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>
               </h1>
               
-              <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-800 mx-1" />
+              {user && (
+                <>
+                  <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-800 mx-1" />
 
-              <div className="relative flex items-center flex-shrink-0">
-                <select
-                  value={activeWeek}
-                  onChange={(e) => onSelectWeek(Number(e.target.value))}
-                  className="h-7 sm:h-[34px] appearance-none bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm pl-2 sm:pl-3 pr-6 sm:pr-8 rounded-md sm:rounded-lg cursor-pointer transition-colors outline-none border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 flex items-center"
-                >
-                  {availableWeeks.map((week) => (
-                    <option key={week} value={week} className="dark:bg-slate-900 dark:text-white">
-                      Week {week}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500 dark:text-slate-400 absolute right-1.5 sm:right-2.5 pointer-events-none" />
-              </div>
+                  <div className="relative flex items-center flex-shrink-0">
+                    <select
+                      value={activeWeek}
+                      onChange={(e) => onSelectWeek(Number(e.target.value))}
+                      className="h-7 sm:h-[34px] appearance-none bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm pl-2 sm:pl-3 pr-6 sm:pr-8 rounded-md sm:rounded-lg cursor-pointer transition-colors outline-none border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 flex items-center"
+                    >
+                      {availableWeeks.map((week) => (
+                        <option key={week} value={week} className="dark:bg-slate-900 dark:text-white">
+                          Week {week}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500 dark:text-slate-400 absolute right-1.5 sm:right-2.5 pointer-events-none" />
+                  </div>
 
-              {onSyncEspn && (
-                <button
-                  type="button"
-                  onClick={() => onSyncEspn(activeWeek)}
-                  disabled={isSyncing}
-                  title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
-                  aria-label="Refresh ESPN scores"
-                  className="h-7 w-7 sm:h-[34px] sm:w-[34px] rounded-md sm:rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
-                </button>
+                  {onSyncEspn && (
+                    <button
+                      type="button"
+                      onClick={() => onSyncEspn(activeWeek)}
+                      disabled={isSyncing}
+                      title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
+                      aria-label="Refresh ESPN scores"
+                      className="h-7 w-7 sm:h-[34px] sm:w-[34px] rounded-md sm:rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {(!user && !activeUser) ? (
-              <div className="flex items-center gap-2">
+            {!user ? (
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Link
                   href="/auth/login"
-                  className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 font-bold text-xs sm:text-sm transition-colors flex items-center gap-1.5"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <span>Sign Up</span>
                 </Link>
               </div>
             ) : (
