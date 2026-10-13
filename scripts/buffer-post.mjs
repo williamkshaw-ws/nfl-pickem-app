@@ -68,9 +68,9 @@ export async function getChannels() {
   return channelData?.channels || [];
 }
 
-export async function postToBuffer({ text, channels = ['twitter'], mode = 'shareNow', mediaUrl = null }) {
+export async function postToBuffer({ text, channels = ['all'], mode = 'shareNow', mediaUrl = null }) {
   const allChannels = await getChannels();
-  const targetChannels = allChannels.filter(c => channels.includes(c.service) || channels.includes('all'));
+  const targetChannels = allChannels.filter(c => channels.includes('all') || channels.includes(c.service));
 
   if (targetChannels.length === 0) {
     throw new Error(`No connected channels matching: ${channels.join(', ')}`);
@@ -79,7 +79,7 @@ export async function postToBuffer({ text, channels = ['twitter'], mode = 'share
   const results = [];
 
   for (const channel of targetChannels) {
-    console.log(`Posting to ${channel.service} (@${channel.name})...`);
+    console.log(`Publishing to ${channel.service} (@${channel.name})...`);
 
     const mutation = `
       mutation CreatePost($input: CreatePostInput!) {
@@ -102,12 +102,26 @@ export async function postToBuffer({ text, channels = ['twitter'], mode = 'share
       channelId: channel.id,
       text: text.trim(),
       schedulingType: 'automatic',
-      mode: mode // 'shareNow' or 'addToQueue'
+      mode: mode,
+      needsApproval: false
     };
 
     if (mediaUrl) {
-      input.assets = {
-        images: [{ url: mediaUrl }]
+      input.assets = [
+        {
+          image: {
+            url: mediaUrl
+          }
+        }
+      ];
+    }
+
+    if (channel.service === 'instagram') {
+      input.metadata = {
+        instagram: {
+          type: 'post',
+          shouldShareToFeed: true
+        }
       };
     }
 
@@ -127,16 +141,24 @@ export async function postToBuffer({ text, channels = ['twitter'], mode = 'share
 }
 
 // CLI usage:
-// node scripts/buffer-post.mjs "Hello from PocketPicks!"
+// node scripts/buffer-post.mjs "Post text" "https://optional.url/image.png" "all|twitter|instagram"
 if (process.argv[1]?.endsWith('buffer-post.mjs')) {
-  const text = process.argv.slice(2).join(' ');
+  const text = process.argv[2];
+  const mediaUrl = process.argv[3] || null;
+  const channelArg = process.argv[4] || 'all';
+
   if (!text) {
-    console.error('Usage: node scripts/buffer-post.mjs "Post text"');
+    console.error('Usage: node scripts/buffer-post.mjs "Post text" [mediaUrl] [channel: all|twitter|instagram]');
     process.exit(1);
   }
 
-  postToBuffer({ text, channels: ['twitter'], mode: 'shareNow' })
-    .then(r => console.log('Done!', r))
+  const channels = channelArg === 'all' ? ['all'] : channelArg.split(',');
+
+  postToBuffer({ text, channels, mode: 'shareNow', mediaUrl })
+    .then(r => {
+      console.log('Results summary:', JSON.stringify(r, null, 2));
+      process.exit(0);
+    })
     .catch(err => {
       console.error(err);
       process.exit(1);
