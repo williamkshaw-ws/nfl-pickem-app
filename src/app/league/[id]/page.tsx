@@ -360,15 +360,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  if (!user && !auth.currentUser) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!data || !user) {
+  if (!data) {
     if (typeof window !== "undefined") {
       localStorage.removeItem("last_active_league");
     }
@@ -377,7 +369,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         <div className="text-center p-8 max-w-sm w-full bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <p className="text-slate-700 dark:text-slate-300 font-bold mb-1">League Unavailable</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Failed to load league. It may not exist or you lack access.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Failed to load league. It may not exist or is unavailable.</p>
           <div className="flex flex-col gap-2">
             <button
               onClick={() => {
@@ -390,26 +382,30 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
             >
               Return to Landing Page
             </button>
-            <button
-              onClick={() => setShowFallbackSettings(true)}
-              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              Account Settings
-            </button>
-            <button
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  localStorage.removeItem("last_active_league");
-                  auth.signOut().then(() => {
-                    window.location.href = "/";
-                  });
-                }
-              }}
-              className="w-full py-2 px-4 rounded-xl text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-bold text-xs transition cursor-pointer"
-            >
-              Sign Out
-            </button>
+            {user && (
+              <>
+                <button
+                  onClick={() => setShowFallbackSettings(true)}
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Account Settings
+                </button>
+                <button
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      localStorage.removeItem("last_active_league");
+                      auth.signOut().then(() => {
+                        window.location.href = "/";
+                      });
+                    }
+                  }}
+                  className="w-full py-2 px-4 rounded-xl text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </>
+            )}
           </div>
         </div>
 
