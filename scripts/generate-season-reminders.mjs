@@ -391,3 +391,49 @@ Don't leave points on the table:
 
   return { twitterText, instagramText };
 }
+
+export async function scheduleWeekReminder(week) {
+  const games = await fetchWeekGames(week);
+  const g1 = games[0];
+  const dueAt = getThursdayScheduledDate(g1.date);
+  const { twitterText, instagramText } = buildCaptions(week, g1);
+  const mediaUrl = `https://pocketpicks.app/pocketpicks-week-${week}.png`;
+
+  console.log(`Scheduling Week ${week} for ${dueAt}...`);
+  return postToBuffer({
+    twitterText,
+    instagramText,
+    channels: ['all'],
+    mode: 'customScheduled',
+    dueAt,
+    mediaUrl
+  });
+}
+
+// CLI handler
+if (process.argv[1]?.endsWith('generate-season-reminders.mjs')) {
+  const cmd = process.argv[2];
+  const weekArg = parseInt(process.argv[3], 10);
+
+  if (cmd === 'schedule' && weekArg) {
+    scheduleWeekReminder(weekArg)
+      .then(r => {
+        console.log(`Week ${weekArg} scheduled successfully:`, JSON.stringify(r, null, 2));
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error(err);
+        process.exit(1);
+      });
+  } else if (cmd === 'generate' && weekArg) {
+    createWeeklyGraphic(weekArg)
+      .then(r => {
+        console.log(`Week ${weekArg} generated successfully at ${r.outputPath}`);
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error(err);
+        process.exit(1);
+      });
+  }
+}
