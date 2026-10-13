@@ -68,7 +68,15 @@ export async function getChannels() {
   return channelData?.channels || [];
 }
 
-export async function postToBuffer({ text, channels = ['all'], mode = 'shareNow', mediaUrl = null }) {
+export async function postToBuffer({
+  text,
+  twitterText = null,
+  instagramText = null,
+  channels = ['all'],
+  mode = 'shareNow',
+  dueAt = null,
+  mediaUrl = null
+}) {
   const allChannels = await getChannels();
   const targetChannels = allChannels.filter(c => channels.includes('all') || channels.includes(c.service));
 
@@ -79,7 +87,13 @@ export async function postToBuffer({ text, channels = ['all'], mode = 'shareNow'
   const results = [];
 
   for (const channel of targetChannels) {
-    console.log(`Publishing to ${channel.service} (@${channel.name})...`);
+    const postText = channel.service === 'twitter' && twitterText
+      ? twitterText.trim()
+      : channel.service === 'instagram' && instagramText
+      ? instagramText.trim()
+      : (text || '').trim();
+
+    console.log(`${mode === 'customScheduled' ? 'Scheduling for ' + dueAt : 'Publishing'} to ${channel.service} (@${channel.name})...`);
 
     const mutation = `
       mutation CreatePost($input: CreatePostInput!) {
@@ -89,6 +103,7 @@ export async function postToBuffer({ text, channels = ['all'], mode = 'shareNow'
               id
               text
               status
+              dueAt
             }
           }
           ... on MutationError {
@@ -100,11 +115,15 @@ export async function postToBuffer({ text, channels = ['all'], mode = 'shareNow'
 
     const input = {
       channelId: channel.id,
-      text: text.trim(),
+      text: postText,
       schedulingType: 'automatic',
       mode: mode,
       needsApproval: false
     };
+
+    if (dueAt) {
+      input.dueAt = dueAt;
+    }
 
     if (mediaUrl) {
       input.assets = [
@@ -132,7 +151,7 @@ export async function postToBuffer({ text, channels = ['all'], mode = 'shareNow'
       console.error(`Failed on ${channel.service}: ${postRes.message}`);
       results.push({ channel: channel.service, success: false, error: postRes.message });
     } else {
-      console.log(`Successfully published to ${channel.service}! Post ID: ${postRes?.post?.id}`);
+      console.log(`Successfully ${mode === 'customScheduled' ? 'scheduled' : 'published'} on ${channel.service}! Post ID: ${postRes?.post?.id}, Due: ${postRes?.post?.dueAt || 'Now'}`);
       results.push({ channel: channel.service, success: true, post: postRes?.post });
     }
   }
