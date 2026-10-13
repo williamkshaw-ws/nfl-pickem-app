@@ -21,7 +21,7 @@ export function SiteFooter() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 text-center sm:text-left">
         {/* Branding & Copyright */}
         <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-slate-500 dark:text-slate-400">
-          <span>&copy; {new Date().getFullYear()} PocketPicks. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} PocketPicks&trade;. All rights reserved.</span>
           <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
           <span className="text-[11px] sm:text-xs">NFL Pick&apos;em &amp; Survivor Pool Platform</span>
         </div>

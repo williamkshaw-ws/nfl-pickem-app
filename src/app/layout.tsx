@@ -5,9 +5,9 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "PocketPicks | Weekly Football Picks & Standings",
+  title: "PocketPicks™ | Weekly Football Picks & Standings",
   description: "Make weekly football picks, compete with friends, track weekly winners, and battle for the season championship with PocketPicks!",
-  applicationName: "PocketPicks",
+  applicationName: "PocketPicks™",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

@@ -244,7 +244,7 @@ export function LandingPage() {
               <Trophy className="w-4 h-4" />
             </div>
             <span className="font-black text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">
-              PocketPicks
+              PocketPicks<span className="text-[10px] align-super font-bold text-emerald-600 dark:text-emerald-400 ml-0.5">TM</span>
             </span>
           </Link>
 
