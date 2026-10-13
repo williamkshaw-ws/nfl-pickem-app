@@ -256,7 +256,7 @@ export function Header({
                 <select
                   value={activeWeek}
                   onChange={(e) => onSelectWeek(Number(e.target.value))}
-                  className="appearance-none bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm py-1 sm:py-1.5 pl-2 sm:pl-3 pr-6 sm:pr-8 rounded-md sm:rounded-lg cursor-pointer transition-colors outline-none border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
+                  className="h-7 sm:h-[34px] appearance-none bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm pl-2 sm:pl-3 pr-6 sm:pr-8 rounded-md sm:rounded-lg cursor-pointer transition-colors outline-none border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 flex items-center"
                 >
                   {availableWeeks.map((week) => (
                     <option key={week} value={week} className="dark:bg-slate-900 dark:text-white">
@@ -274,7 +274,7 @@ export function Header({
                   disabled={isSyncing}
                   title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
                   aria-label="Refresh ESPN scores"
-                  className="p-1 sm:p-1.5 rounded-md sm:rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
+                  className="h-7 w-7 sm:h-[34px] sm:w-[34px] rounded-md sm:rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
                 </button>
