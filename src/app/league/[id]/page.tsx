@@ -22,7 +22,8 @@ import { OverallStandings } from "@/components/OverallStandings";
 import { PickMatrix } from "@/components/PickMatrix";
 import { EliminatorPool } from "@/components/EliminatorPool";
 import { CommissionerHub } from "@/components/CommissionerHub";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings } from "lucide-react";
+import Link from "next/link";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, LogIn } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 
@@ -39,6 +40,8 @@ interface LeagueApiResponse {
   eliminatorStatus: EliminatorStatus[];
   availableWeeks: number[];
   isSeasonOver?: boolean;
+  isCommissioner?: boolean;
+  isGuest?: boolean;
 }
 
 export default function LeagueHome({ params }: { params: Promise<{ id: string }> }) {
@@ -73,7 +76,6 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   }, [leagueId]);
 
   const loadLeagueData = useCallback(async (week?: number, isBackground = false) => {
-    if (!user) return;
     try {
       const url = week !== undefined
         ? `/api/league/${leagueId}?week=${week}`
@@ -93,20 +95,23 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         setLoading(false);
       }
     }
-  }, [leagueId, user]);
+  }, [leagueId]);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user && !auth.currentUser) {
-      router.push("/");
-      return;
-    }
     loadLeagueData();
-  }, [authLoading, user, router, loadLeagueData]);
+  }, [authLoading, loadLeagueData]);
+
+  // Default guest visitors to the Season Standings tab
+  useEffect(() => {
+    if (!authLoading && !user && activeTab === "picks") {
+      setActiveTab("season");
+    }
+  }, [authLoading, user, activeTab]);
 
   // Silently refresh live scores in the background (every 20s during live games, otherwise 60s)
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
 
     const games = data?.gamesByWeek[activeWeek] || [];
     const now = Date.now();
@@ -419,10 +424,10 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  const isCommissioner = data.settings.commissionerId === user.id;
+  const isCommissioner = Boolean(user && (data.isCommissioner || data.settings.commissionerId === user.id));
   const isSurvivorOnly = data.settings.pickemEnabled === false;
   const usedEliminatorTeams = (data.allPicks || [])
-    .filter((p: any) => p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
+    .filter((p: any) => user && p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
     .map((p: any) => p.eliminatorPick as string);
 
   return (
@@ -430,7 +435,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       <Header
         settings={data.settings}
         users={data.users}
-        currentActiveUserId={user.id}
+        currentActiveUserId={user?.id || ""}
         activeWeek={activeWeek}
         availableWeeks={data.availableWeeks}
         currentLeagueId={leagueId}
@@ -442,12 +447,30 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       />
 
       <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-6 sm:pb-8 w-full flex-1">
+        {!user && (
+          <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl flex items-center justify-between gap-3 text-xs sm:text-sm">
+            <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-medium">
+              <span className="text-base sm:text-lg">🏆</span>
+              <span>Viewing <strong>{data.settings.leagueName}</strong> as a guest. Season Standings and League Picks are open to view!</span>
+            </div>
+            <Link
+              href="/auth/login"
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shrink-0 transition-colors shadow-xs flex items-center gap-1"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </Link>
+          </div>
+        )}
+
         <NavigationTabs 
           activeTab={activeTab} 
           onTabChange={handleTabChange} 
           activeWeek={activeWeek}
           picksCount={
-            isSurvivorOnly
+            !user
+              ? 0
+              : isSurvivorOnly
               ? (data.activeUserPicks?.eliminatorPick ? 1 : 0)
               : Object.keys(data.activeUserPicks?.picks || {}).length
           }
@@ -456,29 +479,58 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
           isCommissioner={isCommissioner}
           pickemEnabled={!isSurvivorOnly}
           eliminatorEnabled={data.settings.eliminatorEnabled}
+          isGuest={!user}
         />
 
         <div className="mt-8">
           {activeTab === "picks" && (
-            <WeeklyPicks
-              games={data.gamesByWeek[activeWeek] || []}
-              activeWeek={activeWeek}
-              currentUser={{
-                id: user.id,
-                name: user.name,
-                avatarColor: data.users?.find((u: any) => u.id === user.id)?.avatarColor || user.avatarColor || "bg-emerald-600"
-              } as any}
-              existingPicks={data.activeUserPicks}
-              lockPolicy={data.settings.lockPolicy}
-              eliminatorEnabled={data.settings.eliminatorEnabled}
-              pickemEnabled={!isSurvivorOnly}
-              usedEliminatorTeams={usedEliminatorTeams}
-              eliminatorStatus={data.eliminatorStatus}
-              totalMembersCount={data.users?.length}
-              isCommissionerEditMode={false}
-              onDirtyChange={setHasUnsavedChanges}
-              onSavePicks={handleSavePicks}
-            />
+            !user ? (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 sm:p-12 text-center max-w-md mx-auto shadow-sm my-8 sm:my-12">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">
+                  Make Your Picks
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                  You are viewing {data.settings.leagueName} as a guest. Sign in or create an account to submit your weekly picks!
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <Link
+                    href="/auth/login"
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-colors shadow-xs"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/auth/register"
+                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-sm transition-colors"
+                  >
+                    Register
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <WeeklyPicks
+                games={data.gamesByWeek[activeWeek] || []}
+                activeWeek={activeWeek}
+                currentUser={{
+                  id: user.id,
+                  name: user.name,
+                  avatarColor: data.users?.find((u: any) => u.id === user.id)?.avatarColor || user.avatarColor || "bg-emerald-600"
+                } as any}
+                existingPicks={data.activeUserPicks}
+                lockPolicy={data.settings.lockPolicy}
+                eliminatorEnabled={data.settings.eliminatorEnabled}
+                pickemEnabled={!isSurvivorOnly}
+                usedEliminatorTeams={usedEliminatorTeams}
+                eliminatorStatus={data.eliminatorStatus}
+                totalMembersCount={data.users?.length}
+                isCommissionerEditMode={false}
+                onDirtyChange={setHasUnsavedChanges}
+                onSavePicks={handleSavePicks}
+              />
+            )
           )}
 
           {activeTab === "matrix" && (
@@ -487,7 +539,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               users={data.users}
               allPicks={data.allPicks}
               activeWeek={activeWeek}
-              currentUserId={user.id}
+              currentUserId={user?.id || ""}
               lockPolicy={data.settings.lockPolicy}
               eliminatorEnabled={data.settings.eliminatorEnabled}
               eliminatorStatus={data.eliminatorStatus}
@@ -499,7 +551,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
             <OverallStandings 
               standings={data.seasonStandings} 
               seasonYear={data.settings.seasonYear || 2026}
-              currentUserId={user.id}
+              currentUserId={user?.id || ""}
               isSeasonOver={data.isSeasonOver}
             />
           )}
@@ -510,7 +562,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               eliminatorStatus={data.eliminatorStatus}
               activeWeek={activeWeek}
               availableWeeks={data.availableWeeks}
-              currentUserId={user.id}
+              currentUserId={user?.id || ""}
             />
           )}
 

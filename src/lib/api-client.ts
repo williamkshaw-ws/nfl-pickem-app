@@ -7,10 +7,15 @@ import { auth } from "@/lib/firebase";
  */
 export async function authFetch(input: string, init: RequestInit = {}) {
   const user = auth.currentUser;
-  if (!user) throw new Error("Not signed in");
-  const token = await user.getIdToken();
   const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
+  if (user) {
+    try {
+      const token = await user.getIdToken();
+      headers.set("Authorization", `Bearer ${token}`);
+    } catch (e) {
+      console.warn("Could not retrieve auth token:", e);
+    }
+  }
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   return fetch(input, { ...init, headers });
 }

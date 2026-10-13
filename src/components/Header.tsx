@@ -283,7 +283,18 @@ export function Header({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div ref={dropdownRef} className="relative ml-0 sm:ml-2">
+            {(!user && !activeUser) ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/auth/login"
+                  className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </Link>
+              </div>
+            ) : (
+              <div ref={dropdownRef} className="relative ml-0 sm:ml-2">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                 className="flex items-center gap-2 text-left transition-opacity hover:opacity-80"
@@ -449,6 +460,7 @@ export function Header({
                   </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>

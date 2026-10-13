@@ -20,9 +20,39 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const caller = await requireUser(request);
     const { id: leagueId } = await params;
-    const { league, isCommissioner } = await requireMember(leagueId, caller.uid);
+    if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) {
+      throw new HttpError(404, "League not found");
+    }
+
+    const authHeader = request.headers.get("authorization") || "";
+    let caller: { uid: string; email?: string; emailVerified?: boolean } = {
+      uid: "guest",
+      email: "",
+      emailVerified: false,
+    };
+    let league: any = null;
+    let isCommissioner = false;
+
+    if (authHeader.startsWith("Bearer ")) {
+      try {
+        const authedCaller = await requireUser(request);
+        const memberData = await requireMember(leagueId, authedCaller.uid);
+        caller = authedCaller;
+        league = memberData.league;
+        isCommissioner = memberData.isCommissioner;
+      } catch {
+        // If auth fails or user is not a member, fall back to guest read-only view
+      }
+    }
+
+    if (!league) {
+      const db = adminDb();
+      const leagueSnap = await db.collection("leagues").doc(leagueId).get();
+      if (!leagueSnap.exists) throw new HttpError(404, "League not found");
+      league = leagueSnap.data()!;
+      isCommissioner = false;
+    }
 
     const url = new URL(request.url);
     const weekParam = url.searchParams.get("week");
@@ -254,6 +284,8 @@ export async function GET(
       eliminatorStatus,
       availableWeeks,
       isSeasonOver,
+      isCommissioner,
+      isGuest: caller.uid === "guest",
     });
   } catch (err: any) {
     return errorResponse(err);

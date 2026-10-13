@@ -16,6 +16,7 @@ interface NavigationTabsProps {
   isCommissioner: boolean;
   pickemEnabled?: boolean;
   eliminatorEnabled?: boolean;
+  isGuest?: boolean;
 }
 
 export function NavigationTabs({
@@ -28,6 +29,7 @@ export function NavigationTabs({
   isCommissioner,
   pickemEnabled = true,
   eliminatorEnabled,
+  isGuest = false,
 }: NavigationTabsProps) {
   
   const allTabs: { id: TabType; label: string; shortLabel: string; icon: any; desktopOnlyLabel?: boolean; badge?: string; badgeColor?: string }[] = [
@@ -67,12 +69,35 @@ export function NavigationTabs({
     },
   ];
 
-  const tabs = allTabs.filter((tab) => {
-    if (!pickemEnabled && (tab.id === "matrix" || tab.id === "season")) return false;
-    if (!eliminatorEnabled && tab.id === "eliminator") return false;
-    if (!isCommissioner && tab.id === "commissioner") return false;
-    return true;
-  });
+  const tabs = isGuest
+    ? [
+        {
+          id: "season" as TabType,
+          label: "Season Standings",
+          shortLabel: "Season",
+          icon: Trophy,
+        },
+        {
+          id: "matrix" as TabType,
+          label: "League Picks",
+          shortLabel: "League",
+          icon: Grid,
+          badge: hasWeeklyWinner ? "Final" : undefined,
+          badgeColor: hasWeeklyWinner ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" : undefined,
+        },
+        ...(eliminatorEnabled ? [{
+          id: "eliminator" as TabType,
+          label: "Survivor",
+          shortLabel: "Survivor",
+          icon: Target,
+        }] : []),
+      ]
+    : allTabs.filter((tab) => {
+        if (!pickemEnabled && (tab.id === "matrix" || tab.id === "season")) return false;
+        if (!eliminatorEnabled && tab.id === "eliminator") return false;
+        if (!isCommissioner && tab.id === "commissioner") return false;
+        return true;
+      });
 
   return (
     <>
