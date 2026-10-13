@@ -443,30 +443,6 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       />
 
       <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-6 sm:pb-8 w-full flex-1">
-        {!user && (
-          <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl flex items-center justify-between gap-3 text-xs sm:text-sm">
-            <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-medium">
-              <span className="text-base sm:text-lg">🏆</span>
-              <span>Viewing <strong>{data.settings.leagueName}</strong> Season Standings.</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                href="/auth/login"
-                className="px-3 py-1.5 border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-bold rounded-lg text-xs transition-colors flex items-center gap-1"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </Link>
-              <Link
-                href="/auth/register"
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-colors shadow-xs"
-              >
-                <span>Sign Up</span>
-              </Link>
-            </div>
-          </div>
-        )}
-
         {!user ? (
           <OverallStandings 
             standings={data.seasonStandings} 
