@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { User, LeagueSettings } from "@/types/nfl";
 import {
   Trophy,
-  Users,
   RefreshCw,
   ChevronDown,
   ChevronRight,
@@ -13,16 +12,13 @@ import {
   PlusCircle,
   LogIn,
   Loader2,
-  Sun,
-  Moon,
-  Monitor,
   Settings,
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-import { collection, query, where, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/api-client";
@@ -36,8 +32,6 @@ interface HeaderProps {
   availableWeeks: number[];
   currentLeagueId?: string;
   onSelectWeek: (week: number) => void;
-  onSwitchUser: (userId: string) => void;
-  onAddUser: (name: string) => Promise<void>;
   onSyncEspn?: (week?: number) => void | Promise<void>;
   isSyncing?: boolean;
 }

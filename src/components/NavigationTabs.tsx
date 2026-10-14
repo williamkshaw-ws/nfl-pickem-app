@@ -2,14 +2,14 @@
 "use client";
 
 import React from "react";
-import { CheckCircle2, Award, Trophy, Grid, SlidersHorizontal, Target } from "lucide-react";
+import { CheckCircle2, Trophy, Grid, SlidersHorizontal, Target } from "lucide-react";
 
 export type TabType = "picks" | "weekly" | "season" | "matrix" | "eliminator" | "commissioner";
 
 interface NavigationTabsProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
-  activeWeek: number;
+  activeWeek?: number;
   picksCount: number;
   totalGames: number;
   hasWeeklyWinner: boolean;
@@ -22,7 +22,6 @@ interface NavigationTabsProps {
 export function NavigationTabs({
   activeTab,
   onTabChange,
-  activeWeek,
   picksCount,
   totalGames,
   hasWeeklyWinner,

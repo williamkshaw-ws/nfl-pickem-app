@@ -517,7 +517,6 @@ export function WeeklyPicks({
                 ].map(({ team, score, selected, isWinner, fallback }) => {
                   const isPickWrong = selected && isCompleted && !isWinner;
                   const isPickWon = selected && isCompleted && isWinner;
-                  const isPickActive = selected && !isCompleted;
 
                   const itemRowClass = selected
                     ? isPickWrong

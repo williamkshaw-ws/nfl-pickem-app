@@ -2,9 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
-import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult, isPickCorrect, isGameTie, isSurvivorPickWon } from "@/types/nfl";
-import { Check, X, Clock, Trophy, Target, Crown, Sparkles, HelpCircle } from "lucide-react";
-import Image from "next/image";
+import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult, isPickCorrect, isSurvivorPickWon } from "@/types/nfl";
+import { Check, X, Clock, Trophy, Sparkles, HelpCircle } from "lucide-react";
 import { TeamLogo } from "./TeamLogo";
 
 interface PickMatrixProps {
@@ -51,7 +50,6 @@ export function PickMatrix({
   currentUserId,
   lockPolicy = "game",
   eliminatorEnabled = false,
-  eliminatorStatus,
   weeklyResults,
   settings,
 }: PickMatrixProps) {
@@ -73,7 +71,6 @@ export function PickMatrix({
     sortedGames,
     tbGame,
     completedGames,
-    liveGames,
     remainingGames,
     completedCount,
     liveCount,
@@ -92,7 +89,6 @@ export function PickMatrix({
       sortedGames: sorted,
       tbGame: tb,
       completedGames: completed,
-      liveGames: live,
       remainingGames: remaining,
       completedCount: completed.length,
       liveCount: live.length,

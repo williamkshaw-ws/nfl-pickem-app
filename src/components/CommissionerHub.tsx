@@ -20,19 +20,16 @@ import {
   RefreshCw,
   UserMinus,
   Ban,
-  User as UserIcon,
   Crown,
   Search,
   CheckCircle2,
   AlertCircle,
   FileEdit,
-  ArrowRight,
   ShieldAlert,
   Loader2,
   Lock,
   Clock,
   DollarSign,
-  CreditCard,
   Trophy,
   Mail,
   ExternalLink,
@@ -46,7 +43,6 @@ import {
   normalizeVenmoHandle,
   buildVenmoPayUrl,
   buildPrizeLedger,
-  type PrizeEntry,
 } from "@/lib/payouts";
 
 type CommissionerSubTab = "roster" | "payouts" | "overrides" | "settings";
@@ -136,9 +132,6 @@ export function CommissionerHub({
 }: CommissionerHubProps) {
   const [activeSubTab, setActiveSubTab] = useState<CommissionerSubTab>("roster");
   const [leagueNameInput, setLeagueNameInput] = useState(settings.leagueName);
-  const [entryFeeInput, setEntryFeeInput] = useState<string>(
-    typeof settings.entryFee === "number" ? settings.entryFee.toString() : "0"
-  );
   const [weeklyFeeInput, setWeeklyFeeInput] = useState<string>(
     typeof settings.weeklyFee === "number" ? settings.weeklyFee.toString() : ""
   );
@@ -287,8 +280,6 @@ export function CommissionerHub({
   const completeCount = memberStatuses.filter((s) => s.isComplete).length;
   const missingCount = memberStatuses.filter((s) => s.isMissing).length;
   const partialCount = memberStatuses.filter((s) => s.isPartial).length;
-  const completionPercentage =
-    users.length > 0 ? Math.round((completeCount / users.length) * 100) : 0;
 
   const paidCount = users.filter((u) => !!paidMembers[u.id]).length;
   const unpaidCount = users.length - paidCount;
@@ -392,7 +383,7 @@ export function CommissionerHub({
     const w = Number(weeklyFeeInput) || 0;
     const s = Number(seasonFeeInput) || 0;
     const sv = Number(survivorFeeInput) || 0;
-    const ef = Number(entryFeeInput) || 0;
+    const ef = typeof settings.entryFee === "number" ? settings.entryFee : 0;
     const handle = normalizeVenmoHandle(venmoHandleInput);
     if (venmoHandleInput.trim() && handle === null) {
       setAlertModal({
@@ -797,10 +788,8 @@ export function CommissionerHub({
                   ({
                     user: u,
                     validPicksCount,
-                    hasTiebreaker,
                     hasSurvivor,
                     isUserEliminated,
-                    survivorPick,
                     survivorTeam,
                     isSurvivorRevealed,
                     isComplete,
@@ -2053,7 +2042,7 @@ export function CommissionerHub({
                   setIsDeleting(true);
                   try {
                     await onDeleteLeague();
-                  } catch (err) {
+                  } catch {
                     setIsDeleting(false);
                   }
                 }}

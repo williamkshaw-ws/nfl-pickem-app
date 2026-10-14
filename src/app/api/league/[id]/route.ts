@@ -461,7 +461,8 @@ export async function PUT(
       name: newSettings.leagueName || docSnap.data()?.name,
     });
 
-    const { leaguePassword: _omit, ...publicSettings } = newSettings;
+    const publicSettings = { ...newSettings };
+    delete (publicSettings as any).leaguePassword;
     return NextResponse.json({ success: true, settings: { ...publicSettings, hasPassword: !!newSettings.leaguePassword } });
   } catch (err: any) {
     return errorResponse(err);

@@ -1,16 +1,14 @@
-"use client";
-import Image from "next/image";
 import { TeamLogo } from "./TeamLogo";
 
 import React from "react";
-import { User, EliminatorStatus, Game } from "@/types/nfl";
-import { Target, Skull, Trophy, Check, X } from "lucide-react";
+import { User, EliminatorStatus } from "@/types/nfl";
+import { Skull, Trophy, Check, X } from "lucide-react";
 
 interface EliminatorPoolProps {
   users: User[];
   eliminatorStatus: EliminatorStatus[];
-  activeWeek: number;
-  availableWeeks: number[];
+  activeWeek?: number;
+  availableWeeks?: number[];
   currentUserId?: string;
   settings?: any;
 }
@@ -18,8 +16,6 @@ interface EliminatorPoolProps {
 export function EliminatorPool({
   users,
   eliminatorStatus,
-  activeWeek,
-  availableWeeks,
   currentUserId,
   settings,
 }: EliminatorPoolProps) {

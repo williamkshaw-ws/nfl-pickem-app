@@ -17,13 +17,11 @@ import {
 import { Header } from "@/components/Header";
 import { NavigationTabs, TabType } from "@/components/NavigationTabs";
 import { WeeklyPicks } from "@/components/WeeklyPicks";
-import { WeeklyLeaderboard } from "@/components/WeeklyLeaderboard";
 import { OverallStandings } from "@/components/OverallStandings";
 import { PickMatrix } from "@/components/PickMatrix";
 import { EliminatorPool } from "@/components/EliminatorPool";
 import { CommissionerHub } from "@/components/CommissionerHub";
-import Link from "next/link";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, LogIn, CreditCard, ArrowRight, ExternalLink } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { getPayoutConfig, formatMoney, describeDues, buildVenmoPayUrl } from "@/lib/payouts";
@@ -444,10 +442,6 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleAddUser = async (name: string) => {
-    showToast("Users must join using the 5-character invite code.");
-  };
-
   if (authLoading || loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -532,8 +526,6 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         availableWeeks={data.availableWeeks}
         currentLeagueId={leagueId}
         onSelectWeek={handleSelectWeek}
-        onSwitchUser={() => {}}
-        onAddUser={handleAddUser}
         onSyncEspn={handleSyncToEspn}
         isSyncing={isSyncing}
       />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { applyActionCode, signInWithEmailAndPassword } from "firebase/auth";
 import { CheckCircle2, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
@@ -9,7 +9,6 @@ import Link from "next/link";
 
 function VerifyHandler() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const oobCode = searchParams.get("oobCode");
 
   const [verifying, setVerifying] = useState(true);

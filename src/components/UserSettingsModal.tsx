@@ -24,7 +24,6 @@ import { auth, db } from "@/lib/firebase";
 import { updatePassword, signOut, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { authFetch } from "@/lib/api-client";
-import { useRouter } from "next/navigation";
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -54,7 +53,6 @@ const AVATAR_COLORS = [
 export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSettingsModalProps) {
   const { user, refreshUser } = useAuth();
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const router = useRouter();
 
   const wasOpenRef = useRef(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);

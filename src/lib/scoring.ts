@@ -152,7 +152,6 @@ export function calculateWeeklyResults(
   });
 
   // Assign ranks & detect tiebreaker explanations
-  const currentRank = 1;
   for (let i = 0; i < playerStats.length; i++) {
     if (i > 0) {
       const prev = playerStats[i - 1];
