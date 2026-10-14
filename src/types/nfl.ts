@@ -144,6 +144,16 @@ export interface LeagueSettings {
   pickemEnabled?: boolean;
   leaguePassword?: string;
   entryFee?: number;
+  /** Weekly winner-take-all buy-in per player, per week */
+  weeklyFee?: number;
+  /** Season overall winner-take-all buy-in per player */
+  seasonFee?: number;
+  /** Survivor last-one-standing buy-in per player */
+  survivorFee?: number;
+  /** First week that counts toward the weekly prize (for leagues starting mid-season) */
+  weeklyStartWeek?: number;
+  /** Commissioner's Venmo username (without @) shown to members for paying dues */
+  venmoHandle?: string;
 }
 
 export interface EliminatorStatus {

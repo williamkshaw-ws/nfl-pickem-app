@@ -16,6 +16,7 @@ interface OverallStandingsProps {
   seasonYear: number;
   currentUserId?: string;
   isSeasonOver?: boolean;
+  settings?: any;
 }
 
 interface StandingRow extends SeasonPlayerStanding {
@@ -78,6 +79,7 @@ export function OverallStandings({
   seasonYear,
   currentUserId,
   isSeasonOver,
+  settings,
 }: OverallStandingsProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -154,6 +156,9 @@ export function OverallStandings({
   const me = rows.find((r) => r.userId === currentUserId);
   const showMyPosition = me && me.rank > 5;
 
+  const seasonFee = Number(settings?.seasonFee) || 0;
+  const seasonPot = seasonFee > 0 ? seasonFee * standings.length : 0;
+
   return (
     <div className="space-y-3">
       {/* Headline strip */}
@@ -161,10 +166,22 @@ export function OverallStandings({
         <div className="flex items-center gap-2 min-w-0">
           <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
           <span className={`font-bold truncate ${isSeasonOver ? "text-amber-900 dark:text-amber-200" : "text-slate-900 dark:text-white"}`}>{headline}</span>
+          {seasonPot > 0 && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60 shrink-0">
+              1st Place Prize: ${seasonPot.toLocaleString()}
+            </span>
+          )}
         </div>
-        <span className={`font-semibold whitespace-nowrap ${isSeasonOver ? "text-amber-700/70 dark:text-amber-300/70" : "text-slate-500 dark:text-slate-400"}`}>
-          {seasonYear} • {isSeasonOver ? "Final" : `Thru Wk ${latestWeek}`}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {seasonPot > 0 && (
+            <span className="sm:hidden text-[11px] font-black text-amber-600 dark:text-amber-400">
+              ${seasonPot.toLocaleString()} Prize
+            </span>
+          )}
+          <span className={`font-semibold whitespace-nowrap ${isSeasonOver ? "text-amber-700/70 dark:text-amber-300/70" : "text-slate-500 dark:text-slate-400"}`}>
+            {seasonYear} • {isSeasonOver ? "Final" : `Thru Wk ${latestWeek}`}
+          </span>
+        </div>
       </div>
 
       {/* Your position (only when you're outside the top of the list) */}

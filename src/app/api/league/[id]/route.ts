@@ -11,6 +11,7 @@ import {
 import { getDatabase, syncWeekFromEspn, detectCurrentWeek } from "@/lib/storage";
 import { hashLeaguePassword } from "@/lib/league-password";
 import { calculateWeeklyResults, calculateSeasonStandings, calculateSurvivorStatus } from "@/lib/scoring";
+import { normalizeVenmoHandle } from "@/lib/payouts";
 
 // Throttle automatic ESPN sync on page load to at most once every 60 seconds per week
 const lastAutoSyncByWeek: Record<number, number> = {};
@@ -84,6 +85,11 @@ export async function GET(
       // Never expose the actual league password to clients; only flag if one is set
       hasPassword: !!rawSettings.leaguePassword,
       entryFee: typeof rawSettings.entryFee === "number" ? rawSettings.entryFee : 0,
+      weeklyFee: typeof rawSettings.weeklyFee === "number" ? rawSettings.weeklyFee : 0,
+      seasonFee: typeof rawSettings.seasonFee === "number" ? rawSettings.seasonFee : 0,
+      survivorFee: typeof rawSettings.survivorFee === "number" ? rawSettings.survivorFee : 0,
+      weeklyStartWeek: typeof rawSettings.weeklyStartWeek === "number" ? rawSettings.weeklyStartWeek : 1,
+      venmoHandle: typeof rawSettings.venmoHandle === "string" ? rawSettings.venmoHandle : "",
     };
 
     const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;
@@ -274,6 +280,8 @@ export async function GET(
 
     let overrideLogs: any[] = [];
     const paidMembers: Record<string, boolean> = {};
+    const callerMembership = memSnap.docs.find((d) => d.data().userId === caller.uid)?.data();
+    const currentUserPaid = callerMembership?.paid === true;
 
     if (isCommissioner) {
       memSnap.docs.forEach((doc) => {
@@ -297,8 +305,10 @@ export async function GET(
       }
     }
 
+    const isGuest = caller.uid === "guest";
+
     return NextResponse.json({
-      settings,
+      settings: isGuest ? { ...settings, venmoHandle: "" } : settings,
       users,
       gamesByWeek,
       activeWeek,
@@ -311,9 +321,11 @@ export async function GET(
       availableWeeks,
       isSeasonOver,
       isCommissioner,
-      isGuest: caller.uid === "guest",
+      isGuest,
       overrideLogs,
       paidMembers: isCommissioner ? paidMembers : undefined,
+      payoutRecords: isCommissioner ? league.payoutRecords || {} : undefined,
+      currentUserPaid: isGuest ? undefined : currentUserPaid,
     });
   } catch (err: any) {
     return errorResponse(err);
@@ -349,6 +361,11 @@ export async function PUT(
       "eliminatorEnabled",
       "leaguePassword",
       "entryFee",
+      "weeklyFee",
+      "seasonFee",
+      "survivorFee",
+      "weeklyStartWeek",
+      "venmoHandle",
     ];
 
     const sanitizedUpdates: Record<string, any> = {};
@@ -409,6 +426,30 @@ export async function PUT(
             throw new HttpError(400, "Entry fee must be a valid number between $0 and $100,000");
           }
           sanitizedUpdates[key] = Math.round(n);
+          break;
+        }
+        case "weeklyFee":
+        case "seasonFee":
+        case "survivorFee": {
+          const n = Number(value);
+          if (!isFinite(n) || n < 0 || n > 10000) {
+            throw new HttpError(400, "Fees must be between $0 and $10,000");
+          }
+          sanitizedUpdates[key] = Math.round(n * 100) / 100;
+          break;
+        }
+        case "weeklyStartWeek": {
+          const n = Number(value);
+          if (!Number.isInteger(n) || n < 1 || n > 18) throw new HttpError(400, "Start week must be 1-18");
+          sanitizedUpdates[key] = n;
+          break;
+        }
+        case "venmoHandle": {
+          const handle = normalizeVenmoHandle(value);
+          if (handle === null) {
+            throw new HttpError(400, "Venmo username must be 5-30 letters, numbers, - or _");
+          }
+          sanitizedUpdates[key] = handle;
           break;
         }
       }

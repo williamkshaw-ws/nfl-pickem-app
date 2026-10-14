@@ -17,6 +17,7 @@ interface PickMatrixProps {
   eliminatorEnabled?: boolean;
   eliminatorStatus?: EliminatorStatus[];
   weeklyResults?: WeeklyPlayerResult[];
+  settings?: any;
 }
 
 function checkIsGameLocked(
@@ -52,6 +53,7 @@ export function PickMatrix({
   eliminatorEnabled = false,
   eliminatorStatus,
   weeklyResults,
+  settings,
 }: PickMatrixProps) {
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
 
@@ -416,12 +418,27 @@ export function PickMatrix({
   }, [rankedPlayers]);
   const primaryWinner = weeklyWinners[0];
 
+  const weeklyFee = Number(settings?.weeklyFee) || 0;
+  const weeklyPot = weeklyFee > 0 ? weeklyFee * users.length : 0;
+
   return (
     <div className="space-y-4">
       {/* Header and Controls */}
-      <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-lg font-black text-slate-900 dark:text-white">Week {activeWeek} League Picks</h2>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Week {activeWeek} League Picks</h2>
+            {weeklyPot > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60">
+                <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>
+                  {isWeekFinished && primaryWinner
+                    ? `Week ${activeWeek} Prize: $${weeklyPot.toLocaleString()} (${primaryWinner.user.name})`
+                    : `Weekly Prize: $${weeklyPot.toLocaleString()}`}
+                </span>
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
             Compare all league picks, live scores, points, and games back.
           </p>
@@ -429,7 +446,7 @@ export function PickMatrix({
 
         <button
           onClick={() => setShowRulesModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
         >
           <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
           <span>Tiebreaker Rules</span>

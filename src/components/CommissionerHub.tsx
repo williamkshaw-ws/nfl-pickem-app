@@ -8,6 +8,7 @@ import {
   UserPicks,
   TiebreakerPrediction,
   EliminatorStatus,
+  SeasonPlayerStanding,
 } from "@/types/nfl";
 import {
   SlidersHorizontal,
@@ -32,11 +33,23 @@ import {
   Clock,
   DollarSign,
   CreditCard,
+  Trophy,
+  Mail,
+  ExternalLink,
 } from "lucide-react";
 import { WeeklyPicks } from "./WeeklyPicks";
 import { authFetch } from "@/lib/api-client";
+import {
+  getPayoutConfig,
+  formatMoney,
+  describeDues,
+  normalizeVenmoHandle,
+  buildVenmoPayUrl,
+  buildPrizeLedger,
+  type PrizeEntry,
+} from "@/lib/payouts";
 
-type CommissionerSubTab = "roster" | "overrides" | "settings";
+type CommissionerSubTab = "roster" | "payouts" | "overrides" | "settings";
 
 interface CommissionerHubProps {
   leagueId: string;
@@ -46,9 +59,14 @@ interface CommissionerHubProps {
   users: User[];
   allPicks: UserPicks[];
   eliminatorStatus?: EliminatorStatus[];
+  seasonStandings?: SeasonPlayerStanding[];
+  isSeasonOver?: boolean;
   overrideLogs?: any[];
   paidMembers?: Record<string, boolean>;
+  payoutRecords?: Record<string, { paidOut: boolean; paidAt?: string | null }>;
   onTogglePaid?: (userId: string, newPaid: boolean) => Promise<void>;
+  onTogglePayout?: (key: string, newPaidOut: boolean) => Promise<void>;
+  onNudgeUnpaid?: () => Promise<void>;
   onSyncEspn?: (week: number) => Promise<void>;
   isSyncing?: boolean;
   onOverridePicks: (
@@ -100,9 +118,14 @@ export function CommissionerHub({
   users,
   allPicks,
   eliminatorStatus,
+  seasonStandings = [],
+  isSeasonOver = false,
   overrideLogs,
   paidMembers = {},
+  payoutRecords = {},
   onTogglePaid,
+  onTogglePayout,
+  onNudgeUnpaid,
   onOverridePicks,
   onUpdateSettings,
   onDeleteLeague,
@@ -116,6 +139,19 @@ export function CommissionerHub({
   const [entryFeeInput, setEntryFeeInput] = useState<string>(
     typeof settings.entryFee === "number" ? settings.entryFee.toString() : "0"
   );
+  const [weeklyFeeInput, setWeeklyFeeInput] = useState<string>(
+    typeof settings.weeklyFee === "number" ? settings.weeklyFee.toString() : ""
+  );
+  const [seasonFeeInput, setSeasonFeeInput] = useState<string>(
+    typeof settings.seasonFee === "number" ? settings.seasonFee.toString() : ""
+  );
+  const [survivorFeeInput, setSurvivorFeeInput] = useState<string>(
+    typeof settings.survivorFee === "number" ? settings.survivorFee.toString() : ""
+  );
+  const [venmoHandleInput, setVenmoHandleInput] = useState<string>(
+    settings.venmoHandle || ""
+  );
+  const [isNudging, setIsNudging] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || "");
   const [leaguePassword, setLeaguePassword] = useState(settings.leaguePassword || "");
   const [copiedLink, setCopiedLink] = useState(false);
@@ -255,6 +291,60 @@ export function CommissionerHub({
   const paidCount = users.filter((u) => !!paidMembers[u.id]).length;
   const unpaidCount = users.length - paidCount;
 
+  const cfg = useMemo(() => getPayoutConfig(settings), [settings]);
+  const duesPerMember = cfg.duesPerPlayer;
+  const totalPot = duesPerMember * users.length;
+  const collectedDues = duesPerMember * paidCount;
+  const unpaidDues = duesPerMember * unpaidCount;
+
+  const prizeLedger = useMemo(() => {
+    return buildPrizeLedger({
+      cfg,
+      users,
+      seasonStandings: seasonStandings || [],
+      eliminatorStatus: eliminatorStatus || [],
+      isSeasonOver: !!isSeasonOver,
+    });
+  }, [cfg, users, seasonStandings, eliminatorStatus, isSeasonOver]);
+
+  const totalPaidOut = useMemo(() => {
+    return prizeLedger
+      .filter((p) => !!payoutRecords?.[p.key]?.paidOut)
+      .reduce((sum, p) => sum + p.amount, 0);
+  }, [prizeLedger, payoutRecords]);
+
+  const balanceRemaining = collectedDues - totalPaidOut;
+
+  const handleNudgeUnpaidClick = async () => {
+    if (unpaidCount === 0) return;
+    if (!confirm(`Send an email dues reminder to all ${unpaidCount} unpaid member(s)?`)) return;
+    setIsNudging(true);
+    try {
+      await onNudgeUnpaid?.();
+    } finally {
+      setIsNudging(false);
+    }
+  };
+
+  const handleSavePayoutSettings = async () => {
+    const w = Number(weeklyFeeInput) || 0;
+    const s = Number(seasonFeeInput) || 0;
+    const sv = Number(survivorFeeInput) || 0;
+    const ef = Number(entryFeeInput) || 0;
+    const handle = normalizeVenmoHandle(venmoHandleInput);
+    if (venmoHandleInput.trim() && handle === null) {
+      alert("Please enter a valid Venmo handle (5-30 letters, numbers, - or _)");
+      return;
+    }
+    await onUpdateSettings({
+      weeklyFee: w,
+      seasonFee: s,
+      survivorFee: sv,
+      entryFee: ef,
+      venmoHandle: handle || "",
+    });
+  };
+
   // Filtered members list
   const filteredStatuses = useMemo(() => {
     return memberStatuses.filter(({ user, isComplete, isMissing, isPartial }) => {
@@ -382,7 +472,7 @@ export function CommissionerHub({
           </div>
 
           {/* Sub-Tab Navigation Bar */}
-          <div className="w-full sm:w-auto grid grid-cols-3 sm:flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl sm:bg-transparent sm:dark:bg-transparent sm:p-0">
+          <div className="w-full sm:w-auto grid grid-cols-4 sm:flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl sm:bg-transparent sm:dark:bg-transparent sm:p-0">
             <button
               type="button"
               onClick={() => setActiveSubTab("roster")}
@@ -395,6 +485,20 @@ export function CommissionerHub({
               <Users className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">Roster &amp; Invites</span>
               <span className="sm:hidden">Roster</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("payouts")}
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                activeSubTab === "payouts"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                  : "bg-transparent sm:bg-slate-100 dark:sm:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Payouts &amp; Ledger</span>
+              <span className="sm:hidden">Payouts</span>
             </button>
 
             <button
@@ -575,6 +679,23 @@ export function CommissionerHub({
                     Unpaid ({unpaidCount})
                   </button>
                 </div>
+
+                {unpaidCount > 0 && onNudgeUnpaid && (
+                  <button
+                    type="button"
+                    onClick={handleNudgeUnpaidClick}
+                    disabled={isNudging}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50 cursor-pointer shadow-xs shrink-0"
+                    title="Send email reminder to all unpaid members"
+                  >
+                    {isNudging ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Mail className="w-3.5 h-3.5" />
+                    )}
+                    <span>Nudge Unpaid</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -777,7 +898,270 @@ export function CommissionerHub({
       )}
 
       {/* ========================================================================= */}
-      {/* SUB-TAB 2: PICK OVERRIDES */}
+      {/* SUB-TAB 2: PAYOUTS & PRIZE LEDGER */}
+      {/* ========================================================================= */}
+      {activeSubTab === "payouts" && (
+        <div className="space-y-6">
+          {/* Pot & Dues Summary Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  League Pot &amp; Dues Ledger
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Track member dues collected, active prize payouts, and remaining pool balance.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {unpaidCount > 0 && onNudgeUnpaid && (
+                  <button
+                    type="button"
+                    onClick={handleNudgeUnpaidClick}
+                    disabled={isNudging}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50 cursor-pointer shadow-xs"
+                    title="Send email reminder to all unpaid members"
+                  >
+                    {isNudging ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Mail className="w-3.5 h-3.5" />
+                    )}
+                    <span>Nudge Unpaid ({unpaidCount})</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab("settings")}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Configure Fees</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4-Stat Metric Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Pot</div>
+                <div className="font-black text-lg text-slate-900 dark:text-white mt-1">
+                  ${totalPot.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  {formatMoney(duesPerMember)} / player
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/40">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Collected</div>
+                <div className="font-black text-lg text-emerald-700 dark:text-emerald-300 mt-1">
+                  ${collectedDues.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-emerald-600/80 mt-0.5">
+                  {paidCount} of {users.length} paid
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-200/60 dark:border-sky-900/40">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-sky-600 dark:text-sky-400">Paid Out</div>
+                <div className="font-black text-lg text-sky-700 dark:text-sky-300 mt-1">
+                  ${totalPaidOut.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-sky-600/80 mt-0.5">
+                  {prizeLedger.filter((p) => !!payoutRecords?.[p.key]?.paidOut).length} prizes settled
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-900/40">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-400">Remaining Balance</div>
+                <div className="font-black text-lg text-purple-700 dark:text-purple-300 mt-1">
+                  ${balanceRemaining.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-purple-600/80 mt-0.5">
+                  {unpaidCount > 0 ? `$${unpaidDues.toLocaleString()} outstanding` : "Fully collected"}
+                </div>
+              </div>
+            </div>
+
+            {/* Dues Structure & Venmo Strip */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-xs">
+              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <span className="font-bold">Structure:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {describeDues(cfg) || "No fees configured"}
+                </span>
+              </div>
+
+              {settings.venmoHandle && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Venmo:</span>
+                  <a
+                    href={buildVenmoPayUrl(settings.venmoHandle, duesPerMember, `PocketPicks dues - ${settings.leagueName}`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-bold text-[#008cff] hover:underline"
+                  >
+                    <span>@{settings.venmoHandle}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Prize Ledger Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  Prize Ledger &amp; Payout Records
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Decided weekly, season, and survivor prizes. Mark prizes as paid out when distributed to members.
+                </p>
+              </div>
+
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-full">
+                {prizeLedger.length} Prize{prizeLedger.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {prizeLedger.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <Trophy className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
+                <p className="font-bold text-slate-600 dark:text-slate-400">No prizes decided yet</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
+                  Weekly winners are crowned once all games for each week go final. Season overall and Survivor winners appear here when decided.
+                </p>
+              </div>
+            ) : (
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                {prizeLedger.map((prize) => {
+                  const isPaidOut = !!payoutRecords?.[prize.key]?.paidOut;
+                  return (
+                    <div
+                      key={prize.key}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200/50 dark:border-amber-900/40">
+                          <Trophy className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                              {prize.label}
+                            </span>
+                            <span className="font-black text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-900/50">
+                              ${prize.amount.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Winner: <strong className="text-slate-700 dark:text-slate-300">{prize.winners.map((w) => w.name).join(", ") || "None"}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        {isPaidOut ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Paid Out</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Pending Payout</span>
+                          </span>
+                        )}
+
+                        {onTogglePayout && (
+                          <button
+                            type="button"
+                            onClick={() => onTogglePayout(prize.key, !isPaidOut)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                              isPaidOut
+                                ? "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400"
+                                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                            }`}
+                          >
+                            {isPaidOut ? "Mark Unpaid" : "Mark Paid Out"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Outstanding Dues Card */}
+          {unpaidCount > 0 && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-500" />
+                    Outstanding Dues ({unpaidCount} Members)
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Members who have not yet had their buy-in marked as paid.
+                  </p>
+                </div>
+
+                {onNudgeUnpaid && (
+                  <button
+                    type="button"
+                    onClick={handleNudgeUnpaidClick}
+                    disabled={isNudging}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50 cursor-pointer shadow-xs"
+                  >
+                    {isNudging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                    <span>Send Reminder Email</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                {users
+                  .filter((u) => !paidMembers[u.id])
+                  .map((u) => (
+                    <div
+                      key={u.id}
+                      className="p-3.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition text-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center text-xs">
+                          {u.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
+                          <div className="text-[11px] text-slate-400">Owes {formatMoney(duesPerMember)}</div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onTogglePaid?.(u.id, true)}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-xs"
+                      >
+                        Mark Paid
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 3: PICK OVERRIDES */}
       {/* ========================================================================= */}
       {activeSubTab === "overrides" && (
         <div className="space-y-6">
@@ -1092,43 +1476,123 @@ export function CommissionerHub({
 
           {/* Right Column: League Dues Tracker, Live Data Sync & Danger Zone */}
           <div className="space-y-6">
-            {/* League Buy-In & Dues Tracker Card */}
+            {/* League Buy-In & Payout Structure Card */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  League Buy-In &amp; Dues Tracker
+                  League Buy-In &amp; Payout Structure
                 </h3>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full">
                   Commissioner Only
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Set a per-player entry fee to track pool dues and view paid vs outstanding balances.
-                (This ledger is strictly private to you as commissioner).
+                Configure your league buy-in structure (weekly winner, overall season champion, and survivor pool) and set your Venmo handle so members can pay you directly.
               </p>
 
-              {/* Entry fee input */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="10000"
-                    value={entryFeeInput}
-                    onChange={(e) => setEntryFeeInput(e.target.value)}
-                    placeholder="0"
-                    className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                  />
+              {/* Fee Inputs Grid */}
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                      Weekly Prize ($/wk)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1000"
+                        step="0.5"
+                        value={weeklyFeeInput}
+                        onChange={(e) => setWeeklyFeeInput(e.target.value)}
+                        placeholder="3"
+                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400">Winner takes all</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                      Season Prize ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5000"
+                        value={seasonFeeInput}
+                        onChange={(e) => setSeasonFeeInput(e.target.value)}
+                        placeholder="5"
+                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400">1st place overall</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                      Survivor Prize ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5000"
+                        value={survivorFeeInput}
+                        onChange={(e) => setSurvivorFeeInput(e.target.value)}
+                        placeholder="5"
+                        disabled={settings.eliminatorEnabled === false}
+                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 disabled:opacity-40"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400">Last one standing</span>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onUpdateSettings({ entryFee: Number(entryFeeInput) || 0 })}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0"
-                >
-                  Save Fee
-                </button>
+
+                {/* Venmo Handle Input */}
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                    Commissioner Venmo Username
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">@</span>
+                      <input
+                        type="text"
+                        value={venmoHandleInput}
+                        onChange={(e) => setVenmoHandleInput(e.target.value)}
+                        placeholder="username"
+                        className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSavePayoutSettings}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0 cursor-pointer shadow-xs"
+                    >
+                      Save Structure
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Shown to members on their picks sheet so they can pay dues in 1 click.
+                  </span>
+                </div>
+
+                {/* Dues Breakdown Pill */}
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-1">
+                  <div className="flex items-center justify-between font-extrabold text-slate-900 dark:text-white">
+                    <span>Dues Per Player:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400">{formatMoney(duesPerMember)}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {describeDues(cfg) || "No buy-in configured"}
+                  </div>
+                </div>
               </div>
 
               {/* Dues Summary Metrics */}
@@ -1136,54 +1600,34 @@ export function CommissionerHub({
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
                   <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Pot</div>
                   <div className="font-black text-sm text-slate-900 dark:text-white mt-0.5">
-                    ${(users.length * (settings.entryFee || 0)).toLocaleString()}
+                    ${totalPot.toLocaleString()}
                   </div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/40">
                   <div className="text-[10px] font-extrabold uppercase text-emerald-600 dark:text-emerald-400">Collected</div>
                   <div className="font-black text-sm text-emerald-700 dark:text-emerald-300 mt-0.5">
-                    ${(paidCount * (settings.entryFee || 0)).toLocaleString()}
+                    ${collectedDues.toLocaleString()}
                     <span className="text-[10px] font-medium text-emerald-600/70 ml-1">({paidCount})</span>
                   </div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/40">
                   <div className="text-[10px] font-extrabold uppercase text-amber-600 dark:text-amber-400">Unpaid</div>
                   <div className="font-black text-sm text-amber-700 dark:text-amber-300 mt-0.5">
-                    ${(unpaidCount * (settings.entryFee || 0)).toLocaleString()}
+                    ${unpaidDues.toLocaleString()}
                     <span className="text-[10px] font-medium text-amber-600/70 ml-1">({unpaidCount})</span>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Unpaid Members List */}
-              {unpaidCount > 0 && (
-                <div className="pt-2">
-                  <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center justify-between">
-                    <span>Outstanding Members ({unpaidCount}):</span>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-                    {users
-                      .filter((u) => !paidMembers[u.id])
-                      .map((u) => (
-                        <div
-                          key={u.id}
-                          className="p-2.5 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40"
-                        >
-                          <span className="font-bold text-slate-900 dark:text-white truncate">
-                            {u.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onTogglePaid?.(u.id, true)}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-lg transition"
-                          >
-                            Mark Paid
-                          </button>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
+              {/* Quick Jump to Payouts Subtab */}
+              <button
+                type="button"
+                onClick={() => setActiveSubTab("payouts")}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition cursor-pointer"
+              >
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                <span>View Payouts &amp; Prize Ledger &rarr;</span>
+              </button>
             </div>
 
             {/* Live Data Sync */}

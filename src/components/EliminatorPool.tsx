@@ -12,6 +12,7 @@ interface EliminatorPoolProps {
   activeWeek: number;
   availableWeeks: number[];
   currentUserId?: string;
+  settings?: any;
 }
 
 export function EliminatorPool({
@@ -20,6 +21,7 @@ export function EliminatorPool({
   activeWeek,
   availableWeeks,
   currentUserId,
+  settings,
 }: EliminatorPoolProps) {
   // Sort users: Alive first, then by eliminated week (latest first)
   const sortedUsers = [...users].sort((a, b) => {
@@ -69,12 +71,23 @@ export function EliminatorPool({
     }
   }
 
+  const survivorFee = Number(settings?.survivorFee) || 0;
+  const survivorPot = survivorFee > 0 ? survivorFee * users.length : 0;
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-end justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-lg font-black text-slate-900 dark:text-white">Survivor Pool</h2>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Survivor Pool</h2>
+            {survivorPot > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60">
+                <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Winner Pot: ${survivorPot.toLocaleString()}</span>
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Pick one winner every week. Lose or tie and you&apos;re out (unless all active survivors lose in the same week).</p>
         </div>
       </div>

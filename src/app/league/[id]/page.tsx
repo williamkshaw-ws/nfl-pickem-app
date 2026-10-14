@@ -23,9 +23,10 @@ import { PickMatrix } from "@/components/PickMatrix";
 import { EliminatorPool } from "@/components/EliminatorPool";
 import { CommissionerHub } from "@/components/CommissionerHub";
 import Link from "next/link";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, LogIn } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, LogIn, CreditCard, ArrowRight, ExternalLink } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
+import { getPayoutConfig, formatMoney, describeDues, buildVenmoPayUrl } from "@/lib/payouts";
 
 interface LeagueApiResponse {
   settings: LeagueSettings;
@@ -44,6 +45,8 @@ interface LeagueApiResponse {
   isGuest?: boolean;
   overrideLogs?: any[];
   paidMembers?: Record<string, boolean>;
+  payoutRecords?: Record<string, { paidOut: boolean; paidAt?: string | null }>;
+  currentUserPaid?: boolean;
 }
 
 export default function LeagueHome({ params }: { params: Promise<{ id: string }> }) {
@@ -350,6 +353,56 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     }
   };
 
+  const handleTogglePayout = async (key: string, newPaidOut: boolean) => {
+    // Optimistically update local state immediately
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        payoutRecords: {
+          ...(prev.payoutRecords || {}),
+          [key]: {
+            paidOut: newPaidOut,
+            paidAt: newPaidOut ? new Date().toISOString() : null,
+          },
+        },
+      };
+    });
+
+    try {
+      const res = await authFetch(`/api/league/${leagueId}/payouts`, {
+        method: "POST",
+        body: JSON.stringify({ key, paidOut: newPaidOut }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to update payout record");
+      }
+      showToast(newPaidOut ? "✓ Prize marked as Paid Out" : "Prize marked as Pending");
+    } catch (err: any) {
+      console.error("Toggle payout error:", err);
+      showToast(err.message || "Failed to update payout record");
+      await loadLeagueData(activeWeek);
+    }
+  };
+
+  const handleNudgeUnpaid = async () => {
+    try {
+      const res = await authFetch(`/api/league/${leagueId}/members/nudge`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to send dues reminders");
+      }
+      showToast(json.message || "Dues reminder emails sent!");
+    } catch (err: any) {
+      console.error("Nudge unpaid error:", err);
+      alert(err.message || "Failed to send dues reminder emails");
+      throw err;
+    }
+  };
+
   const handleDeleteLeague = async () => {
     try {
       const res = await authFetch(`/api/league/${leagueId}`, {
@@ -497,6 +550,47 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
           />
         ) : (
           <>
+            {/* Unpaid Member Venmo Dues Banner */}
+            {!isCommissioner && data.settings.venmoHandle && data.currentUserPaid === false && (() => {
+              const cfg = getPayoutConfig(data.settings);
+              if (cfg.duesPerPlayer <= 0) return null;
+              const payUrl = buildVenmoPayUrl(
+                data.settings.venmoHandle,
+                cfg.duesPerPlayer,
+                `PocketPicks dues - ${data.settings.leagueName}`
+              );
+              return (
+                <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#008cff]/10 text-[#008cff] dark:text-[#3ba6ff] flex items-center justify-center shrink-0 border border-[#008cff]/20">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-sky-950 dark:text-sky-100 flex items-center gap-1.5">
+                        <span>League Buy-In: {formatMoney(cfg.duesPerPlayer)}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
+                          Payment Pending
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-sky-700 dark:text-sky-300/80 mt-0.5">
+                        Pay your commissioner @{data.settings.venmoHandle} ({describeDues(cfg)})
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={payUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#008cff] hover:bg-[#0074d9] text-white text-xs font-black rounded-xl transition shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <span>Pay {formatMoney(cfg.duesPerPlayer)} with Venmo</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              );
+            })()}
+
             <NavigationTabs 
               activeTab={activeTab} 
               onTabChange={handleTabChange} 
@@ -547,6 +641,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               eliminatorEnabled={data.settings.eliminatorEnabled}
               eliminatorStatus={data.eliminatorStatus}
               weeklyResults={data.weeklyResults}
+              settings={data.settings}
             />
           )}
 
@@ -556,6 +651,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               seasonYear={data.settings.seasonYear || 2026}
               currentUserId={user?.id || ""}
               isSeasonOver={data.isSeasonOver}
+              settings={data.settings}
             />
           )}
 
@@ -566,6 +662,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               activeWeek={activeWeek}
               availableWeeks={data.availableWeeks}
               currentUserId={user?.id || ""}
+              settings={data.settings}
             />
           )}
 
@@ -578,9 +675,14 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               users={data.users}
               allPicks={data.allPicks}
               eliminatorStatus={data.eliminatorStatus}
+              seasonStandings={data.seasonStandings}
+              isSeasonOver={data.isSeasonOver}
               overrideLogs={data.overrideLogs}
               paidMembers={data.paidMembers}
+              payoutRecords={data.payoutRecords}
               onTogglePaid={handleTogglePaid}
+              onTogglePayout={handleTogglePayout}
+              onNudgeUnpaid={handleNudgeUnpaid}
               onDeleteLeague={handleDeleteLeague}
               onOverridePicks={handleOverridePicks}
               onUpdateSettings={handleUpdateSettings}
