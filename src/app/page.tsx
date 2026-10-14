@@ -36,6 +36,7 @@ export default function Home() {
   const [newLeagueName, setNewLeagueName] = useState("");
   const [leagueFormat, setLeagueFormat] = useState("both");
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   const [showJoin, setShowJoin] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -138,6 +139,7 @@ export default function Home() {
     if (!user || !newLeagueName.trim()) return;
 
     setCreating(true);
+    setCreateError("");
     try {
       const res = await authFetch("/api/league/create", {
         method: "POST",
@@ -148,7 +150,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to create league");
+        setCreateError(data.error || "Failed to create league");
         setCreating(false);
         return;
       }
@@ -158,7 +160,7 @@ export default function Home() {
       router.replace(`/league/${data.leagueId}`);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to create league");
+      setCreateError(err.message || "Failed to create league");
       setCreating(false);
     }
   };
@@ -322,6 +324,12 @@ export default function Home() {
               <h3 className="text-xl font-black text-slate-900 dark:text-white">Create New League</h3>
               <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Start a private league for your friends or coworkers.</p>
             </div>
+
+            {createError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl">
+                {createError}
+              </div>
+            )}
 
             <form onSubmit={handleCreateLeague} className="space-y-4">
               <div>

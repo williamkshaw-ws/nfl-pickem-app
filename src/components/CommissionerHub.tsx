@@ -440,7 +440,10 @@ export function CommissionerHub({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to kick member");
+        setAlertModal({
+          title: "Kick Member Failed",
+          message: data.error || "Failed to kick member",
+        });
         setActionLoading(false);
         return;
       }
@@ -451,7 +454,10 @@ export function CommissionerHub({
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to kick member");
+      setAlertModal({
+        title: "Kick Member Failed",
+        message: err.message || "Failed to kick member",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -467,7 +473,10 @@ export function CommissionerHub({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to ban user");
+        setAlertModal({
+          title: "Ban User Failed",
+          message: data.error || "Failed to ban user",
+        });
         setActionLoading(false);
         return;
       }
@@ -478,7 +487,10 @@ export function CommissionerHub({
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to ban user");
+      setAlertModal({
+        title: "Ban User Failed",
+        message: err.message || "Failed to ban user",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -497,7 +509,10 @@ export function CommissionerHub({
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.error || "Failed to transfer commissioner role");
+          setAlertModal({
+            title: "Transfer Failed",
+            message: data.error || "Failed to transfer commissioner role",
+          });
           setActionLoading(false);
           return;
         }
@@ -505,7 +520,10 @@ export function CommissionerHub({
       setUserToTransfer(null);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to transfer commissioner role");
+      setAlertModal({
+        title: "Transfer Failed",
+        message: err.message || "Failed to transfer commissioner role",
+      });
     } finally {
       setActionLoading(false);
     }

@@ -281,7 +281,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to save picks");
+      showToast(err.message || "Failed to save picks");
     }
   };
 
@@ -300,7 +300,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       showToast(`✓ Commissioner override saved at ${timeStr}!`);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to override pick");
+      showToast(err.message || "Failed to override pick");
     }
   };
 
@@ -318,7 +318,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       showToast("Settings updated successfully!");
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to update settings");
+      showToast(err.message || "Failed to update settings");
     }
   };
 
@@ -421,7 +421,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       }, 1500);
     } catch (err) {
       console.error(err);
-      alert("Failed to delete league");
+      showToast("Failed to delete league");
     }
   };
 
@@ -440,13 +440,12 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       setActiveTab("picks");
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to transfer commissioner role");
       throw err;
     }
   };
 
   const handleAddUser = async (name: string) => {
-    alert("Users must join using the 5-character invite code.");
+    showToast("Users must join using the 5-character invite code.");
   };
 
   if (authLoading || loading) {
@@ -716,7 +715,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       {/* Unsaved Changes Exit Guard Modal */}
       {showUnsavedModal && (
         <div 
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={handleStayAndSave}
         >
           <div 

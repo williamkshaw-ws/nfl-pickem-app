@@ -17,6 +17,7 @@ import {
   Moon,
   Monitor,
   Settings,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { db, auth } from "@/lib/firebase";
@@ -75,12 +76,14 @@ export function Header({
   const [newLeagueName, setNewLeagueName] = useState("");
   const [leagueFormat, setLeagueFormat] = useState("both");
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
 
   const activeUser = currentActiveUserId ? users.find((u) => u.id === currentActiveUserId) || null : null;
 
@@ -149,7 +152,10 @@ export function Header({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to leave league");
+        setAlertModal({
+          title: "Leave League Failed",
+          message: data.error || "Failed to leave league",
+        });
         setLeaving(false);
         return;
       }
@@ -166,7 +172,10 @@ export function Header({
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to leave league");
+      setAlertModal({
+        title: "Leave League Failed",
+        message: err.message || "Failed to leave league",
+      });
       setLeaving(false);
     }
   };
@@ -176,6 +185,7 @@ export function Header({
     if (!user || !newLeagueName.trim()) return;
     
     setCreating(true);
+    setCreateError("");
     try {
       const res = await authFetch("/api/league/create", {
         method: "POST",
@@ -186,7 +196,7 @@ export function Header({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to create league");
+        setCreateError(data.error || "Failed to create league");
         return;
       }
       if (typeof window !== "undefined") {
@@ -196,7 +206,7 @@ export function Header({
       window.location.href = `/league/${data.leagueId}`;
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to create league");
+      setCreateError(err.message || "Failed to create league");
     } finally {
       setCreating(false);
     }
@@ -478,131 +488,137 @@ export function Header({
 
       {/* Modals for Create / Join */}
       {showCreate && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto">
-          <div className="min-h-full flex items-center justify-center p-4 py-12">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 w-full max-w-md shadow-2xl relative">
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Create League</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">You will be the Commissioner of this league.</p>
-              <form onSubmit={handleCreateLeague}>
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">League Name</label>
-                  <input
-                    required
-                    autoFocus
-                    type="text"
-                    value={newLeagueName}
-                    onChange={(e) => setNewLeagueName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 mb-4"
-                    placeholder="e.g. Office League 2026"
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative my-auto">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Create League</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">You will be the Commissioner of this league.</p>
+            
+            {createError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl mb-4">
+                {createError}
+              </div>
+            )}
 
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">League Format</label>
-                  <div className="space-y-2">
-                    <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'both' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
-                      <input type="radio" name="format" value="both" checked={leagueFormat === 'both'} onChange={() => setLeagueFormat('both')} className="hidden" />
-                      <div className="flex-1">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white">Standard + Survivor</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Pick every game each week, plus pick one survivor team.</div>
-                      </div>
-                    </label>
-                    <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'pickem' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
-                      <input type="radio" name="format" value="pickem" checked={leagueFormat === 'pickem'} onChange={() => setLeagueFormat('pickem')} className="hidden" />
-                      <div className="flex-1">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white">Pick'em Only</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Just pick the winners of every game each week.</div>
-                      </div>
-                    </label>
-                    <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'survivor' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
-                      <input type="radio" name="format" value="survivor" checked={leagueFormat === 'survivor'} onChange={() => setLeagueFormat('survivor')} className="hidden" />
-                      <div className="flex-1">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white">Survivor Only</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Pick one team to win each week. If they lose, you're out.</div>
-                      </div>
-                    </label>
-                  </div>
+            <form onSubmit={handleCreateLeague}>
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">League Name</label>
+                <input
+                  required
+                  autoFocus
+                  type="text"
+                  value={newLeagueName}
+                  onChange={(e) => setNewLeagueName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 mb-4"
+                  placeholder="e.g. Office League 2026"
+                />
+
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">League Format</label>
+                <div className="space-y-2">
+                  <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'both' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
+                    <input type="radio" name="format" value="both" checked={leagueFormat === 'both'} onChange={() => setLeagueFormat('both')} className="hidden" />
+                    <div className="flex-1">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white">Standard + Survivor</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Pick every game each week, plus pick one survivor team.</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'pickem' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
+                    <input type="radio" name="format" value="pickem" checked={leagueFormat === 'pickem'} onChange={() => setLeagueFormat('pickem')} className="hidden" />
+                    <div className="flex-1">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white">Pick'em Only</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Just pick the winners of every game each week.</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'survivor' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
+                    <input type="radio" name="format" value="survivor" checked={leagueFormat === 'survivor'} onChange={() => setLeagueFormat('survivor')} className="hidden" />
+                    <div className="flex-1">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white">Survivor Only</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Pick one team to win each week. If they lose, you're out.</div>
+                    </div>
+                  </label>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreate(false)}
-                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creating || !newLeagueName.trim()}
-                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition disabled:opacity-50"
-                  >
-                    {creating ? "Creating..." : "Create"}
-                  </button>
-                </div>
-              </form>
-            </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreate(false);
+                    setCreateError("");
+                  }}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || !newLeagueName.trim()}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {creating ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {showJoin && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto">
-          <div className="min-h-full flex items-center justify-center p-4 py-12">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 w-full max-w-md shadow-2xl relative">
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Join League</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Enter the 5-digit code from your Commissioner.</p>
-              
-              {joinError && (
-                <div className="bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 text-sm p-3 rounded-lg mb-6 border border-rose-100 dark:border-rose-900">
-                  {joinError}
-                </div>
-              )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative my-auto">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Join League</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">Enter the 5-digit code from your Commissioner.</p>
+            
+            {joinError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl mb-4">
+                {joinError}
+              </div>
+            )}
 
-              <form onSubmit={handleJoinLeague}>
-                <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">League Code</label>
-                  <input
-                    required
-                    autoFocus
-                    type="text"
-                    maxLength={5}
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 text-2xl tracking-[0.2em] font-black text-center focus:outline-none focus:border-blue-500 uppercase"
-                    placeholder="83921"
-                  />
-                </div>
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">League Password (optional)</label>
-                  <input
-                    type="password"
-                    value={joinPassword}
-                    onChange={(e) => setJoinPassword(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
-                    placeholder="Leave empty if not required"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowJoin(false);
-                      setJoinError("");
-                      setJoinCode("");
-                      setJoinPassword("");
-                    }}
-                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={joining || joinCode.trim().length !== 5}
-                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition disabled:opacity-50"
-                  >
-                    {joining ? "Joining..." : "Join"}
-                  </button>
-                </div>
-              </form>
-            </div>
+            <form onSubmit={handleJoinLeague}>
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">League Code</label>
+                <input
+                  required
+                  autoFocus
+                  type="text"
+                  maxLength={5}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 text-2xl tracking-[0.2em] font-black text-center focus:outline-none focus:border-blue-500 uppercase"
+                  placeholder="83921"
+                />
+              </div>
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">League Password (optional)</label>
+                <input
+                  type="password"
+                  value={joinPassword}
+                  onChange={(e) => setJoinPassword(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
+                  placeholder="Leave empty if not required"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowJoin(false);
+                    setJoinError("");
+                    setJoinCode("");
+                    setJoinPassword("");
+                  }}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={joining || joinCode.trim().length !== 5}
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {joining ? "Joining..." : "Join"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -657,6 +673,36 @@ export function Header({
         onProfileUpdated={() => router.refresh()}
       />
 
+      {/* Alert / Notice Modal */}
+      {alertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  {alertModal.title}
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 text-xs mt-1 leading-relaxed">
+                  {alertModal.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setAlertModal(null)}
+                className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold transition shadow-sm cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
