@@ -398,7 +398,6 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
       showToast(json.message || "Dues reminder emails sent!");
     } catch (err: any) {
       console.error("Nudge unpaid error:", err);
-      alert(err.message || "Failed to send dues reminder emails");
       throw err;
     }
   };

@@ -164,6 +164,8 @@ export function CommissionerHub({
   const [userToBan, setUserToBan] = useState<User | null>(null);
   const [userToTransfer, setUserToTransfer] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showNudgeModal, setShowNudgeModal] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
 
   // Roster search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -293,6 +295,7 @@ export function CommissionerHub({
 
   const cfg = useMemo(() => getPayoutConfig(settings), [settings]);
   const duesPerMember = cfg.duesPerPlayer;
+  const hasFees = duesPerMember > 0;
   const totalPot = duesPerMember * users.length;
   const collectedDues = duesPerMember * paidCount;
   const unpaidDues = duesPerMember * unpaidCount;
@@ -373,15 +376,16 @@ export function CommissionerHub({
       });
   }, [users, prizeLedger, payoutRecords]);
 
-  const handleNudgeUnpaidClick = async () => {
+  const handleNudgeUnpaidClick = () => {
     if (unpaidCount === 0) return;
-    if (!confirm(`Send an email dues reminder to all ${unpaidCount} unpaid member(s)?`)) return;
-    setIsNudging(true);
-    try {
-      await onNudgeUnpaid?.();
-    } finally {
-      setIsNudging(false);
+    if (!hasFees) {
+      setAlertModal({
+        title: "No Fees Configured",
+        message: "Set up your league fees in Settings before sending dues reminders.",
+      });
+      return;
     }
+    setShowNudgeModal(true);
   };
 
   const handleSavePayoutSettings = async () => {
@@ -391,7 +395,10 @@ export function CommissionerHub({
     const ef = Number(entryFeeInput) || 0;
     const handle = normalizeVenmoHandle(venmoHandleInput);
     if (venmoHandleInput.trim() && handle === null) {
-      alert("Please enter a valid Venmo handle (3-30 letters, numbers, - or _)");
+      setAlertModal({
+        title: "Invalid Venmo Handle",
+        message: "Please enter a valid Venmo handle (3-30 letters, numbers, - or _)",
+      });
       return;
     }
     await onUpdateSettings({
@@ -530,7 +537,7 @@ export function CommissionerHub({
           </div>
 
           {/* Sub-Tab Navigation Bar */}
-          <div className="w-full sm:w-auto grid grid-cols-4 sm:flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 sm:border-0 sm:bg-transparent sm:dark:bg-transparent sm:p-0">
+          <div className="w-full sm:w-auto grid grid-cols-4 sm:flex items-stretch gap-1 sm:gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 sm:border-0 sm:bg-transparent sm:dark:bg-transparent sm:p-0">
             <button
               type="button"
               onClick={() => setActiveSubTab("roster")}
@@ -716,29 +723,33 @@ export function CommissionerHub({
                   >
                     Done ({completeCount})
                   </button>
-                  <button
-                    onClick={() => setStatusFilter("paid")}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                      statusFilter === "paid"
-                        ? "bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-2xs"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
-                    }`}
-                  >
-                    Paid ({paidCount})
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("unpaid")}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                      statusFilter === "unpaid"
-                        ? "bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-400 shadow-2xs"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
-                    }`}
-                  >
-                    Unpaid ({unpaidCount})
-                  </button>
+                  {hasFees && (
+                    <>
+                      <button
+                        onClick={() => setStatusFilter("paid")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                          statusFilter === "paid"
+                            ? "bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-2xs"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
+                        }`}
+                      >
+                        Paid ({paidCount})
+                      </button>
+                      <button
+                        onClick={() => setStatusFilter("unpaid")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                          statusFilter === "unpaid"
+                            ? "bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-400 shadow-2xs"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
+                        }`}
+                      >
+                        Unpaid ({unpaidCount})
+                      </button>
+                    </>
+                  )}
                 </div>
 
-                {unpaidCount > 0 && onNudgeUnpaid && (
+                {hasFees && unpaidCount > 0 && onNudgeUnpaid && (
                   <button
                     type="button"
                     onClick={handleNudgeUnpaidClick}
@@ -805,8 +816,8 @@ export function CommissionerHub({
                                 </span>
                               )}
 
-                              {/* Paid / Unpaid Tag Toggle (Visible only in Commissioner Hub) */}
-                              {(() => {
+                              {/* Paid / Unpaid Tag Toggle (Visible only in Commissioner Hub if league has fees) */}
+                              {hasFees && (() => {
                                 const isPaid = !!paidMembers[u.id];
                                 return (
                                   <button
@@ -960,8 +971,32 @@ export function CommissionerHub({
       {/* ========================================================================= */}
       {activeSubTab === "payouts" && (
         <div className="space-y-6">
-          {/* Pot & Dues Summary Card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
+          {!hasFees ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                <Trophy className="w-6 h-6" />
+              </div>
+              <div className="max-w-md mx-auto">
+                <h3 className="font-extrabold text-lg text-slate-900 dark:text-white">
+                  Free League — No Buy-In Dues
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  This league currently has no entry fees configured ($0 buy-in). All members participate for bragging rights and rankings.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab("settings")}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition shadow-xs cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Configure League Buy-In &amp; Fees</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Pot & Dues Summary Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
@@ -1324,8 +1359,10 @@ export function CommissionerHub({
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
+    </div>
+  )}
 
       {/* ========================================================================= */}
       {/* SUB-TAB 3: PICK OVERRIDES */}
@@ -2041,6 +2078,100 @@ export function CommissionerHub({
               >
                 <Trash2 className="w-4 h-4" />
                 <span>{isDeleting ? "Deleting..." : "Delete League"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nudge Unpaid Confirmation Modal */}
+      {showNudgeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Send Dues Reminders
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                  Send an email dues reminder to all{" "}
+                  <strong className="text-slate-900 dark:text-white font-bold">
+                    {unpaidCount} unpaid member{unpaidCount === 1 ? "" : "s"}
+                  </strong>
+                  ?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-medium">
+              📬 Members who haven&apos;t had their buy-in marked as paid will receive an email reminder with your league dues amount ({formatMoney(duesPerMember)}){settings.venmoHandle ? ` and Venmo payment link (@${settings.venmoHandle})` : ""}.
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isNudging}
+                onClick={() => setShowNudgeModal(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isNudging}
+                onClick={async () => {
+                  setIsNudging(true);
+                  try {
+                    await onNudgeUnpaid?.();
+                    setShowNudgeModal(false);
+                  } catch (err: any) {
+                    setShowNudgeModal(false);
+                    setAlertModal({
+                      title: "Dues Reminder",
+                      message: err.message || "Failed to send dues reminder emails",
+                    });
+                  } finally {
+                    setIsNudging(false);
+                  }
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+              >
+                {isNudging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                <span>{isNudging ? "Sending..." : "Send Reminder"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert / Notice Modal */}
+      {alertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  {alertModal.title}
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 text-xs mt-1 leading-relaxed">
+                  {alertModal.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setAlertModal(null)}
+                className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold transition shadow-sm cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
