@@ -42,6 +42,7 @@ interface LeagueApiResponse {
   isSeasonOver?: boolean;
   isCommissioner?: boolean;
   isGuest?: boolean;
+  overrideLogs?: any[];
 }
 
 export default function LeagueHome({ params }: { params: Promise<{ id: string }> }) {
@@ -249,11 +250,12 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
         isOverride,
       }),
     });
+    const json = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || "Failed to save picks");
+      throw new Error(json.error || "Failed to save picks");
     }
     await loadLeagueData(activeWeek);
+    return json;
   };
 
   const handleSavePicks = async (
@@ -263,8 +265,16 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
   ) => {
     if (!data || !user) return;
     try {
-      await savePicksFor(user.id, activeWeek, picks, tiebreaker, eliminatorPick, false);
-      showToast(data.settings.pickemEnabled === false ? "Survivor pick saved!" : "Picks saved successfully!");
+      const res = await savePicksFor(user.id, activeWeek, picks, tiebreaker, eliminatorPick, false);
+      const timeStr = res.savedAt
+        ? new Date(res.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
+        : new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+
+      if (res.lockedIgnored && res.lockedIgnored.length > 0) {
+        showToast(`✓ Picks locked in at ${timeStr}! (Note: ${res.lockedIgnored.join(", ")} already kicked off)`);
+      } else {
+        showToast(`✓ Picks locked in at ${timeStr}`);
+      }
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to save picks");
@@ -279,8 +289,11 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     eliminatorPick?: string
   ) => {
     try {
-      await savePicksFor(targetUserId, week, picks, tiebreaker, eliminatorPick, true);
-      showToast("Player pick updated!");
+      const res = await savePicksFor(targetUserId, week, picks, tiebreaker, eliminatorPick, true);
+      const timeStr = res.savedAt
+        ? new Date(res.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
+        : new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+      showToast(`✓ Commissioner override saved at ${timeStr}!`);
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to override pick");
@@ -533,6 +546,7 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               users={data.users}
               allPicks={data.allPicks}
               eliminatorStatus={data.eliminatorStatus}
+              overrideLogs={data.overrideLogs}
               onDeleteLeague={handleDeleteLeague}
               onOverridePicks={handleOverridePicks}
               onUpdateSettings={handleUpdateSettings}

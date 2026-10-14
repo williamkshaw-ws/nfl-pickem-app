@@ -29,6 +29,7 @@ import {
   ShieldAlert,
   Loader2,
   Lock,
+  Clock,
 } from "lucide-react";
 import { WeeklyPicks } from "./WeeklyPicks";
 import { authFetch } from "@/lib/api-client";
@@ -43,6 +44,7 @@ interface CommissionerHubProps {
   users: User[];
   allPicks: UserPicks[];
   eliminatorStatus?: EliminatorStatus[];
+  overrideLogs?: any[];
   onSyncEspn?: (week: number) => Promise<void>;
   isSyncing?: boolean;
   onOverridePicks: (
@@ -94,6 +96,7 @@ export function CommissionerHub({
   users,
   allPicks,
   eliminatorStatus,
+  overrideLogs,
   onOverridePicks,
   onUpdateSettings,
   onDeleteLeague,
@@ -785,6 +788,64 @@ export function CommissionerHub({
                     );
                   }}
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Timestamped Audit Logs Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Override Audit Log &amp; Timestamp History
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Permanent timestamped records of commissioner adjustments made on behalf of players.
+                </p>
+              </div>
+              <span className="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-full">
+                {overrideLogs?.length || 0} Record{overrideLogs?.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {(!overrideLogs || overrideLogs.length === 0) ? (
+              <div className="text-center py-8 text-xs text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                No commissioner overrides have been logged for this league yet.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                {overrideLogs.map((log: any) => {
+                  const targetUser = users.find((u) => u.id === log.targetUserId);
+                  const targetName = targetUser?.name || "Player";
+                  const dateStr = new Date(log.timestamp).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  });
+                  const pickCount = log.newPicks ? Object.keys(log.newPicks).length : 0;
+                  return (
+                    <div key={log.id} className="p-3.5 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                          <span>{targetName}</span>
+                          <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+                            Week {log.week}
+                          </span>
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400">
+                          {log.reason || "Kickoff override"} • {pickCount} picks recorded
+                          {log.newEliminatorPick && ` • Survivor: ${log.newEliminatorPick}`}
+                        </div>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500 sm:text-right shrink-0">
+                        {dateStr}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

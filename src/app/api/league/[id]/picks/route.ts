@@ -72,30 +72,38 @@ export async function POST(
       }
     }
 
-    // 1. Validate pick'em locks
-    {
-      for (const [gameId, pickedTeamId] of Object.entries(safePicks)) {
-        const game = weekGames.find((g: any) => g.id === gameId);
-        if (!game) continue;
+    // 1. Validate pick'em locks per-game (resilient to locked games in batch submissions)
+    const lockedIgnoredGames: string[] = [];
+    const finalPicksToSave: Record<string, string> = { ...existingPicksMap };
 
-        // If game is locked and the pick changed, reject (unless commissioner override)
-        if (!isOverride && isGameLocked(game, weekGames, lockPolicy, now)) {
-          if (pickedTeamId !== existingPicksMap[gameId]) {
-            throw new HttpError(
-              400,
-              `Picks for ${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} are locked`
-            );
-          }
-        }
+    for (const [gameId, pickedTeamId] of Object.entries(safePicks)) {
+      const game = weekGames.find((g: any) => g.id === gameId);
+      if (!game) continue;
 
-        // Verify the picked team actually plays in this game
-        if (pickedTeamId !== game.homeTeam.id && pickedTeamId !== game.awayTeam.id) {
-          throw new HttpError(400, "Invalid team selection");
+      // Verify the picked team actually plays in this game
+      if (pickedTeamId !== game.homeTeam.id && pickedTeamId !== game.awayTeam.id) {
+        throw new HttpError(400, "Invalid team selection");
+      }
+
+      const locked = isGameLocked(game, weekGames, lockPolicy, now);
+
+      // If game is locked and the pick changed, and not commissioner override:
+      // Don't fail the entire submission! Keep the existing pick and record as locked
+      if (!isOverride && locked) {
+        if (pickedTeamId !== existingPicksMap[gameId]) {
+          const matchLabel = `${game.awayTeam.abbreviation || game.awayTeam.name} @ ${game.homeTeam.abbreviation || game.homeTeam.name}`;
+          lockedIgnoredGames.push(matchLabel);
+          continue; // Preserve existing pick, don't overwrite with late pick
         }
       }
+
+      finalPicksToSave[gameId] = pickedTeamId;
     }
 
     // 2. Validate survivor pick
+    let survivorPickToSave = eliminatorPick;
+    let survivorLockedIgnored = false;
+
     if (eliminatorPick && typeof eliminatorPick === "string" && eliminatorPick !== existingElimPick) {
       if (!isOverride) {
         // Enforce that eliminated players cannot make survivor picks in subsequent weeks
@@ -142,11 +150,18 @@ export async function POST(
         throw new HttpError(400, "Selected survivor team does not play this week");
       }
       if (!isOverride && isGameLocked(elimGame, weekGames, lockPolicy, now)) {
-        throw new HttpError(400, "Game is already locked for this survivor pick");
+        if (Object.keys(safePicks).length === 0) {
+          throw new HttpError(400, "Game is already locked for this survivor pick");
+        } else {
+          survivorLockedIgnored = true;
+          survivorPickToSave = existingElimPick;
+          const matchLabel = `${elimGame.awayTeam.abbreviation || elimGame.awayTeam.name} @ ${elimGame.homeTeam.abbreviation || elimGame.homeTeam.name}`;
+          lockedIgnoredGames.push(`Survivor (${matchLabel})`);
+        }
       }
 
       // Verify team hasn't been used in previous weeks (enforced for regular players only)
-      if (!isOverride) {
+      if (!isOverride && !survivorLockedIgnored) {
         const allUserPicksSnap = await db
           .collection("picks")
           .where("leagueId", "==", leagueId)
@@ -168,17 +183,23 @@ export async function POST(
         (g: any) => g.homeTeam.id === existingElimPick || g.awayTeam.id === existingElimPick
       );
       if (existingElimGame && isGameLocked(existingElimGame, weekGames, lockPolicy, now)) {
-        throw new HttpError(400, "Your survivor pick is locked and can't be removed");
+        if (Object.keys(safePicks).length === 0) {
+          throw new HttpError(400, "Your survivor pick is locked and can't be removed");
+        } else {
+          survivorPickToSave = existingElimPick;
+        }
       }
     }
+
+    const savedAtIso = new Date().toISOString();
 
     const pickData: any = {
       id: pickDocId,
       leagueId,
       userId: targetUserId,
       week: targetWeek,
-      picks: safePicks,
-      updatedAt: new Date().toISOString(),
+      picks: finalPicksToSave,
+      updatedAt: savedAtIso,
     };
 
     if (tiebreaker && typeof tiebreaker === "object") {
@@ -191,15 +212,43 @@ export async function POST(
       };
     }
 
-    if (eliminatorPick) {
-      pickData.eliminatorPick = eliminatorPick;
-    } else if (eliminatorPick === null || eliminatorPick === "") {
+    if (survivorPickToSave) {
+      pickData.eliminatorPick = survivorPickToSave;
+    } else if (survivorPickToSave === null || survivorPickToSave === "") {
       pickData.eliminatorPick = FieldValue.delete();
     }
 
     await pickRef.set(pickData, { merge: true });
 
-    return NextResponse.json({ success: true, pick: pickData });
+    // 3. Log commissioner override audit record if applicable
+    if (isOverride) {
+      try {
+        await db.collection("leagues").doc(leagueId).collection("overrideLogs").add({
+          commissionerId: caller.uid,
+          targetUserId,
+          week: targetWeek,
+          timestamp: savedAtIso,
+          previousPicks: existingPicksMap,
+          newPicks: finalPicksToSave,
+          previousEliminatorPick: existingElimPick || null,
+          newEliminatorPick: survivorPickToSave || null,
+          reason: body.overrideReason || "Commissioner Kickoff Override",
+        });
+      } catch (logErr) {
+        console.warn("Failed to write commissioner override log:", logErr);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      pick: pickData,
+      savedAt: savedAtIso,
+      lockedIgnored: lockedIgnoredGames,
+      message:
+        lockedIgnoredGames.length > 0
+          ? `Picks saved! (Note: ${lockedIgnoredGames.join(", ")} already locked and remained unchanged)`
+          : "Picks saved successfully!",
+    });
   } catch (err: any) {
     return errorResponse(err);
   }

@@ -271,6 +271,22 @@ export async function GET(
       (p) => p.userId === caller.uid && p.week === activeWeek
     );
 
+    let overrideLogs: any[] = [];
+    if (isCommissioner) {
+      try {
+        const logsSnap = await db
+          .collection("leagues")
+          .doc(leagueId)
+          .collection("overrideLogs")
+          .orderBy("timestamp", "desc")
+          .limit(25)
+          .get();
+        overrideLogs = logsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (logErr) {
+        console.warn("Error fetching override logs:", logErr);
+      }
+    }
+
     return NextResponse.json({
       settings,
       users,
@@ -286,6 +302,7 @@ export async function GET(
       isSeasonOver,
       isCommissioner,
       isGuest: caller.uid === "guest",
+      overrideLogs,
     });
   } catch (err: any) {
     return errorResponse(err);
