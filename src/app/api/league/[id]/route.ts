@@ -447,7 +447,7 @@ export async function PUT(
         case "venmoHandle": {
           const handle = normalizeVenmoHandle(value);
           if (handle === null) {
-            throw new HttpError(400, "Venmo username must be 5-30 letters, numbers, - or _");
+            throw new HttpError(400, "Venmo username must be 3-30 letters, numbers, - or _");
           }
           sanitizedUpdates[key] = handle;
           break;

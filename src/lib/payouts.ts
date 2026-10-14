@@ -77,12 +77,12 @@ export function describeDues(cfg: PayoutConfig): string {
   return parts.join(" + ");
 }
 
-/** Venmo usernames: 5-30 chars, letters/digits/-/_ (leading @ stripped). */
+/** Venmo usernames: 3-30 chars, letters/digits/-/_ (leading @ stripped). */
 export function normalizeVenmoHandle(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const handle = raw.trim().replace(/^@+/, "");
   if (!handle) return "";
-  return /^[A-Za-z0-9_-]{5,30}$/.test(handle) ? handle : null;
+  return /^[A-Za-z0-9_-]{3,30}$/.test(handle) ? handle : null;
 }
 
 export function buildVenmoPayUrl(handle: string, amount: number, note: string): string {
@@ -157,14 +157,16 @@ export function buildPrizeLedger({
 
   if (cfg.seasonActive) {
     const winners = isSeasonOver ? seasonStandings.filter((s) => s.rank === 1) : [];
-    entries.push({
-      key: "season",
-      label: "Season Overall",
-      kind: "season",
-      winners: winners.map((s) => ({ id: s.userId, name: s.userName })),
-      amount: cfg.seasonFee * memberCount,
-      decided: winners.length > 0,
-    });
+    if (isSeasonOver && winners.length > 0) {
+      entries.push({
+        key: "season",
+        label: "Season Overall",
+        kind: "season",
+        winners: winners.map((s) => ({ id: s.userId, name: s.userName })),
+        amount: cfg.seasonFee * memberCount,
+        decided: true,
+      });
+    }
   }
 
   if (cfg.survivorActive) {
@@ -173,14 +175,16 @@ export function buildPrizeLedger({
     const decided =
       memberCount >= 2 &&
       ((alive.length === 1 && anyEliminated) || (isSeasonOver && alive.length >= 1));
-    entries.push({
-      key: "survivor",
-      label: "Survivor",
-      kind: "survivor",
-      winners: decided ? alive.map((s) => ({ id: s.userId, name: nameOf(s.userId) })) : [],
-      amount: cfg.survivorFee * memberCount,
-      decided,
-    });
+    if (decided && alive.length > 0) {
+      entries.push({
+        key: "survivor",
+        label: "Survivor",
+        kind: "survivor",
+        winners: alive.map((s) => ({ id: s.userId, name: nameOf(s.userId) })),
+        amount: cfg.survivorFee * memberCount,
+        decided: true,
+      });
+    }
   }
 
   return entries;

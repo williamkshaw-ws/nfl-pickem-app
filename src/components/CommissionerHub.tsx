@@ -391,7 +391,7 @@ export function CommissionerHub({
     const ef = Number(entryFeeInput) || 0;
     const handle = normalizeVenmoHandle(venmoHandleInput);
     if (venmoHandleInput.trim() && handle === null) {
-      alert("Please enter a valid Venmo handle (5-30 letters, numbers, - or _)");
+      alert("Please enter a valid Venmo handle (3-30 letters, numbers, - or _)");
       return;
     }
     await onUpdateSettings({
@@ -974,7 +974,7 @@ export function CommissionerHub({
               </div>
 
               <div className="flex items-center gap-2">
-                {unpaidCount > 0 && onNudgeUnpaid && (
+                {duesPerMember > 0 && unpaidCount > 0 && onNudgeUnpaid && (
                   <button
                     type="button"
                     onClick={handleNudgeUnpaidClick}
@@ -1267,7 +1267,7 @@ export function CommissionerHub({
           </div>
 
           {/* Outstanding Dues Card */}
-          {unpaidCount > 0 && (
+          {duesPerMember > 0 && unpaidCount > 0 && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
