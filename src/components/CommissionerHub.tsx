@@ -30,6 +30,8 @@ import {
   Loader2,
   Lock,
   Clock,
+  DollarSign,
+  CreditCard,
 } from "lucide-react";
 import { WeeklyPicks } from "./WeeklyPicks";
 import { authFetch } from "@/lib/api-client";
@@ -45,6 +47,8 @@ interface CommissionerHubProps {
   allPicks: UserPicks[];
   eliminatorStatus?: EliminatorStatus[];
   overrideLogs?: any[];
+  paidMembers?: Record<string, boolean>;
+  onTogglePaid?: (userId: string, newPaid: boolean) => Promise<void>;
   onSyncEspn?: (week: number) => Promise<void>;
   isSyncing?: boolean;
   onOverridePicks: (
@@ -97,6 +101,8 @@ export function CommissionerHub({
   allPicks,
   eliminatorStatus,
   overrideLogs,
+  paidMembers = {},
+  onTogglePaid,
   onOverridePicks,
   onUpdateSettings,
   onDeleteLeague,
@@ -107,6 +113,9 @@ export function CommissionerHub({
 }: CommissionerHubProps) {
   const [activeSubTab, setActiveSubTab] = useState<CommissionerSubTab>("roster");
   const [leagueNameInput, setLeagueNameInput] = useState(settings.leagueName);
+  const [entryFeeInput, setEntryFeeInput] = useState<string>(
+    typeof settings.entryFee === "number" ? settings.entryFee.toString() : "0"
+  );
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || "");
   const [leaguePassword, setLeaguePassword] = useState(settings.leaguePassword || "");
   const [copiedLink, setCopiedLink] = useState(false);
@@ -122,7 +131,7 @@ export function CommissionerHub({
 
   // Roster search and filter state
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "missing" | "complete">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "missing" | "complete" | "paid" | "unpaid">("all");
 
   const totalGames = games.length;
 
@@ -229,6 +238,9 @@ export function CommissionerHub({
   const completionPercentage =
     users.length > 0 ? Math.round((completeCount / users.length) * 100) : 0;
 
+  const paidCount = users.filter((u) => !!paidMembers[u.id]).length;
+  const unpaidCount = users.length - paidCount;
+
   // Filtered members list
   const filteredStatuses = useMemo(() => {
     return memberStatuses.filter(({ user, isComplete, isMissing, isPartial }) => {
@@ -238,9 +250,11 @@ export function CommissionerHub({
       }
       if (statusFilter === "missing") return isMissing || isPartial;
       if (statusFilter === "complete") return isComplete;
+      if (statusFilter === "paid") return !!paidMembers[user.id];
+      if (statusFilter === "unpaid") return !paidMembers[user.id];
       return true;
     });
-  }, [memberStatuses, searchQuery, statusFilter]);
+  }, [memberStatuses, searchQuery, statusFilter, paidMembers]);
 
   const selectedUser = users.find((u) => u.id === selectedUserId) || users[0];
   const picksForSelectedUser = allPicks?.find(
@@ -526,6 +540,26 @@ export function CommissionerHub({
                   >
                     Done ({completeCount})
                   </button>
+                  <button
+                    onClick={() => setStatusFilter("paid")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      statusFilter === "paid"
+                        ? "bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
+                    }`}
+                  >
+                    Paid ({paidCount})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter("unpaid")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      statusFilter === "unpaid"
+                        ? "bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-400 shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
+                    }`}
+                  >
+                    Unpaid ({unpaidCount})
+                  </button>
                 </div>
               </div>
             </div>
@@ -576,6 +610,29 @@ export function CommissionerHub({
                                   Commissioner
                                 </span>
                               )}
+
+                              {/* Paid / Unpaid Tag Toggle (Visible only in Commissioner Hub) */}
+                              {(() => {
+                                const isPaid = !!paidMembers[u.id];
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onTogglePaid?.(u.id, !isPaid);
+                                    }}
+                                    title={`Click to mark ${u.name} as ${isPaid ? "Unpaid" : "Paid"}`}
+                                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer select-none active:scale-95 ${
+                                      isPaid
+                                        ? "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                                        : "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/70 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                                    }`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? "bg-emerald-500" : "bg-amber-500"}`} />
+                                    <span>{isPaid ? "Paid" : "Unpaid"}</span>
+                                  </button>
+                                );
+                              })()}
                             </div>
 
                             {/* Pick submission badge */}
@@ -1012,8 +1069,102 @@ export function CommissionerHub({
             </div>
           </div>
 
-          {/* Right Column: Live Data Sync & Danger Zone */}
+          {/* Right Column: League Dues Tracker, Live Data Sync & Danger Zone */}
           <div className="space-y-6">
+            {/* League Buy-In & Dues Tracker Card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  League Buy-In &amp; Dues Tracker
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                  Commissioner Only
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Set a per-player entry fee to track pool dues and view paid vs outstanding balances.
+                (This ledger is strictly private to you as commissioner).
+              </p>
+
+              {/* Entry fee input */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value={entryFeeInput}
+                    onChange={(e) => setEntryFeeInput(e.target.value)}
+                    placeholder="0"
+                    className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ entryFee: Number(entryFeeInput) || 0 })}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0"
+                >
+                  Save Fee
+                </button>
+              </div>
+
+              {/* Dues Summary Metrics */}
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                  <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Pot</div>
+                  <div className="font-black text-sm text-slate-900 dark:text-white mt-0.5">
+                    ${(users.length * (settings.entryFee || 0)).toLocaleString()}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/40">
+                  <div className="text-[10px] font-extrabold uppercase text-emerald-600 dark:text-emerald-400">Collected</div>
+                  <div className="font-black text-sm text-emerald-700 dark:text-emerald-300 mt-0.5">
+                    ${(paidCount * (settings.entryFee || 0)).toLocaleString()}
+                    <span className="text-[10px] font-medium text-emerald-600/70 ml-1">({paidCount})</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/40">
+                  <div className="text-[10px] font-extrabold uppercase text-amber-600 dark:text-amber-400">Unpaid</div>
+                  <div className="font-black text-sm text-amber-700 dark:text-amber-300 mt-0.5">
+                    ${(unpaidCount * (settings.entryFee || 0)).toLocaleString()}
+                    <span className="text-[10px] font-medium text-amber-600/70 ml-1">({unpaidCount})</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Unpaid Members List */}
+              {unpaidCount > 0 && (
+                <div className="pt-2">
+                  <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center justify-between">
+                    <span>Outstanding Members ({unpaidCount}):</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                    {users
+                      .filter((u) => !paidMembers[u.id])
+                      .map((u) => (
+                        <div
+                          key={u.id}
+                          className="p-2.5 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40"
+                        >
+                          <span className="font-bold text-slate-900 dark:text-white truncate">
+                            {u.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onTogglePaid?.(u.id, true)}
+                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-lg transition"
+                          >
+                            Mark Paid
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Live Data Sync */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">

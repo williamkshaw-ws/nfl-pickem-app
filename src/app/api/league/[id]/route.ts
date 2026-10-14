@@ -83,6 +83,7 @@ export async function GET(
       commissionerId: league.commissionerId,
       // Never expose the actual league password to clients; only flag if one is set
       hasPassword: !!rawSettings.leaguePassword,
+      entryFee: typeof rawSettings.entryFee === "number" ? rawSettings.entryFee : 0,
     };
 
     const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;
@@ -272,7 +273,16 @@ export async function GET(
     );
 
     let overrideLogs: any[] = [];
+    const paidMembers: Record<string, boolean> = {};
+
     if (isCommissioner) {
+      memSnap.docs.forEach((doc) => {
+        const d = doc.data();
+        if (d.userId) {
+          paidMembers[d.userId] = d.paid === true;
+        }
+      });
+
       try {
         const logsSnap = await db
           .collection("leagues")
@@ -303,6 +313,7 @@ export async function GET(
       isCommissioner,
       isGuest: caller.uid === "guest",
       overrideLogs,
+      paidMembers: isCommissioner ? paidMembers : undefined,
     });
   } catch (err: any) {
     return errorResponse(err);
@@ -337,6 +348,7 @@ export async function PUT(
       "pickemEnabled",
       "eliminatorEnabled",
       "leaguePassword",
+      "entryFee",
     ];
 
     const sanitizedUpdates: Record<string, any> = {};
@@ -389,6 +401,14 @@ export async function PUT(
           }
           // Never store plaintext; empty string clears the password
           sanitizedUpdates[key] = hashLeaguePassword(value);
+          break;
+        }
+        case "entryFee": {
+          const n = Number(value);
+          if (isNaN(n) || n < 0 || n > 100000) {
+            throw new HttpError(400, "Entry fee must be a valid number between $0 and $100,000");
+          }
+          sanitizedUpdates[key] = Math.round(n);
           break;
         }
       }

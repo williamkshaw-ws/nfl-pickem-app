@@ -43,6 +43,7 @@ interface LeagueApiResponse {
   isCommissioner?: boolean;
   isGuest?: boolean;
   overrideLogs?: any[];
+  paidMembers?: Record<string, boolean>;
 }
 
 export default function LeagueHome({ params }: { params: Promise<{ id: string }> }) {
@@ -318,6 +319,37 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
     }
   };
 
+  const handleTogglePaid = async (targetUserId: string, newPaid: boolean) => {
+    // Optimistically update local state immediately
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        paidMembers: {
+          ...(prev.paidMembers || {}),
+          [targetUserId]: newPaid,
+        },
+      };
+    });
+
+    try {
+      const res = await authFetch(`/api/league/${leagueId}/members/paid`, {
+        method: "POST",
+        body: JSON.stringify({ userId: targetUserId, paid: newPaid }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to update paid status");
+      }
+      const targetUser = data?.users.find((u) => u.id === targetUserId);
+      showToast(`✓ Marked ${targetUser?.name || "Player"} as ${newPaid ? "Paid" : "Unpaid"}`);
+    } catch (err: any) {
+      console.error("Toggle paid error:", err);
+      showToast(err.message || "Failed to update payment status");
+      await loadLeagueData(activeWeek); // Revert on failure
+    }
+  };
+
   const handleDeleteLeague = async () => {
     try {
       const res = await authFetch(`/api/league/${leagueId}`, {
@@ -547,6 +579,8 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
               allPicks={data.allPicks}
               eliminatorStatus={data.eliminatorStatus}
               overrideLogs={data.overrideLogs}
+              paidMembers={data.paidMembers}
+              onTogglePaid={handleTogglePaid}
               onDeleteLeague={handleDeleteLeague}
               onOverridePicks={handleOverridePicks}
               onUpdateSettings={handleUpdateSettings}

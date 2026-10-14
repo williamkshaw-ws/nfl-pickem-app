@@ -143,6 +143,7 @@ export interface LeagueSettings {
   eliminatorEnabled?: boolean;
   pickemEnabled?: boolean;
   leaguePassword?: string;
+  entryFee?: number;
 }
 
 export interface EliminatorStatus {
