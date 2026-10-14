@@ -173,9 +173,9 @@ export async function processKickoffReminders({
     const leagueListHtml = recipient.missingLeagues
       .map(
         (l) =>
-          `<li style="margin-bottom: 8px; color: #334155; font-size: 15px;">
-            <strong>${l.leagueName}</strong>: 
-            <span style="color: #ea580c; font-weight: 700;">${l.validPicksCount} of ${l.totalGames} picks made</span>
+          `<li style="margin-bottom: 8px; color: #cbd5e1; font-size: 15px;">
+            <strong style="color: #ffffff;">${l.leagueName}</strong>: 
+            <span style="color: #fb923c; font-weight: 700;">${l.validPicksCount} of ${l.totalGames} picks made</span>
           </li>`
       )
       .join("");
@@ -186,43 +186,45 @@ export async function processKickoffReminders({
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="color-scheme" content="dark">
+        <meta name="supported-color-schemes" content="dark">
         <title>Week ${activeWeek} Picks Reminder</title>
       </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b1329; margin: 0; padding: 24px 12px;">
-        <div style="max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; margin: 0; padding: 24px 12px; color: #f8fafc;">
+        <div style="max-width: 580px; margin: 0 auto; background-color: #0f172a; border-radius: 20px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
           
           <!-- Header Banner -->
-          <div style="background-color: #020617; padding: 28px 24px; text-align: center; border-bottom: 3px solid #10b981;">
-            <div style="display: inline-block; background-color: #064e3b; border: 1px solid #10b981; border-radius: 20px; padding: 4px 14px; margin-bottom: 12px;">
+          <div style="background-color: #020617; padding: 32px 24px 26px; text-align: center; border-bottom: 2px solid #10b981;">
+            <div style="display: inline-block; background-color: rgba(6, 78, 59, 0.7); border: 1px solid #10b981; border-radius: 20px; padding: 5px 16px; margin-bottom: 14px;">
               <span style="color: #34d399; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;">Kickoff Deadline Reminder</span>
             </div>
-            <h1 style="color: #ffffff; font-size: 26px; font-weight: 900; margin: 0 0 6px 0; letter-spacing: -0.5px;">
+            <h1 style="color: #ffffff; font-size: 26px; font-weight: 900; margin: 0 0 8px 0; letter-spacing: -0.5px;">
               Lock In Your Week ${activeWeek} Picks! 🏈
             </h1>
-            <p style="color: #94a3b8; font-size: 14px; margin: 0;">
+            <p style="color: #94a3b8; font-size: 14px; margin: 0; font-weight: 500;">
               Thursday Night Football kicks off in approximately 2 hours.
             </p>
           </div>
 
           <!-- Body Content -->
-          <div style="padding: 28px 24px;">
-            <p style="color: #0f172a; font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 12px;">
+          <div style="padding: 30px 24px; background-color: #0f172a;">
+            <p style="color: #f8fafc; font-size: 17px; font-weight: 800; margin-top: 0; margin-bottom: 12px;">
               Hey ${recipient.name},
             </p>
-            <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+            <p style="color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 22px;">
               Don't leave points on the table! You still have pending picks for Week ${activeWeek} in the following league(s):
             </p>
 
             <!-- Missing Leagues Box -->
-            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 20px; margin-bottom: 24px;">
+            <div style="background-color: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 18px 20px; margin-bottom: 26px;">
               <ul style="margin: 0; padding-left: 20px;">
                 ${leagueListHtml}
               </ul>
             </div>
 
             <!-- Action Button -->
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${actionUrl}" style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 16px; font-weight: 900; text-decoration: none; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(5,150,105,0.35);">
+            <div style="text-align: center; margin: 32px 0 16px;">
+              <a href="${actionUrl}" style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 16px; font-weight: 900; text-decoration: none; padding: 15px 34px; border-radius: 12px; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4); border: 1px solid #10b981;">
                 Make My Week ${activeWeek} Picks &rarr;
               </a>
             </div>
@@ -233,12 +235,12 @@ export async function processKickoffReminders({
           </div>
 
           <!-- Footer -->
-          <div style="background-color: #f1f5f9; padding: 18px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
-            <p style="color: #64748b; font-size: 11px; margin: 0 0 6px 0;">
+          <div style="background-color: #090d16; padding: 20px 24px; text-align: center; border-top: 1px solid #1e293b;">
+            <p style="color: #64748b; font-size: 11px; margin: 0 0 6px 0; line-height: 1.5;">
               You received this email because you turned on <strong>Thursday Kickoff Reminder</strong> in your PocketPicks account settings.
             </p>
-            <p style="color: #94a3b8; font-size: 11px; margin: 0;">
-              &copy; ${new Date().getFullYear()} PocketPicks™ • <a href="${baseUrl}" style="color: #059669; text-decoration: none; font-weight: 600;">pocketpicks.app</a>
+            <p style="color: #475569; font-size: 11px; margin: 0;">
+              &copy; ${new Date().getFullYear()} PocketPicks™ • <a href="${baseUrl}" style="color: #10b981; text-decoration: none; font-weight: 600;">pocketpicks.app</a>
             </p>
           </div>
 
