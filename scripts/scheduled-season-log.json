@@ -9,8 +9,7 @@
     "11": { "dueAt": "2026-11-19T23:00:00.000Z", "matchup": "Indianapolis Colts @ Houston Texans" },
     "12": { "dueAt": "2026-11-25T22:45:00.000Z", "matchup": "Green Bay Packers @ Los Angeles Rams" },
     "13": { "dueAt": "2026-12-03T23:00:00.000Z", "matchup": "Kansas City Chiefs @ Los Angeles Rams" },
-    "14": { "dueAt": "2026-12-10T23:00:00.000Z", "matchup": "Minnesota Vikings @ New England Patriots" },
-    "15": { "dueAt": "2026-12-17T23:00:00.000Z", "matchup": "San Francisco 49ers @ Los Angeles Chargers" }
+    "14": { "dueAt": "2026-12-10T23:00:00.000Z", "matchup": "Minnesota Vikings @ New England Patriots" }
   },
-  "remainingWeeks": [16, 17, 18]
+  "remainingWeeks": [15, 16, 17, 18]
 }
