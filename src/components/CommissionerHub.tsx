@@ -1776,47 +1776,12 @@ export function CommissionerHub({
                       onClick={handleSavePayoutSettings}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0 cursor-pointer shadow-xs"
                     >
-                      Save Structure
+                      Save
                     </button>
                   </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">
                     Shown to unpaid members on their league dashboard banner and in dues reminder emails so they can pay in 1 tap.
                   </span>
-                </div>
-
-                {/* Dues Breakdown Pill */}
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-1">
-                  <div className="flex items-center justify-between font-extrabold text-slate-900 dark:text-white">
-                    <span>Dues Per Player:</span>
-                    <span className="text-emerald-600 dark:text-emerald-400">{formatMoney(duesPerMember)}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {describeDues(cfg) || "No buy-in configured"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Dues Summary Metrics */}
-              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Pot</div>
-                  <div className="font-black text-sm text-slate-900 dark:text-white mt-0.5">
-                    ${totalPot.toLocaleString()}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/40">
-                  <div className="text-[10px] font-extrabold uppercase text-emerald-600 dark:text-emerald-400">Collected</div>
-                  <div className="font-black text-sm text-emerald-700 dark:text-emerald-300 mt-0.5">
-                    ${collectedDues.toLocaleString()}
-                    <span className="text-[10px] font-medium text-emerald-600/70 ml-1">({paidCount})</span>
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/40">
-                  <div className="text-[10px] font-extrabold uppercase text-amber-600 dark:text-amber-400">Unpaid</div>
-                  <div className="font-black text-sm text-amber-700 dark:text-amber-300 mt-0.5">
-                    ${unpaidDues.toLocaleString()}
-                    <span className="text-[10px] font-medium text-amber-600/70 ml-1">({unpaidCount})</span>
-                  </div>
                 </div>
               </div>
 
