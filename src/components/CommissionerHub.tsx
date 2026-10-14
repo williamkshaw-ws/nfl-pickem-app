@@ -196,14 +196,26 @@ export function CommissionerHub({
         elimPick !== "HIDDEN" &&
         (isElimGameLocked || u.id === settings.commissionerId);
 
+      const userElimStatus = eliminatorStatus?.find((s) => s.userId === u.id);
+      const isUserEliminated =
+        userElimStatus?.status === "Eliminated" &&
+        (userElimStatus.eliminatedWeek === undefined || userElimStatus.eliminatedWeek < activeWeek || !hasSurvivor);
+
       const pickemDone =
         settings.pickemEnabled !== false
           ? totalGames > 0 && validPicksCount >= totalGames
           : true;
-      const survivorDone = settings.eliminatorEnabled ? hasSurvivor : true;
+
+      // If user was eliminated from Survivor, they cannot make picks, so survivor is considered satisfied
+      const survivorDone = settings.eliminatorEnabled
+        ? (hasSurvivor || isUserEliminated)
+        : true;
 
       const isComplete = pickemDone && survivorDone;
-      const isMissing = validPicksCount === 0 && !hasSurvivor;
+      const isMissing =
+        (settings.pickemEnabled !== false ? validPicksCount === 0 : true) &&
+        !hasSurvivor &&
+        !isUserEliminated;
       const isPartial = !isComplete && !isMissing;
 
       return {
@@ -211,6 +223,7 @@ export function CommissionerHub({
         validPicksCount,
         hasTiebreaker,
         hasSurvivor,
+        isUserEliminated,
         survivorPick: elimPick,
         survivorTeam: pickedTeam,
         isSurvivorRevealed,
@@ -226,6 +239,7 @@ export function CommissionerHub({
     totalGames,
     teamsMap,
     games,
+    eliminatorStatus,
     settings.lockPolicy,
     settings.commissionerId,
     settings.pickemEnabled,
@@ -577,6 +591,7 @@ export function CommissionerHub({
                     validPicksCount,
                     hasTiebreaker,
                     hasSurvivor,
+                    isUserEliminated,
                     survivorPick,
                     survivorTeam,
                     isSurvivorRevealed,
@@ -661,20 +676,26 @@ export function CommissionerHub({
                               {settings.eliminatorEnabled && (
                                 <span
                                   className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                    hasSurvivor
+                                    isUserEliminated
+                                      ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60"
+                                      : hasSurvivor
                                       ? "bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-900/60"
                                       : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
                                   }`}
                                 >
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full ${
-                                      hasSurvivor
+                                      isUserEliminated
+                                        ? "bg-rose-500"
+                                        : hasSurvivor
                                         ? "bg-orange-500 dark:bg-orange-400"
                                         : "bg-slate-400"
                                     }`}
                                   />
                                   <span>Survivor:</span>
-                                  {hasSurvivor ? (
+                                  {isUserEliminated ? (
+                                    <span className="font-extrabold text-rose-600 dark:text-rose-400">Eliminated</span>
+                                  ) : hasSurvivor ? (
                                     isSurvivorRevealed ? (
                                       <>
                                         {survivorTeam?.logo && (
