@@ -364,11 +364,13 @@ export function CommissionerHub({
       });
     });
 
-    return Array.from(map.values()).sort((a, b) => {
-      if (b.totalWon !== a.totalWon) return b.totalWon - a.totalWon;
-      if (b.pending !== a.pending) return b.pending - a.pending;
-      return a.user.name.localeCompare(b.user.name);
-    });
+    return Array.from(map.values())
+      .filter((item) => item.totalWon > 0)
+      .sort((a, b) => {
+        if (b.totalWon !== a.totalWon) return b.totalWon - a.totalWon;
+        if (b.pending !== a.pending) return b.pending - a.pending;
+        return a.user.name.localeCompare(b.user.name);
+      });
   }, [users, prizeLedger, payoutRecords]);
 
   const handleNudgeUnpaidClick = async () => {
@@ -1177,7 +1179,7 @@ export function CommissionerHub({
               </div>
             </div>
 
-            {userWinnings.filter((u) => u.totalWon > 0).length === 0 ? (
+            {userWinnings.length === 0 ? (
               <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
                 <Trophy className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
                 <p className="font-bold text-slate-600 dark:text-slate-400">No member winnings yet</p>
@@ -1187,88 +1189,79 @@ export function CommissionerHub({
               </div>
             ) : (
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-                {userWinnings.map((w) => {
-                  const hasWon = w.totalWon > 0;
-                  return (
-                    <div
-                      key={w.user.id}
-                      className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
-                        hasWon ? "hover:bg-slate-50/50 dark:hover:bg-slate-800/30" : "opacity-60 bg-slate-50/30 dark:bg-slate-900/30"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${
-                            w.user.avatarColor || "bg-emerald-600"
-                          }`}
-                        >
-                          {w.user.name.charAt(0)}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
-                              {w.user.name}
-                            </span>
-                            {w.pending > 0 ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                Owed ${w.pending.toLocaleString()}
-                              </span>
-                            ) : hasWon ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                All Settled
-                              </span>
-                            ) : null}
-                          </div>
-
-                          {/* Breakdown of won events */}
-                          {w.winItems.length > 0 ? (
-                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                              {w.winItems.map((item, idx) => (
-                                <span
-                                  key={idx}
-                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                                    item.isPaidOut
-                                      ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-900/50"
-                                      : "bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200/50 dark:border-amber-900/50"
-                                  }`}
-                                >
-                                  {item.label}: ${item.amount.toLocaleString()} {item.isPaidOut ? "✓" : "⏳"}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-slate-400">No prizes won yet</span>
-                          )}
-                        </div>
+                {userWinnings.map((w) => (
+                  <div
+                    key={w.user.id}
+                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${
+                          w.user.avatarColor || "bg-emerald-600"
+                        }`}
+                      >
+                        {w.user.name.charAt(0)}
                       </div>
 
-                      {/* Financial Totals */}
-                      <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-auto shrink-0 text-right">
-                        <div>
-                          <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Won</div>
-                          <div className={`font-black text-sm ${hasWon ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}>
-                            ${w.totalWon.toLocaleString()}
-                          </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                            {w.user.name}
+                          </span>
+                          {w.pending > 0 ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              Owed ${w.pending.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              All Settled
+                            </span>
+                          )}
                         </div>
 
-                        <div>
-                          <div className="text-[10px] font-extrabold uppercase text-slate-400">Paid Out</div>
-                          <div className="font-bold text-sm text-slate-700 dark:text-slate-300">
-                            ${w.totalPaidOut.toLocaleString()}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-[10px] font-extrabold uppercase text-slate-400">Pending</div>
-                          <div className={`font-black text-sm ${w.pending > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"}`}>
-                            ${w.pending.toLocaleString()}
-                          </div>
+                        {/* Breakdown of won events */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          {w.winItems.map((item, idx) => (
+                            <span
+                              key={idx}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                                item.isPaidOut
+                                  ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-900/50"
+                                  : "bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200/50 dark:border-amber-900/50"
+                              }`}
+                            >
+                              {item.label}: ${item.amount.toLocaleString()} {item.isPaidOut ? "✓" : "⏳"}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* Financial Totals */}
+                    <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-auto shrink-0 text-right">
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Won</div>
+                        <div className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                          ${w.totalWon.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase text-slate-400">Paid Out</div>
+                        <div className="font-bold text-sm text-slate-700 dark:text-slate-300">
+                          ${w.totalPaidOut.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase text-slate-400">Pending</div>
+                        <div className={`font-black text-sm ${w.pending > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"}`}>
+                          ${w.pending.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
