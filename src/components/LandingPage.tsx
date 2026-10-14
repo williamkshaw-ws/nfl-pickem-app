@@ -232,11 +232,11 @@ export function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-emerald-500 selection:text-white scroll-smooth overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-emerald-500 selection:text-white scroll-smooth overflow-x-clip">
       {/* ─────────────────────────────────────────────────────────────
-          1. NAVIGATION BAR
+          1. NAVIGATION BAR (Permanently Fixed on Scroll)
       ───────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
@@ -314,6 +314,9 @@ export function LandingPage() {
           </div>
         </div>
       </nav>
+
+      {/* Header spacer to prevent hero section jumping underneath fixed nav */}
+      <div className="h-16 shrink-0" aria-hidden="true" />
 
       {/* ─────────────────────────────────────────────────────────────
           2. HERO SECTION
