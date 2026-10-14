@@ -4,6 +4,10 @@ import { getDatabase, detectCurrentWeek } from "@/lib/storage";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function escapeHtml(s: unknown): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>)[c]);
+}
+
 export interface ReminderRecipient {
   userId: string;
   email: string;
@@ -174,7 +178,7 @@ export async function processKickoffReminders({
       .map(
         (l) =>
           `<li style="margin-bottom: 8px; color: #cbd5e1; font-size: 15px;">
-            <strong style="color: #ffffff;">${l.leagueName}</strong>: 
+            <strong style="color: #ffffff;">${escapeHtml(l.leagueName)}</strong>: 
             <span style="color: #fb923c; font-weight: 700;">${l.validPicksCount} of ${l.totalGames} picks made</span>
           </li>`
       )
@@ -209,7 +213,7 @@ export async function processKickoffReminders({
           <!-- Body Content -->
           <div style="padding: 30px 24px; background-color: #0f172a;">
             <p style="color: #f8fafc; font-size: 17px; font-weight: 800; margin-top: 0; margin-bottom: 12px;">
-              Hey ${recipient.name},
+              Hey ${escapeHtml(recipient.name)},
             </p>
             <p style="color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 22px;">
               Don't leave points on the table! You still have pending picks for Week ${activeWeek} in the following league(s):

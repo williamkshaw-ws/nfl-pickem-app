@@ -1,55 +1,26 @@
 import { NextResponse } from "next/server";
 import { processKickoffReminders } from "@/lib/kickoff-reminders";
-import { cookies } from "next/headers";
-import crypto from "crypto";
-
-function isValidSecret(providedSecret: string | null): boolean {
-  if (!providedSecret) return false;
-  
-  // Check against CRON_SECRET or ADMIN_PASSWORD or ADMIN_SESSION_SECRET
-  const expectedSecrets = [
-    process.env.CRON_SECRET,
-    process.env.ADMIN_SESSION_SECRET,
-    process.env.ADMIN_PASSWORD,
-  ].filter(Boolean) as string[];
-
-  for (const expected of expectedSecrets) {
-    if (providedSecret === expected) return true;
-  }
-  return false;
-}
+import { requireAdminSession, timingSafeStringEqual } from "@/lib/admin-auth";
 
 async function isAuthorized(req: Request): Promise<boolean> {
-  // 1. Check Bearer token or query param 'secret'
+  // 1. Dedicated cron secret via Authorization header only (never query string,
+  //    which leaks into proxy/access logs). Require a reasonably long secret.
+  const cronSecret = process.env.CRON_SECRET || "";
   const authHeader = req.headers.get("authorization") || "";
   const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  const bearerToken = bearerMatch ? bearerMatch[1].trim() : null;
+  const bearerToken = bearerMatch ? bearerMatch[1].trim() : "";
 
-  const url = new URL(req.url);
-  const querySecret = url.searchParams.get("secret");
-
-  if (isValidSecret(bearerToken) || isValidSecret(querySecret)) {
+  if (cronSecret.length >= 24 && bearerToken && timingSafeStringEqual(bearerToken, cronSecret)) {
     return true;
   }
 
-  // 2. Check admin session cookie (from /users admin portal)
+  // 2. Valid, unexpired admin portal session
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get("admin_session")?.value;
-    const adminSecret = process.env.ADMIN_SESSION_SECRET;
-
-    if (sessionToken && adminSecret) {
-      const [hmacPart] = sessionToken.split(":");
-      const expectedHmac = crypto.createHmac("sha256", adminSecret).update("admin_authenticated").digest("hex");
-      if (hmacPart === expectedHmac) {
-        return true;
-      }
-    }
+    await requireAdminSession(req);
+    return true;
   } catch {
-    // Ignore cookie errors
+    return false;
   }
-
-  return false;
 }
 
 export async function GET(req: Request) {
@@ -66,7 +37,7 @@ async function handleReminders(req: Request) {
     if (!authorized) {
       return NextResponse.json(
         {
-          error: "Unauthorized. Please provide Authorization: Bearer <CRON_SECRET> or ?secret=<CRON_SECRET>",
+          error: "Unauthorized",
         },
         { status: 401 }
       );
@@ -89,7 +60,7 @@ async function handleReminders(req: Request) {
     console.error("Error running kickoff reminders:", err);
     return NextResponse.json(
       {
-        error: err.message || "Failed to process kickoff reminders",
+        error: "Failed to process kickoff reminders",
       },
       { status: 500 }
     );

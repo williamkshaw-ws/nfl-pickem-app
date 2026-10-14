@@ -232,7 +232,7 @@ export async function POST(
           newPicks: finalPicksToSave,
           previousEliminatorPick: existingElimPick || null,
           newEliminatorPick: survivorPickToSave || null,
-          reason: body.overrideReason || "Commissioner Kickoff Override",
+          reason: typeof body.overrideReason === "string" && body.overrideReason.trim() ? body.overrideReason.trim().slice(0, 200) : "Commissioner Kickoff Override",
         });
       } catch (logErr) {
         console.warn("Failed to write commissioner override log:", logErr);
