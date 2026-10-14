@@ -550,8 +550,8 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
           />
         ) : (
           <>
-            {/* Unpaid Member Venmo Dues Banner */}
-            {!isCommissioner && data.settings.venmoHandle && data.currentUserPaid === false && (() => {
+            {/* Unpaid Member Venmo Dues Banner (or Commissioner Preview) */}
+            {data.settings.venmoHandle && (data.currentUserPaid === false || isCommissioner) && (() => {
               const cfg = getPayoutConfig(data.settings);
               if (cfg.duesPerPlayer <= 0) return null;
               const payUrl = buildVenmoPayUrl(
@@ -566,14 +566,22 @@ export default function LeagueHome({ params }: { params: Promise<{ id: string }>
                       <CreditCard className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-black text-sky-950 dark:text-sky-100 flex items-center gap-1.5">
+                      <div className="text-xs font-black text-sky-950 dark:text-sky-100 flex items-center gap-1.5 flex-wrap">
                         <span>League Buy-In: {formatMoney(cfg.duesPerPlayer)}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
-                          Payment Pending
-                        </span>
+                        {isCommissioner ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            Commissioner Preview (Unpaid members see this)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
+                            Payment Pending
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-sky-700 dark:text-sky-300/80 mt-0.5">
-                        Pay your commissioner @{data.settings.venmoHandle} ({describeDues(cfg)})
+                        {isCommissioner
+                          ? `Members pay @${data.settings.venmoHandle} (${describeDues(cfg)})`
+                          : `Pay your commissioner @${data.settings.venmoHandle} (${describeDues(cfg)})`}
                       </div>
                     </div>
                   </div>
