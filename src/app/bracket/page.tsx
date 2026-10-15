@@ -657,21 +657,22 @@ export default function BracketPage() {
         </div>
 
         {/* Sub-header Navigation Tabs */}
-        <div className="border-t border-slate-100 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-2 sm:gap-4 py-2.5">
+        <div className="border-t border-slate-100 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 sm:py-2.5">
+            {/* Left: Tabs */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab("bracket")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === "bracket"
                     ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>My Bracket</span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-white/20 dark:bg-black/20">
+                <Trophy className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">My Bracket</span>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-white/20 dark:bg-black/20 shrink-0 whitespace-nowrap">
                   {completedPicksCount}/13
                 </span>
               </button>
@@ -679,15 +680,15 @@ export default function BracketPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("leaderboard")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === "leaderboard"
                     ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <Medal className="w-3.5 h-3.5" />
-                <span>Leaderboard</span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <Medal className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">Leaderboard</span>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 whitespace-nowrap">
                   {leaderboard.length}
                 </span>
               </button>
@@ -696,18 +697,19 @@ export default function BracketPage() {
               <button
                 type="button"
                 onClick={() => setShowRulesModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap shrink-0"
                 title="View Rules & Scoring"
               >
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>Rules</span>
+                <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Rules</span>
               </button>
             </div>
 
-            {/* Score Pill & View Mode Switch */}
-            <div className="flex items-center gap-2.5 shrink-0 py-2.5">
+            {/* Right: Score Pill & View Mode Switch */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* Desktop View Mode Toggle (on mobile this is shown right above the round pills) */}
               {isSimulated && (
-                <div className="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
+                <div className="hidden lg:flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
                   <button
                     type="button"
                     onClick={() => setBracketViewMode("actual")}
@@ -734,15 +736,15 @@ export default function BracketPage() {
               )}
 
               {isLocked && (
-                <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs font-bold">
-                  <Lock className="w-3 h-3 text-rose-600" />
-                  <span>Locked</span>
+                <div className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-[11px] sm:text-xs font-bold shrink-0 whitespace-nowrap">
+                  <Lock className="w-3 h-3 text-rose-600 shrink-0" />
+                  <span className="hidden xs:inline">Locked</span>
                 </div>
               )}
 
               {isSimulated && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black">
-                  <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-[11px] sm:text-xs font-black shrink-0 whitespace-nowrap">
+                  <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
                   <span>
                     {scoreDetails.score} / 13 pts
                   </span>
@@ -750,8 +752,9 @@ export default function BracketPage() {
               )}
 
               {saveSuccess && (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in shrink-0 whitespace-nowrap">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Saved</span>
                 </span>
               )}
             </div>
@@ -786,7 +789,35 @@ export default function BracketPage() {
 
         {/* TAB 1: INTERACTIVE BRACKET */}
         {activeTab === "bracket" && (
-          <div className="flex-1 flex flex-col gap-6">
+          <div className="flex-1 flex flex-col gap-4 sm:gap-6">
+            {/* Mobile View Mode Switch (Actual Field vs My Picks Tree) */}
+            {isSimulated && (
+              <div className="flex lg:hidden items-center justify-between p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setBracketViewMode("actual")}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    bracketViewMode === "actual"
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  Actual Field
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBracketViewMode("projected")}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    bracketViewMode === "projected"
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  My Picks Tree
+                </button>
+              </div>
+            )}
+
             {/* Mobile Round Filter Pills */}
             <div className="flex lg:hidden items-center justify-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <button
@@ -1338,7 +1369,7 @@ export default function BracketPage() {
           const renderViewerTeamLine = (team: PlayoffTeam | null) => {
             if (!team) {
               return (
-                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/60 text-slate-400 text-[11px]">
+                <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/60 text-slate-400 text-[10px] sm:text-[11px]">
                   <span>TBD</span>
                 </div>
               );
@@ -1349,7 +1380,7 @@ export default function BracketPage() {
 
             return (
               <div
-                className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center justify-between px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all ${
                   isPicked
                     ? isCorrect
                       ? "bg-emerald-600 text-white shadow-xs"
@@ -1359,9 +1390,9 @@ export default function BracketPage() {
                     : "bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300"
                 }`}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                   <span
-                    className={`w-4 h-4 flex items-center justify-center rounded text-[9px] font-black shrink-0 ${
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center rounded text-[8px] sm:text-[9px] font-black shrink-0 ${
                       isPicked
                         ? isCorrect || isWrong
                           ? "bg-white/20 text-white"
@@ -1371,24 +1402,24 @@ export default function BracketPage() {
                   >
                     {team.seed}
                   </span>
-                  <TeamLogo alt={team.abbr} width={16} height={16} className="w-4 h-4 shrink-0 object-contain" />
-                  <span className="truncate text-[11px]">{team.name}</span>
+                  <TeamLogo alt={team.abbr} width={16} height={16} className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 object-contain" />
+                  <span className="truncate text-[10px] sm:text-[11px]">{team.name}</span>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                <div className="flex items-center gap-1 shrink-0 ml-1">
                   {isPicked && (
                     isCorrect ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                      <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white shrink-0" />
                     ) : isWrong ? (
-                      <XCircle className="w-3.5 h-3.5 text-white shrink-0" />
+                      <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white shrink-0" />
                     ) : (
-                      <span className="text-[9px] font-black uppercase px-1 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200">
+                      <span className="text-[8px] sm:text-[9px] font-black uppercase px-1 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200">
                         Pick
                       </span>
                     )
                   )}
                   {!isPicked && isWinner && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   )}
                 </div>
               </div>
@@ -1398,7 +1429,7 @@ export default function BracketPage() {
           return (
             <div
               key={gameId}
-              className={`w-full bg-white dark:bg-slate-900 border rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col gap-1.5 transition-all ${
+              className={`w-full bg-white dark:bg-slate-900 border rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 shadow-xs flex flex-col gap-1 sm:gap-1.5 transition-all ${
                 isCorrect
                   ? "border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/10"
                   : isWrong
@@ -1406,11 +1437,11 @@ export default function BracketPage() {
                   : "border-slate-200 dark:border-slate-800"
               }`}
             >
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 px-0.5">
+              <div className="flex items-center justify-between text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 px-0.5">
                 <span className="truncate">{label || slot.title}</span>
                 {isDone && (
                   <span
-                    className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 inline-flex items-center gap-0.5 ${
+                    className={`text-[8px] sm:text-[9px] font-black px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded-md shrink-0 inline-flex items-center gap-0.5 ${
                       isCorrect
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                         : isWrong
@@ -1428,11 +1459,11 @@ export default function BracketPage() {
 
               {/* Show actual winner if participant picked wrong */}
               {isWrong && actualWinnerTeam && (
-                <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] px-1 text-slate-400 dark:text-slate-500">
+                <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[9px] sm:text-[10px] px-0.5 text-slate-400 dark:text-slate-500">
                   <span>Actual:</span>
                   <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <TeamLogo alt={actualWinnerTeam.abbr} width={12} height={12} className="w-3 h-3 object-contain" />
-                    <span className="truncate max-w-[120px]">{actualWinnerTeam.name}</span>
+                    <span className="truncate max-w-[100px] sm:max-w-[120px]">{actualWinnerTeam.name}</span>
                   </span>
                 </div>
               )}
@@ -1447,30 +1478,30 @@ export default function BracketPage() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-6xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col"
+              className="w-full max-w-6xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-2xl relative my-auto max-h-[94vh] flex flex-col"
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 ${
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black text-white shrink-0 ${
                       viewingParticipant.userAvatar || "bg-emerald-600"
                     }`}
                   >
                     {viewingParticipant.userName.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-black text-base text-slate-900 dark:text-white truncate">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white truncate">
                         {viewingParticipant.userName}&apos;s Bracket
                       </h3>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 whitespace-nowrap">
+                      <span className="text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 whitespace-nowrap">
                         {viewingParticipant.score} / 13 pts
                       </span>
                     </div>
                     {viewingParticipant.tiebreaker && (
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Tiebreaker: {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore} ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} total pts)
+                      <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        Tiebreaker: {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore} ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} pts)
                       </span>
                     )}
                   </div>
@@ -1486,19 +1517,19 @@ export default function BracketPage() {
               </div>
 
               {/* Scroll sideways hint on smaller screens */}
-              <div className="xl:hidden flex items-center justify-center gap-1.5 py-1 px-3 mt-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
-                <ArrowLeftRight className="w-3.5 h-3.5" />
+              <div className="xl:hidden flex items-center justify-center gap-1.5 py-1 px-2.5 mt-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span>Scroll sideways to view all 5 rounds</span>
               </div>
 
               {/* Modal Body: Old School 5-Column Bracket Canvas */}
-              <div className="overflow-x-auto overflow-y-auto flex-1 py-3 pr-1">
-                <div className="min-w-[1020px] py-2">
-                  <div className="grid grid-cols-5 gap-3.5 items-stretch">
+              <div className="overflow-x-auto overflow-y-auto flex-1 py-2 sm:py-3 pr-1">
+                <div className="min-w-[720px] sm:min-w-[880px] lg:min-w-[1020px] py-1 sm:py-2">
+                  <div className="grid grid-cols-5 gap-2 sm:gap-3.5 items-stretch">
                     {/* Col 1: AFC Wild Card */}
-                    <div className="flex flex-col gap-3">
-                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    <div className="flex flex-col gap-2 sm:gap-3">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                         AFC Wild Card
                       </div>
                       {renderViewerMatchupBox("afc_wc_1")}
@@ -1507,8 +1538,8 @@ export default function BracketPage() {
                     </div>
 
                     {/* Col 2: AFC Divisional */}
-                    <div className="flex flex-col justify-around h-full py-4 gap-4">
-                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                    <div className="flex flex-col justify-around h-full py-2 sm:py-4 gap-2 sm:gap-4">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
                         AFC Divisional
                       </div>
                       {renderViewerMatchupBox("afc_div_1")}
@@ -1516,20 +1547,20 @@ export default function BracketPage() {
                     </div>
 
                     {/* Col 3: Center Column (AFC Champ, Super Bowl with Trophy & Tiebreaker, NFC Champ) */}
-                    <div className="flex flex-col justify-between h-full py-1 gap-3.5 items-center">
+                    <div className="flex flex-col justify-between h-full py-1 gap-2 sm:gap-3.5 items-center">
                       {/* AFC Championship */}
                       <div className="w-full">
-                        <div className="text-center font-black text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1.5">
+                        <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1">
                           AFC Championship
                         </div>
                         {renderViewerMatchupBox("afc_champ", "AFC Title Game")}
                       </div>
 
                       {/* Super Bowl Center Card */}
-                      <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-3 flex flex-col items-center gap-2 text-center shadow-md">
+                      <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col items-center gap-1.5 sm:gap-2 text-center shadow-md">
                         <div className="flex items-center gap-1.5 text-amber-500">
-                          <Trophy className="w-5 h-5" />
-                          <span className="font-black text-[11px] uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                          <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span className="font-black text-[10px] sm:text-[11px] uppercase tracking-widest text-slate-800 dark:text-slate-200">
                             Super Bowl LIX
                           </span>
                         </div>
@@ -1541,26 +1572,26 @@ export default function BracketPage() {
 
                         {/* Predicted Champion Hero */}
                         {viewingParticipant.superBowlWinner && (
-                          <div className="w-full pt-1.5 border-t border-purple-300/30 dark:border-purple-800/40 flex items-center justify-between text-xs">
-                            <span className="text-[10px] font-extrabold uppercase text-slate-400">
-                              Champion Pick:
+                          <div className="w-full pt-1 sm:pt-1.5 border-t border-purple-300/30 dark:border-purple-800/40 flex items-center justify-between text-[10px] sm:text-xs">
+                            <span className="text-[9px] sm:text-[10px] font-extrabold uppercase text-slate-400">
+                              Champ Pick:
                             </span>
                             <span className="font-black text-slate-900 dark:text-white flex items-center gap-1">
-                              <TeamLogo alt={viewingParticipant.superBowlWinner} width={14} height={14} className="w-3.5 h-3.5 object-contain" />
-                              {TEAM_BY_ABBR[viewingParticipant.superBowlWinner]?.name || viewingParticipant.superBowlWinner}
+                              <TeamLogo alt={viewingParticipant.superBowlWinner} width={14} height={14} className="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain" />
+                              <span className="truncate max-w-[90px] sm:max-w-none">{TEAM_BY_ABBR[viewingParticipant.superBowlWinner]?.name || viewingParticipant.superBowlWinner}</span>
                             </span>
                           </div>
                         )}
 
                         {/* Predicted Tiebreaker Score */}
                         {viewingParticipant.tiebreaker && (
-                          <div className="w-full pt-1.5 border-t border-purple-200/40 dark:border-purple-800/30 flex items-center justify-between text-[11px]">
-                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                          <div className="w-full pt-1 sm:pt-1.5 border-t border-purple-200/40 dark:border-purple-800/30 flex items-center justify-between text-[9px] sm:text-[11px]">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400">
                               Tiebreaker:
                             </span>
                             <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
-                              {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore}{" "}
-                              <span className="text-[10px] text-slate-400">
+                              {viewingParticipant.tiebreaker.homeScore}-{viewingParticipant.tiebreaker.awayScore}{" "}
+                              <span className="text-[8px] sm:text-[10px] text-slate-400">
                                 ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} pts)
                               </span>
                             </span>
@@ -1570,7 +1601,7 @@ export default function BracketPage() {
 
                       {/* NFC Championship */}
                       <div className="w-full">
-                        <div className="text-center font-black text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1.5">
+                        <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1">
                           NFC Championship
                         </div>
                         {renderViewerMatchupBox("nfc_champ", "NFC Title Game")}
@@ -1578,8 +1609,8 @@ export default function BracketPage() {
                     </div>
 
                     {/* Col 4: NFC Divisional */}
-                    <div className="flex flex-col justify-around h-full py-4 gap-4">
-                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    <div className="flex flex-col justify-around h-full py-2 sm:py-4 gap-2 sm:gap-4">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
                         NFC Divisional
                       </div>
                       {renderViewerMatchupBox("nfc_div_1")}
@@ -1587,9 +1618,9 @@ export default function BracketPage() {
                     </div>
 
                     {/* Col 5: NFC Wild Card */}
-                    <div className="flex flex-col gap-3">
-                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    <div className="flex flex-col gap-2 sm:gap-3">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                         NFC Wild Card
                       </div>
                       {renderViewerMatchupBox("nfc_wc_1")}
@@ -1601,12 +1632,12 @@ export default function BracketPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">
-                  Total Score: <span className="text-slate-900 dark:text-white font-black">{viewingParticipant.score} / 13</span> pts
+              <div className="pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-bold">
+                  Score: <span className="text-slate-900 dark:text-white font-black">{viewingParticipant.score} / 13</span> pts
                   {isSimulated && (
-                    <span className="ml-2 text-[11px] text-purple-600 dark:text-purple-400">
-                      ({viewingParticipant.score} correct picks)
+                    <span className="ml-1 sm:ml-2 text-[10px] sm:text-[11px] text-purple-600 dark:text-purple-400">
+                      ({viewingParticipant.score} correct)
                     </span>
                   )}
                 </div>
@@ -1614,7 +1645,7 @@ export default function BracketPage() {
                 <button
                   type="button"
                   onClick={() => setViewingParticipant(null)}
-                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
                 >
                   Close
                 </button>
