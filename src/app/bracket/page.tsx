@@ -38,8 +38,8 @@ import {
   PlayoffTeam,
 } from "@/lib/playoff-bracket";
 
-const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v1";
-const STORAGE_TIEBREAKER_KEY = "pocketpicks_bracket_tb_v1";
+const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v2";
+const STORAGE_TIEBREAKER_KEY = "pocketpicks_bracket_tb_v2";
 
 export default function BracketPage() {
   const { user, loading: authLoading } = useAuth();
@@ -150,13 +150,14 @@ export default function BracketPage() {
           if (data.currentUserEntry?.picks) {
             setPicks(data.currentUserEntry.picks);
           } else {
-            const cached = localStorage.getItem(STORAGE_PICKS_KEY);
-            if (cached) {
-              try {
-                setPicks(JSON.parse(cached));
-              } catch {
-                // Ignore corrupt cache
-              }
+            // When not signed in or no entry, ensure clean default state with no picks selected
+            setPicks({});
+            try {
+              localStorage.removeItem(STORAGE_PICKS_KEY);
+              localStorage.removeItem("pocketpicks_bracket_picks_v1");
+              localStorage.removeItem("pocketpicks_bracket_picks_v2");
+            } catch {
+              // Ignore
             }
           }
 
@@ -165,29 +166,20 @@ export default function BracketPage() {
             setHomeScoreInput(String(data.currentUserEntry.tiebreaker.homeScore ?? 24));
             setAwayScoreInput(String(data.currentUserEntry.tiebreaker.awayScore ?? 21));
           } else {
-            const cachedTb = localStorage.getItem(STORAGE_TIEBREAKER_KEY);
-            if (cachedTb) {
-              try {
-                const parsedTb = JSON.parse(cachedTb);
-                setTiebreaker(parsedTb);
-                if (parsedTb.homeScore !== undefined) setHomeScoreInput(String(parsedTb.homeScore));
-                if (parsedTb.awayScore !== undefined) setAwayScoreInput(String(parsedTb.awayScore));
-              } catch {
-                // Ignore
-              }
+            setTiebreaker({ homeScore: 24, awayScore: 21, totalScore: 45 });
+            setHomeScoreInput("24");
+            setAwayScoreInput("21");
+            try {
+              localStorage.removeItem(STORAGE_TIEBREAKER_KEY);
+              localStorage.removeItem("pocketpicks_bracket_tb_v1");
+              localStorage.removeItem("pocketpicks_bracket_tb_v2");
+            } catch {
+              // Ignore
             }
           }
         }
       } catch (err) {
         console.error("Failed to fetch bracket data:", err);
-        const cached = localStorage.getItem(STORAGE_PICKS_KEY);
-        if (cached) {
-          try {
-            setPicks(JSON.parse(cached));
-          } catch {
-            // Ignore
-          }
-        }
       }
     };
 

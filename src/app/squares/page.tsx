@@ -61,7 +61,7 @@ const INITIAL_STATE: SquaresBoardState = {
   finalScore: { top: "", left: "" },
 };
 
-const STORAGE_KEY = "pocketpicks_squares_v1";
+const STORAGE_KEY = "pocketpicks_squares_v2";
 
 interface LiveScoreCompetitor {
   name: string;
@@ -122,6 +122,8 @@ function getTeamNickname(fullName: string): string {
 function getInitialBoardState(): SquaresBoardState {
   if (typeof window === "undefined") return INITIAL_STATE;
   try {
+    // Purge old legacy v1 local save to ensure fresh default board
+    localStorage.removeItem("pocketpicks_squares_v1");
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
