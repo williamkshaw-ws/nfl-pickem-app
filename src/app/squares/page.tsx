@@ -15,10 +15,8 @@ import {
   Sparkles,
   Sun,
   Moon,
-  AlertCircle,
   AlertTriangle,
   X,
-  Plus,
   DollarSign,
   Grid,
 } from "lucide-react";
@@ -101,6 +99,7 @@ export default function SquaresPage() {
           topNumbers: Array.isArray(parsed.topNumbers) && parsed.topNumbers.length === 10 ? parsed.topNumbers : DEFAULT_TOP_NUMBERS,
           leftNumbers: Array.isArray(parsed.leftNumbers) && parsed.leftNumbers.length === 10 ? parsed.leftNumbers : DEFAULT_LEFT_NUMBERS,
           grid: parsed.grid || {},
+          costPerSquare: typeof parsed.costPerSquare === "number" ? parsed.costPerSquare : 10,
         });
       }
     } catch (e) {
@@ -241,9 +240,11 @@ export default function SquaresPage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
-    const totalPot = totalClaimed * (board.costPerSquare || 0);
+    const cost = board.costPerSquare || 0;
+    const totalPot = totalClaimed * cost;
+    const fullPot = 100 * cost;
 
-    return { totalClaimed, remaining, percentage, userList, totalPot };
+    return { totalClaimed, remaining, percentage, userList, totalPot, fullPot, cost };
   }, [board.grid, board.costPerSquare]);
 
   // Scoring / Winner resolution helper
@@ -319,8 +320,18 @@ export default function SquaresPage() {
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen">
-      {/* Print-only CSS */}
+      {/* Global & Print CSS: disables native input spinner arrows */}
       <style jsx global>{`
+        /* Remove spinner arrows from number inputs across all browsers */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+          -webkit-appearance: none !important;
+          margin: 0 !important;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield !important;
+        }
+
         @media print {
           nav, header, footer, .no-print {
             display: none !important;
@@ -438,22 +449,26 @@ export default function SquaresPage() {
                 </div>
               </div>
 
-              {board.costPerSquare > 0 && (
-                <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2 text-emerald-900 dark:text-emerald-300">
-                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <div>
-                    <span className="font-black">${stats.totalPot.toLocaleString()}</span>
-                    <span className="opacity-80"> Pot (${board.costPerSquare}/sq)</span>
-                  </div>
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2 text-emerald-900 dark:text-emerald-300">
+                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  {stats.cost > 0 ? (
+                    <>
+                      <span className="font-black">${stats.totalPot.toLocaleString()}</span>
+                      <span className="opacity-80"> Pot (${stats.cost}/sq)</span>
+                    </>
+                  ) : (
+                    <span className="font-bold">Free Pool ($0/sq)</span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
-          {/* Teams Selector Inputs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-            {/* Top Team (Columns) */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
+          {/* Teams Selector & Price Per Square */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Top Team (AFC) - Columns */}
+            <div className="md:col-span-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
                 <TeamLogo alt={board.topTeam} className="w-8 h-8 object-contain" />
               </div>
@@ -462,8 +477,8 @@ export default function SquaresPage() {
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Top Team (Columns)
                   </span>
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md">
-                    AFC / Team 1
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                    AFC
                   </span>
                 </div>
                 <input
@@ -476,8 +491,8 @@ export default function SquaresPage() {
               </div>
             </div>
 
-            {/* Left Team (Rows) */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
+            {/* Left Team (NFC) - Rows */}
+            <div className="md:col-span-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
                 <TeamLogo alt={board.leftTeam} className="w-8 h-8 object-contain" />
               </div>
@@ -486,8 +501,8 @@ export default function SquaresPage() {
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Left Team (Rows)
                   </span>
-                  <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 py-0.5 rounded-md">
-                    NFC / Team 2
+                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
+                    NFC
                   </span>
                 </div>
                 <input
@@ -496,6 +511,32 @@ export default function SquaresPage() {
                   onChange={(e) => saveState({ ...board, leftTeam: e.target.value })}
                   placeholder="e.g. San Francisco 49ers"
                   className="w-full text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Price Per Square Input */}
+            <div className="md:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-center">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Price / Square
+                </span>
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-slate-400 text-sm">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={board.costPerSquare === 0 ? "" : board.costPerSquare.toString()}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 5);
+                    const num = clean === "" ? 0 : parseInt(clean, 10);
+                    saveState({ ...board, costPerSquare: num });
+                  }}
+                  placeholder="0 (Free)"
+                  className="w-full pl-7 pr-3 py-1.5 text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -563,31 +604,37 @@ export default function SquaresPage() {
         <div className="hidden print:block mb-4 text-center">
           <h1 className="text-2xl font-black text-black">{board.title}</h1>
           <p className="text-sm font-semibold text-gray-700">
-            Top: {board.topTeam || "Team 1"} &bull; Left: {board.leftTeam || "Team 2"}
+            AFC: {board.topTeam || "AFC"} &bull; NFC: {board.leftTeam || "NFC"}
+            {stats.cost > 0 && ` • $${stats.cost} per square`}
           </p>
         </div>
 
         {/* 10x10 Super Bowl Squares Grid Table */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
-          {/* Top Team Banner above grid */}
+          {/* Top Team Banner (AFC) above grid */}
           <div className="bg-slate-100/90 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2.5 text-center">
             <TeamLogo alt={board.topTeam} className="w-6 h-6 object-contain" />
-            <span className="text-xs uppercase font-bold text-slate-500 tracking-wider">Top Team &bull;</span>
+            <span className="text-xs uppercase font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">
+              AFC &bull;
+            </span>
             <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
-              {board.topTeam || "Top Team"}
+              {board.topTeam || "AFC Team"}
             </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] border-collapse squares-grid-table">
+            <table className="w-full min-w-[880px] border-collapse squares-grid-table">
               <thead>
                 <tr>
-                  {/* Top-Left Junction Cell */}
-                  <th className="w-24 p-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle">
-                    <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider leading-tight">
-                      <div>Top &darr;</div>
+                  {/* Empty spacer corner cell above the NFC vertical column */}
+                  <th className="w-12 p-1 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle" />
+
+                  {/* Junction Cell for Coordinates */}
+                  <th className="w-20 p-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                    <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider leading-tight">
+                      <div className="text-emerald-600 dark:text-emerald-400">AFC &rarr;</div>
                       <div className="border-t border-slate-300 dark:border-slate-600 my-1" />
-                      <div>Left &rarr;</div>
+                      <div className="text-sky-600 dark:text-sky-400">NFC &darr;</div>
                     </div>
                   </th>
 
@@ -615,10 +662,28 @@ export default function SquaresPage() {
               <tbody>
                 {board.leftNumbers.map((rowLetter, rIdx) => (
                   <tr key={rIdx}>
-                    {/* Left Column Header (10 rows: default A to J) */}
+                    {/* NFC Team Column spanning all 10 rows on the actual left side */}
+                    {rIdx === 0 && (
+                      <th
+                        rowSpan={10}
+                        className="w-12 p-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-3 h-full select-none py-4">
+                          <TeamLogo alt={board.leftTeam} className="w-7 h-7 object-contain shrink-0" />
+                          <span className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
+                            NFC
+                          </span>
+                          <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider [writing-mode:vertical-lr] rotate-180 truncate max-h-[340px]">
+                            {board.leftTeam || "NFC Team"}
+                          </span>
+                        </div>
+                      </th>
+                    )}
+
+                    {/* First Column Header (Row letter/number: default A to J) */}
                     <th
                       onClick={() => openHeaderEdit("left", rIdx)}
-                      className="p-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group w-24"
+                      className="p-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group w-20"
                       title="Click to edit row letter/number"
                     >
                       <div className="flex items-center justify-center gap-1.5">
@@ -722,16 +787,13 @@ export default function SquaresPage() {
             </table>
           </div>
 
-          {/* Left Team indicator banner below table */}
+          {/* Table Footer Instructions */}
           <div className="bg-slate-50 dark:bg-slate-800/40 px-4 py-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <div className="flex items-center gap-2">
-              <TeamLogo alt={board.leftTeam} className="w-5 h-5 object-contain" />
-              <span className="font-bold text-slate-700 dark:text-slate-300">
-                Left Team: {board.leftTeam || "Left Team"}
-              </span>
-            </div>
-            <span className="text-[11px] hidden sm:inline">
-              Tip: Click any square or header number to edit. Use Tab/Enter to move to next square.
+            <span className="text-[11px]">
+              Click any square or header number to edit. Press <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Tab</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Enter</kbd> to move to the next square.
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
+              Auto-saved to device
             </span>
           </div>
         </div>
@@ -772,15 +834,16 @@ export default function SquaresPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold block truncate">
-                        {board.topTeam || "Top"}
+                        {board.topTeam || "AFC"}
                       </span>
                       <input
-                        type="number"
-                        min="0"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         placeholder="0"
                         value={state.top}
                         onChange={(e) => {
-                          const val = e.target.value;
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 3);
                           const next = { ...board, [`${key}Score`]: { ...state, top: val } };
                           saveState(next);
                         }}
@@ -789,15 +852,16 @@ export default function SquaresPage() {
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold block truncate">
-                        {board.leftTeam || "Left"}
+                        {board.leftTeam || "NFC"}
                       </span>
                       <input
-                        type="number"
-                        min="0"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         placeholder="0"
                         value={state.left}
                         onChange={(e) => {
-                          const val = e.target.value;
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 3);
                           const next = { ...board, [`${key}Score`]: { ...state, left: val } };
                           saveState(next);
                         }}
@@ -810,7 +874,7 @@ export default function SquaresPage() {
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
                       <span>Winning square digits:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-300">
-                        {winner.topDigit} ({board.topTeam || "Top"}), {winner.leftDigit} ({board.leftTeam || "Left"})
+                        {winner.topDigit} ({board.topTeam || "AFC"}), {winner.leftDigit} ({board.leftTeam || "NFC"})
                       </span>
                     </div>
                   ) : (
