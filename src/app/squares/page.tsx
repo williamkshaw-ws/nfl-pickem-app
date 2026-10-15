@@ -790,7 +790,7 @@ function SquaresPoolApp() {
             {/* Top Team (AFC) */}
             <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 px-1.5 sm:px-2 py-0.5 rounded-md">
                   <img
                     src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
                     alt="AFC"
@@ -808,7 +808,7 @@ function SquaresPoolApp() {
                   value={board.topTeam}
                   onChange={(e) => saveState({ ...board, topTeam: e.target.value })}
                   placeholder="e.g. Bills"
-                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-red-500"
                 />
               </div>
             </div>
@@ -816,7 +816,7 @@ function SquaresPoolApp() {
             {/* Left Team (NFC) */}
             <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-900/60 px-1.5 sm:px-2 py-0.5 rounded-md">
                   <img
                     src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
                     alt="NFC"
@@ -834,7 +834,7 @@ function SquaresPoolApp() {
                   value={board.leftTeam}
                   onChange={(e) => saveState({ ...board, leftTeam: e.target.value })}
                   placeholder="e.g. 49ers"
-                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -1091,7 +1091,12 @@ function SquaresPoolApp() {
                 {/* AFC / Top Team */}
                 <div className="flex items-center gap-2 sm:gap-3.5 flex-1 justify-end min-w-0">
                   <div className="text-right min-w-0">
-                    <div className="text-[9px] sm:text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                    <div className="text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center justify-end gap-1">
+                      <img
+                        src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
+                        alt="AFC"
+                        className="w-3 h-3 object-contain"
+                      />
                       AFC
                     </div>
                     <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
@@ -1134,7 +1139,12 @@ function SquaresPoolApp() {
                   </div>
                   <TeamLogo alt={liveGame.leftTeam.name} className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
                   <div className="text-left min-w-0">
-                    <div className="text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
+                    <div className="text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                      <img
+                        src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
+                        alt="NFC"
+                        className="w-3 h-3 object-contain"
+                      />
                       NFC
                     </div>
                     <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
@@ -1171,11 +1181,16 @@ function SquaresPoolApp() {
         {/* 10x10 Super Bowl Squares Grid Table Card */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
           {/* Top Team Banner (AFC) above grid */}
-          <div className="bg-slate-100/90 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2.5 text-center">
-            <TeamLogo alt={board.topTeam} className="w-6 h-6 object-contain shrink-0" />
-            <span className="text-xs uppercase font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">
-              AFC &bull;
+          <div className="bg-slate-100/90 dark:bg-slate-800/80 px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 sm:gap-2.5 text-center">
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black uppercase text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 px-2 py-0.5 rounded-md tracking-wider">
+              <img
+                src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
+                alt="AFC"
+                className="w-3.5 h-3.5 object-contain"
+              />
+              AFC
             </span>
+            <TeamLogo alt={board.topTeam} className="w-6 h-6 object-contain shrink-0" />
             <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
               {board.topTeam || "AFC Team"}
             </span>
@@ -1187,13 +1202,18 @@ function SquaresPoolApp() {
               {/* NFC Team Column on the Left - Flex sibling to table, perfectly matching height */}
               <div className="w-12 sm:w-14 bg-slate-100/90 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center select-none py-4 shrink-0">
                 <div className="flex items-center justify-center gap-2.5 [writing-mode:vertical-lr] rotate-180 select-none">
+                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black uppercase text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-900/60 px-2 py-0.5 rounded-md tracking-wider">
+                    <img
+                      src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
+                      alt="NFC"
+                      className="w-3.5 h-3.5 object-contain rotate-90"
+                    />
+                    NFC
+                  </span>
                   {/* Rotated logo sideways (rotate-90) to flow along the text direction */}
                   <div className="rotate-90 shrink-0">
                     <TeamLogo alt={board.leftTeam} className="w-6 h-6 object-contain" />
                   </div>
-                  <span className="text-xs uppercase font-extrabold text-sky-600 dark:text-sky-400 tracking-wider">
-                    NFC &bull;
-                  </span>
                   <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide truncate max-h-[380px]">
                     {board.leftTeam || "NFC Team"}
                   </span>
@@ -1217,7 +1237,7 @@ function SquaresPoolApp() {
                       {/* Junction Cell for Coordinates */}
                       <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle">
                         <div className="text-[10px] font-extrabold leading-tight">
-                          <div className="text-emerald-600 dark:text-emerald-400">AFC &rarr;</div>
+                          <div className="text-red-600 dark:text-red-400">AFC &rarr;</div>
                           <div className="border-t border-slate-300 dark:border-slate-600 my-0.5" />
                           <div className="text-sky-600 dark:text-sky-400">NFC &darr;</div>
                         </div>
@@ -1231,7 +1251,7 @@ function SquaresPoolApp() {
                           className="p-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border-b border-r border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group last:border-r-0"
                           title="Click to edit top number"
                         >
-                          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition">
+                          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-red-500 transition">
                             {num}
                           </span>
                         </th>
@@ -1517,7 +1537,7 @@ function SquaresPoolApp() {
                   {/* Score inputs for AFC and NFC */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold block truncate">
+                      <span className="text-[10px] text-red-600 dark:text-red-400 uppercase font-bold block truncate">
                         {board.topTeam || "AFC"}
                       </span>
                       <input
@@ -1531,11 +1551,11 @@ function SquaresPoolApp() {
                           const next = { ...board, [`${key}Score`]: { ...state, top: val } };
                           saveState(next);
                         }}
-                        className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold block truncate">
+                      <span className="text-[10px] text-sky-600 dark:text-sky-400 uppercase font-bold block truncate">
                         {board.leftTeam || "NFC"}
                       </span>
                       <input
@@ -1549,7 +1569,7 @@ function SquaresPoolApp() {
                           const next = { ...board, [`${key}Score`]: { ...state, left: val } };
                           saveState(next);
                         }}
-                        className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                       />
                     </div>
                   </div>
