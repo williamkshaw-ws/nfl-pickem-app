@@ -789,11 +789,13 @@ function SquaresPoolApp() {
           <div className="grid grid-cols-2 md:grid-cols-12 gap-2 sm:gap-4 pt-2.5 sm:pt-4 border-t border-slate-100 dark:border-slate-800/80">
             {/* Top Team (AFC) */}
             <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
-                  Top Team
-                </span>
-                <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+                  <img
+                    src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
+                    alt="AFC"
+                    className="w-3.5 h-3.5 object-contain"
+                  />
                   AFC
                 </span>
               </div>
@@ -813,11 +815,13 @@ function SquaresPoolApp() {
 
             {/* Left Team (NFC) */}
             <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
-                  Left Team
-                </span>
-                <span className="text-[9px] sm:text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+                  <img
+                    src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
+                    alt="NFC"
+                    className="w-3.5 h-3.5 object-contain"
+                  />
                   NFC
                 </span>
               </div>
