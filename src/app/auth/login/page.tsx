@@ -47,6 +47,12 @@ export default function Login() {
 
   const navigateToLeagueOrHome = async (uid: string) => {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const redirect = params?.get("redirect");
+    if (redirect && redirect.startsWith("/")) {
+      router.replace(redirect);
+      return;
+    }
+
     const join = joinCode || params?.get("join");
     if (join && join.length === 5) {
       if (typeof window !== "undefined") {

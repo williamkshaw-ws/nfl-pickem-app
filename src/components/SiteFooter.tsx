@@ -30,7 +30,14 @@ export function SiteFooter() {
             href="/squares"
             className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
           >
-            Super Bowl Squares
+            Squares
+          </Link>
+          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+          <Link
+            href="/bracket"
+            className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
+          >
+            Playoff Bracket
           </Link>
         </div>
 
