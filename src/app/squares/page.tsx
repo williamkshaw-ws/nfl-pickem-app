@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, useSyncExternalStore, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -23,7 +23,6 @@ import {
   Loader2,
   Copy,
   Grid,
-  DollarSign,
   Radio,
   RefreshCw,
   ChevronDown,
@@ -32,26 +31,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
-
-interface SquaresBoardState {
-  title: string;
-  topTeam: string;
-  leftTeam: string;
-  topNumbers: string[]; // 10 columns
-  leftNumbers: string[]; // 10 rows
-  grid: Record<string, string>; // "r_c" -> name
-  costPerSquare: number;
-  payouts: {
-    q1: string;
-    q2: string;
-    q3: string;
-    final: string;
-  };
-  q1Score: { top: string; left: string };
-  q2Score: { top: string; left: string };
-  q3Score: { top: string; left: string };
-  finalScore: { top: string; left: string };
-}
+import { SquaresBoardState } from "@/lib/squares-validation";
 
 const DEFAULT_TOP_NUMBERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const DEFAULT_LEFT_NUMBERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -78,10 +58,83 @@ const INITIAL_STATE: SquaresBoardState = {
 
 const STORAGE_KEY = "pocketpicks_squares_v1";
 
+interface LiveScoreCompetitor {
+  name: string;
+  abbreviation: string;
+  score: number;
+  linescores: number[];
+  isHome?: boolean;
+}
+
+interface LiveGameData {
+  id: string;
+  name: string;
+  shortName: string;
+  status: {
+    state: "pre" | "in" | "post";
+    detail: string;
+    shortDetail: string;
+    completed: boolean;
+    period: number;
+    clock: string;
+  };
+  topTeam: LiveScoreCompetitor;
+  leftTeam: LiveScoreCompetitor;
+  quarters?: {
+    q1?: { top: number | null; left: number | null; completed: boolean };
+    q2?: { top: number | null; left: number | null; completed: boolean };
+    q3?: { top: number | null; left: number | null; completed: boolean };
+    final?: { top: number | null; left: number | null; completed: boolean };
+  };
+}
+
+interface AvailableGameOption {
+  id: string;
+  name: string;
+  shortName: string;
+  status: string;
+  state: "pre" | "in" | "post";
+  homeTeam: string;
+  homeAbbr: string;
+  homeScore: number;
+  awayTeam: string;
+  awayAbbr: string;
+  awayScore: number;
+  date: string;
+}
+
+const emptySubscribe = () => () => {};
+function useMounted() {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
+
 function getTeamNickname(fullName: string): string {
   if (!fullName) return "";
   const parts = fullName.trim().split(/\s+/);
   return parts[parts.length - 1] || fullName;
+}
+
+function getInitialBoardState(): SquaresBoardState {
+  if (typeof window === "undefined") return INITIAL_STATE;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...INITIAL_STATE,
+        ...parsed,
+        topTeam: parsed.topTeam === "Kansas City Chiefs" ? "Buffalo Bills" : (parsed.topTeam || "Buffalo Bills"),
+        topNumbers: Array.isArray(parsed.topNumbers) && parsed.topNumbers.length === 10 ? parsed.topNumbers : DEFAULT_TOP_NUMBERS,
+        leftNumbers: Array.isArray(parsed.leftNumbers) && parsed.leftNumbers.length === 10 ? parsed.leftNumbers : DEFAULT_LEFT_NUMBERS,
+        grid: parsed.grid || {},
+        costPerSquare: typeof parsed.costPerSquare === "number" ? parsed.costPerSquare : 10,
+        payouts: parsed.payouts || { q1: "", q2: "", q3: "", final: "" },
+      };
+    }
+  } catch (e) {
+    console.error("Failed to load squares from storage:", e);
+  }
+  return INITIAL_STATE;
 }
 
 function SquaresPoolApp() {
@@ -89,20 +142,21 @@ function SquaresPoolApp() {
   const searchParams = useSearchParams();
 
   // Board State
-  const [board, setBoard] = useState<SquaresBoardState>(INITIAL_STATE);
-  const [mounted, setMounted] = useState(false);
-  const [poolId, setPoolId] = useState<string | null>(null);
+  const [board, setBoard] = useState<SquaresBoardState>(getInitialBoardState);
+  const mounted = useMounted();
+  const [publishedPoolId, setPublishedPoolId] = useState<string | null>(null);
+  const poolId = searchParams.get("id") || publishedPoolId;
   const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "local">("local");
-  const [isLoadingOnline, setIsLoadingOnline] = useState(false);
+  const [isLoadingOnline, setIsLoadingOnline] = useState<boolean>(() => Boolean(searchParams.get("id")));
   const [filterUser, setFilterUser] = useState<string>("");
   const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
 
   // Live Score Tracker State
-  const [liveGame, setLiveGame] = useState<any | null>(null);
+  const [liveGame, setLiveGame] = useState<LiveGameData | null>(null);
   const [isFetchingScore, setIsFetchingScore] = useState(false);
   const [lastScoreUpdate, setLastScoreUpdate] = useState<Date | null>(null);
   const [autoSyncScores, setAutoSyncScores] = useState<boolean>(true);
-  const [availableGames, setAvailableGames] = useState<any[]>([]);
+  const [availableGames, setAvailableGames] = useState<AvailableGameOption[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("");
   const [showGamePicker, setShowGamePicker] = useState(false);
 
@@ -136,8 +190,29 @@ function SquaresPoolApp() {
   };
 
   // Viewer & Commissioner Mode State
-  const [isOwner, setIsOwner] = useState<boolean>(true);
-  const [isViewerPreview, setIsViewerPreview] = useState<boolean>(false);
+  const [isOwner, setIsOwner] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const idParam = searchParams.get("id");
+    if (!idParam) return true;
+    const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
+    if (editParam) return true;
+    const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
+    const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
+    return Boolean(storedKey || legacyOwner);
+  });
+
+  const [isViewerPreview, setIsViewerPreview] = useState<boolean>(() => {
+    const viewParam = searchParams.get("view") === "1" || searchParams.get("mode") === "view";
+    const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
+    if (editParam) return false;
+    const idParam = searchParams.get("id");
+    if (!idParam) return false;
+    if (typeof window === "undefined") return viewParam;
+    const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
+    const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
+    const hasOwnership = Boolean(storedKey || legacyOwner);
+    return hasOwnership ? viewParam : true;
+  });
 
   // Computed read-only status
   const isReadOnly = (!isOwner || isViewerPreview) && searchParams.get("edit") !== "true" && searchParams.get("edit") !== "1";
@@ -149,30 +224,20 @@ function SquaresPoolApp() {
     }
   }, [board.title]);
 
+  const loadFromLocal = useCallback(() => {
+    setBoard(getInitialBoardState());
+  }, []);
+
   // 1. Initial Load: Check if online pool ID in query param, otherwise local storage
   useEffect(() => {
-    setMounted(true);
     const idParam = searchParams.get("id");
-    const viewParam = searchParams.get("view") === "1" || searchParams.get("mode") === "view";
     const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
 
     if (idParam) {
-      setPoolId(idParam);
-      const isOwnerSaved = typeof window !== "undefined" && localStorage.getItem(`squares_owner_${idParam}`) === "true";
-
-      if (editParam) {
+      if (editParam && typeof window !== "undefined") {
         localStorage.setItem(`squares_owner_${idParam}`, "true");
-        setIsOwner(true);
-        setIsViewerPreview(false);
-      } else if (isOwnerSaved) {
-        setIsOwner(true);
-        setIsViewerPreview(viewParam);
-      } else {
-        setIsOwner(false);
-        setIsViewerPreview(true);
       }
 
-      setIsLoadingOnline(true);
       fetch(`/api/squares/${encodeURIComponent(idParam)}`)
         .then((res) => {
           if (!res.ok) throw new Error("Pool not found");
@@ -200,33 +265,8 @@ function SquaresPoolApp() {
         .finally(() => {
           setIsLoadingOnline(false);
         });
-    } else {
-      setIsOwner(true);
-      setIsViewerPreview(false);
-      loadFromLocal();
     }
-  }, [searchParams]);
-
-  const loadFromLocal = () => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setBoard({
-          ...INITIAL_STATE,
-          ...parsed,
-          topTeam: parsed.topTeam === "Kansas City Chiefs" ? "Buffalo Bills" : (parsed.topTeam || "Buffalo Bills"),
-          topNumbers: Array.isArray(parsed.topNumbers) && parsed.topNumbers.length === 10 ? parsed.topNumbers : DEFAULT_TOP_NUMBERS,
-          leftNumbers: Array.isArray(parsed.leftNumbers) && parsed.leftNumbers.length === 10 ? parsed.leftNumbers : DEFAULT_LEFT_NUMBERS,
-          grid: parsed.grid || {},
-          costPerSquare: typeof parsed.costPerSquare === "number" ? parsed.costPerSquare : 10,
-          payouts: parsed.payouts || { q1: "", q2: "", q3: "", final: "" },
-        });
-      }
-    } catch (e) {
-      console.error("Failed to load squares from storage:", e);
-    }
-  };
+  }, [searchParams, loadFromLocal]);
 
   // 2. Save State: LocalStorage + Online Firestore sync (debounced)
   const saveState = (updated: SquaresBoardState, immediateOnline = false) => {
@@ -249,13 +289,22 @@ function SquaresPoolApp() {
 
       const doSync = async () => {
         try {
+          const ownerKey = typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${poolId}`) || "" : "";
           const res = await fetch(`/api/squares/${encodeURIComponent(poolId)}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(ownerKey ? { "x-owner-key": ownerKey } : {}),
+            },
             body: JSON.stringify({ board: updated }),
           });
           if (res.ok) {
             setSyncStatus("synced");
+          } else if (res.status === 403) {
+            setSyncStatus("local");
+            setIsOwner(false);
+            setIsViewerPreview(true);
+            showToast("Viewing as player (read-only). Changes are not saved to commissioner board.");
           } else {
             setSyncStatus("local");
           }
@@ -365,17 +414,25 @@ function SquaresPoolApp() {
 
   // Live score polling: 30s when live, 60s otherwise
   useEffect(() => {
-    fetchLiveScore();
-
+    let isMounted = true;
     const isLive = liveGame?.status?.state === "in";
     const intervalMs = isLive ? 30000 : 60000;
 
+    // Small delay for initial invocation to prevent synchronous setState in effect
+    const initialTimer = setTimeout(() => {
+      if (isMounted) fetchLiveScore();
+    }, 100);
+
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
-      fetchLiveScore();
+      if (isMounted) fetchLiveScore();
     }, intervalMs);
 
-    return () => clearInterval(timer);
+    return () => {
+      isMounted = false;
+      clearTimeout(initialTimer);
+      clearInterval(timer);
+    };
   }, [board.topTeam, board.leftTeam, selectedGameId, liveGame?.status?.state, fetchLiveScore]);
 
   // Refresh when user returns to tab
@@ -402,18 +459,24 @@ function SquaresPoolApp() {
 
     setSyncStatus("saving");
     try {
+      const existingKey = poolId && typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${poolId}`) || "" : "";
       const res = await fetch("/api/squares", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(existingKey ? { "x-owner-key": existingKey } : {}),
+        },
         body: JSON.stringify({ board }),
       });
       const data = await res.json();
       if (data.success && data.id) {
-        setPoolId(data.id);
+        setPublishedPoolId(data.id);
         setSyncStatus("synced");
+        if (data.ownerKey) {
+          localStorage.setItem(`squares_owner_key_${data.id}`, data.ownerKey);
+        }
         localStorage.setItem(`squares_owner_${data.id}`, "true");
         setIsOwner(true);
-        const newUrl = `${window.location.origin}/squares?id=${data.id}`;
         window.history.replaceState({}, "", `/squares?id=${data.id}`);
         const shareUrl = `${window.location.origin}/squares?id=${data.id}&view=1`;
         await navigator.clipboard.writeText(shareUrl);
@@ -421,9 +484,10 @@ function SquaresPoolApp() {
       } else {
         throw new Error(data.error || "Failed to publish");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Share online error:", err);
-      showToast("Could not publish online. Please try again.");
+      const msg = err instanceof Error ? err.message : "Could not publish online. Please try again.";
+      showToast(msg);
       setSyncStatus("local");
     }
   };
@@ -1111,7 +1175,7 @@ function SquaresPoolApp() {
                   <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
                     {liveGame?.status?.shortDetail || "VS"}
                   </span>
-                  {liveGame?.topTeam?.linescores?.length > 0 && (
+                  {liveGame && liveGame.topTeam.linescores.length > 0 && (
                     <div className="flex items-center gap-1 mt-0.5 text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                       {liveGame.topTeam.linescores.map((val: number, idx: number) => {
                         const leftVal = liveGame.leftTeam.linescores?.[idx] ?? 0;

@@ -29,13 +29,46 @@ interface ParsedGame {
   awayTeam: CompetitorParsed;
 }
 
-function parseCompetitor(comp: any): CompetitorParsed {
+interface EspnCompetitor {
+  homeAway?: "home" | "away";
+  score?: number | string;
+  linescores?: Array<{ value?: number; displayValue?: string }>;
+  team?: {
+    id?: string;
+    name?: string;
+    displayName?: string;
+    abbreviation?: string;
+    logo?: string;
+  };
+}
+
+interface EspnEvent {
+  id: string;
+  name?: string;
+  shortName?: string;
+  date: string;
+  competitions?: Array<{
+    competitors?: EspnCompetitor[];
+    status?: {
+      type?: {
+        state?: "pre" | "in" | "post";
+        detail?: string;
+        shortDetail?: string;
+        completed?: boolean;
+      };
+      period?: number;
+      displayClock?: string;
+    };
+  }>;
+}
+
+function parseCompetitor(comp: EspnCompetitor): CompetitorParsed {
   const linescores: number[] = Array.isArray(comp?.linescores)
-    ? comp.linescores.map((l: any) => (typeof l?.value === "number" ? l.value : parseInt(l?.displayValue || "0", 10) || 0))
+    ? comp.linescores.map((l) => (typeof l?.value === "number" ? l.value : parseInt(l?.displayValue || "0", 10) || 0))
     : [];
 
   const rawScore = comp?.score;
-  const score = typeof rawScore === "number" ? rawScore : parseInt(rawScore || "0", 10) || 0;
+  const score = typeof rawScore === "number" ? rawScore : parseInt(String(rawScore || "0"), 10) || 0;
   const abbr = comp?.team?.abbreviation || resolveTeamAbbr(comp?.team?.name) || "NFL";
 
   return {
@@ -52,12 +85,12 @@ function parseCompetitor(comp: any): CompetitorParsed {
   };
 }
 
-function parseEvent(event: any): ParsedGame | null {
+function parseEvent(event: EspnEvent): ParsedGame | null {
   const comp = event?.competitions?.[0];
   if (!comp) return null;
 
-  const rawHome = comp.competitors?.find((c: any) => c.homeAway === "home");
-  const rawAway = comp.competitors?.find((c: any) => c.homeAway === "away");
+  const rawHome = comp.competitors?.find((c) => c.homeAway === "home");
+  const rawAway = comp.competitors?.find((c) => c.homeAway === "away");
   if (!rawHome || !rawAway) return null;
 
   const rawStatus = comp.status;
@@ -89,7 +122,7 @@ export async function GET(request: Request) {
     const requestedGameId = searchParams.get("gameId") || "";
 
     // 1. Fetch current scoreboard from ESPN
-    let events: any[] = [];
+    let events: EspnEvent[] = [];
     try {
       const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", {
         next: { revalidate: 15 },
@@ -154,7 +187,7 @@ export async function GET(request: Request) {
     }
 
     // 4. If matched, construct response with top vs left mappings and quarter cumulative scores
-    let gamePayload: any = null;
+    let gamePayload: Record<string, unknown> | null = null;
     const gameToProcess = matched;
 
     if (gameToProcess) {
@@ -281,10 +314,11 @@ export async function GET(request: Request) {
       } : null,
       availableGames,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Live score API error:", err);
+    const msg = err instanceof Error ? err.message : "Failed to fetch live score";
     return NextResponse.json(
-      { error: err.message || "Failed to fetch live score" },
+      { error: msg },
       { status: 500 }
     );
   }
