@@ -708,11 +708,11 @@ function SquaresPoolApp() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap"
               title="Print or Save PDF (Single Page Landscape)"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline ml-1">Print / PDF</span>
+              <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="hidden sm:inline">Print / PDF</span>
             </button>
 
             <button
@@ -859,16 +859,16 @@ function SquaresPoolApp() {
           </div>
 
           {/* Quick Toolbar / Tools Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-            {/* Filter / Search by name */}
-            <div className="relative min-w-[220px] sm:w-64">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Row 1 on mobile: Filter / Search by name */}
+            <div className="relative w-full sm:w-64">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={filterUser}
                 onChange={(e) => setFilterUser(e.target.value)}
                 placeholder="Highlight player's squares..."
-                className="w-full pl-9 pr-7 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-9 pr-7 py-1.5 sm:py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
               {filterUser && (
                 <button
@@ -881,36 +881,36 @@ function SquaresPoolApp() {
               )}
             </div>
 
-            {/* Board Buttons */}
-            <div className="flex items-center flex-wrap gap-2">
+            {/* Row 2 on mobile: 3 buttons side-by-side on one row */}
+            <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => randomizeNumbers("both")}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition"
+                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
                 title="Randomly assign 0-9 digits to rows and columns"
               >
-                <Shuffle className="w-3.5 h-3.5 text-amber-500" />
-                <span>Randomize Digits (0-9)</span>
+                <Shuffle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Randomize<span className="hidden md:inline"> (0-9)</span></span>
               </button>
 
               <button
                 type="button"
                 onClick={resetHeadersToDefault}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition"
+                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
                 title="Reset Top to 1-0 and First Column to A-J"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-sky-500" />
-                <span>Reset to 1-0 &amp; A-J</span>
+                <RotateCcw className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                <span>Reset<span className="hidden md:inline"> Headers</span></span>
               </button>
 
               <button
                 type="button"
                 onClick={clearAllSquares}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold transition"
+                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
                 title="Clear all names on the board"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear Names</span>
+                <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span>Clear<span className="hidden md:inline"> Names</span></span>
               </button>
             </div>
           </div>
