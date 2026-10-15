@@ -23,6 +23,7 @@ import {
   Loader2,
   Copy,
   Grid,
+  DollarSign,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -35,6 +36,12 @@ interface SquaresBoardState {
   leftNumbers: string[]; // 10 rows
   grid: Record<string, string>; // "r_c" -> name
   costPerSquare: number;
+  payouts: {
+    q1: string;
+    q2: string;
+    q3: string;
+    final: string;
+  };
   q1Score: { top: string; left: string };
   q2Score: { top: string; left: string };
   q3Score: { top: string; left: string };
@@ -52,6 +59,12 @@ const INITIAL_STATE: SquaresBoardState = {
   leftNumbers: [...DEFAULT_LEFT_NUMBERS],
   grid: {},
   costPerSquare: 10,
+  payouts: {
+    q1: "",
+    q2: "",
+    q3: "",
+    final: "",
+  },
   q1Score: { top: "", left: "" },
   q2Score: { top: "", left: "" },
   q3Score: { top: "", left: "" },
@@ -124,6 +137,7 @@ function SquaresPoolApp() {
               leftNumbers: Array.isArray(data.board.leftNumbers) && data.board.leftNumbers.length === 10 ? data.board.leftNumbers : DEFAULT_LEFT_NUMBERS,
               grid: data.board.grid || {},
               costPerSquare: typeof data.board.costPerSquare === "number" ? data.board.costPerSquare : 10,
+              payouts: data.board.payouts || { q1: "", q2: "", q3: "", final: "" },
             });
             setSyncStatus("synced");
           }
@@ -153,6 +167,7 @@ function SquaresPoolApp() {
           leftNumbers: Array.isArray(parsed.leftNumbers) && parsed.leftNumbers.length === 10 ? parsed.leftNumbers : DEFAULT_LEFT_NUMBERS,
           grid: parsed.grid || {},
           costPerSquare: typeof parsed.costPerSquare === "number" ? parsed.costPerSquare : 10,
+          payouts: parsed.payouts || { q1: "", q2: "", q3: "", final: "" },
         });
       }
     } catch (e) {
@@ -387,7 +402,7 @@ function SquaresPoolApp() {
     };
   }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore, board.topNumbers, board.leftNumbers, board.grid]);
 
-  // Keyboard navigation across cells - smoothly moves without altering dimensions
+  // Keyboard navigation across cells
   const handleCellKeyDown = (e: React.KeyboardEvent, r: number, c: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
@@ -835,7 +850,7 @@ function SquaresPoolApp() {
                         </div>
                       </th>
 
-                      {/* Top Row Headers (10 columns: default 1 to 0 - COL 1-10 labels removed) */}
+                      {/* Top Row Headers (10 columns: default 1 to 0) */}
                       {board.topNumbers.map((num, cIdx) => (
                         <th
                           key={cIdx}
@@ -854,7 +869,7 @@ function SquaresPoolApp() {
                   <tbody>
                     {board.leftNumbers.map((rowLetter, rIdx) => (
                       <tr key={rIdx} className="h-12 sm:h-14">
-                        {/* First Column Header (Row letter: default A to J - R1-10 labels removed) */}
+                        {/* First Column Header (Row letter: default A to J) */}
                         <th
                           onClick={() => openHeaderEdit("left", rIdx)}
                           className="p-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border-b border-r border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group"
@@ -865,7 +880,7 @@ function SquaresPoolApp() {
                           </span>
                         </th>
 
-                        {/* 10 Grid Squares for this Row (all uniform size, no expansion jumps) */}
+                        {/* 10 Grid Squares for this Row */}
                         {Array.from({ length: 10 }).map((_, cIdx) => {
                           const key = `${rIdx}_${cIdx}`;
                           const name = board.grid[key] || "";
@@ -881,22 +896,48 @@ function SquaresPoolApp() {
                           const isFinalWinner = quarterWinners.final?.rIndex === rIdx && quarterWinners.final?.cIndex === cIdx;
                           const isAnyWinner = isQ1Winner || isQ2Winner || isQ3Winner || isFinalWinner;
 
+                          // Color-match winner highlight border to tag color
+                          let winnerBorderColor = "";
+                          let winnerBgColor = "";
+                          if (isFinalWinner) {
+                            winnerBorderColor = "border-emerald-600";
+                            winnerBgColor = "bg-emerald-50/80 dark:bg-emerald-950/40";
+                          } else if (isQ3Winner) {
+                            winnerBorderColor = "border-purple-500";
+                            winnerBgColor = "bg-purple-50/80 dark:bg-purple-950/40";
+                          } else if (isQ2Winner) {
+                            winnerBorderColor = "border-sky-500";
+                            winnerBgColor = "bg-sky-50/80 dark:bg-sky-950/40";
+                          } else if (isQ1Winner) {
+                            winnerBorderColor = "border-amber-500";
+                            winnerBgColor = "bg-amber-50/80 dark:bg-amber-950/40";
+                          }
+
                           return (
                             <td
                               key={cIdx}
                               onClick={() => setSelectedCell({ r: rIdx, c: cIdx })}
                               className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition cursor-pointer select-none overflow-hidden last:border-r-0 ${
                                 isSelected
-                                  ? "bg-emerald-50/90 dark:bg-emerald-950/60 ring-2 ring-inset ring-emerald-500 z-10"
-                                  : isFilterMatch
-                                  ? "bg-amber-100/90 dark:bg-amber-950/60 ring-2 ring-inset ring-amber-400"
+                                  ? "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
                                   : isAnyWinner
-                                  ? "bg-gradient-to-br from-amber-50 to-emerald-50 dark:from-amber-950/40 dark:to-emerald-950/40 ring-2 ring-inset ring-amber-500"
+                                  ? winnerBgColor
+                                  : isFilterMatch
+                                  ? "bg-amber-100/90 dark:bg-amber-950/60"
                                   : name
                                   ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
                                   : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
                               }`}
                             >
+                              {/* Symmetrical Uniform 2px Border Highlight (Equal thickness on top, bottom, left, and right) */}
+                              {isSelected ? (
+                                <div className="absolute inset-0 border-2 border-emerald-500 pointer-events-none z-20" />
+                              ) : isAnyWinner ? (
+                                <div className={`absolute inset-0 border-2 ${winnerBorderColor} pointer-events-none z-20`} />
+                              ) : isFilterMatch ? (
+                                <div className="absolute inset-0 border-2 border-amber-400 pointer-events-none z-20" />
+                              ) : null}
+
                               {isSelected ? (
                                 <div className="w-full h-full flex items-center justify-center p-0.5">
                                   <input
@@ -936,9 +977,9 @@ function SquaresPoolApp() {
                                     </span>
                                   )}
 
-                                  {/* Winner Badge on square */}
+                                  {/* Winner Badge on square with matched color */}
                                   {isAnyWinner && (
-                                    <div className="absolute top-0.5 right-0.5 flex gap-0.5 no-print">
+                                    <div className="absolute top-0.5 right-0.5 flex gap-0.5 no-print z-10">
                                       {isQ1Winner && (
                                         <span className="text-[7px] font-black px-1 py-0.2 rounded bg-amber-500 text-white shadow-2xs">
                                           Q1
@@ -985,39 +1026,116 @@ function SquaresPoolApp() {
           </div>
         </div>
 
-        {/* Players List & Quarter Winners Tracker */}
+        {/* Players List & Quarter Winners Tracker with Payout Inputs */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
-          {/* Quarter Score & Winner Calculator */}
+          {/* Quarter Score & Winner Calculator with Payouts */}
           <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-500" />
                 <span>Quarter Winners &amp; Live Score Tracker</span>
               </h3>
-              <span className="text-xs text-slate-400">Last digit of each score</span>
+              <span className="text-xs text-slate-400">Scores determine last-digit winners</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
               {[
-                { key: "q1", label: "1st Quarter", state: board.q1Score, winner: quarterWinners.q1 },
-                { key: "q2", label: "Halftime (2nd Q)", state: board.q2Score, winner: quarterWinners.q2 },
-                { key: "q3", label: "3rd Quarter", state: board.q3Score, winner: quarterWinners.q3 },
-                { key: "final", label: "Final Score", state: board.finalScore, winner: quarterWinners.final },
-              ].map(({ key, label, state, winner }) => (
+                {
+                  key: "q1" as const,
+                  tag: "Q1",
+                  label: "1st Quarter",
+                  tagClass: "bg-amber-500 text-white",
+                  cardBorder: "border-amber-200/80 dark:border-amber-900/60",
+                  winnerBg: "bg-amber-100/90 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200",
+                  state: board.q1Score,
+                  winner: quarterWinners.q1,
+                  payout: board.payouts?.q1 || "",
+                },
+                {
+                  key: "q2" as const,
+                  tag: "Q2",
+                  label: "Halftime (2nd Q)",
+                  tagClass: "bg-sky-500 text-white",
+                  cardBorder: "border-sky-200/80 dark:border-sky-900/60",
+                  winnerBg: "bg-sky-100/90 text-sky-900 dark:bg-sky-950/80 dark:text-sky-200",
+                  state: board.q2Score,
+                  winner: quarterWinners.q2,
+                  payout: board.payouts?.q2 || "",
+                },
+                {
+                  key: "q3" as const,
+                  tag: "Q3",
+                  label: "3rd Quarter",
+                  tagClass: "bg-purple-500 text-white",
+                  cardBorder: "border-purple-200/80 dark:border-purple-900/60",
+                  winnerBg: "bg-purple-100/90 text-purple-900 dark:bg-purple-950/80 dark:text-purple-200",
+                  state: board.q3Score,
+                  winner: quarterWinners.q3,
+                  payout: board.payouts?.q3 || "",
+                },
+                {
+                  key: "final" as const,
+                  tag: "FINAL",
+                  label: "Final Score",
+                  tagClass: "bg-emerald-600 text-white",
+                  cardBorder: "border-emerald-200/80 dark:border-emerald-900/60",
+                  winnerBg: "bg-emerald-100/90 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-200",
+                  state: board.finalScore,
+                  winner: quarterWinners.final,
+                  payout: board.payouts?.final || "",
+                },
+              ].map(({ key, tag, label, tagClass, cardBorder, winnerBg, state, winner, payout }) => (
                 <div
                   key={key}
-                  className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between gap-3"
+                  className={`p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border ${cardBorder} flex flex-col justify-between gap-3`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-slate-900 dark:text-white">{label}</span>
-                    {winner?.winnerName && (
-                      <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        {winner.winnerName}
+                  {/* Card Header with Quarter Tag & Payout Input */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-black shadow-2xs ${tagClass}`}>
+                        {tag}
                       </span>
-                    )}
+                      <span className="text-xs font-black text-slate-900 dark:text-white">{label}</span>
+                    </div>
+
+                    {/* Quarter Payout Input */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Payout</span>
+                      <div className="relative flex items-center">
+                        <span className="text-xs font-bold text-slate-400 mr-0.5">$</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={payout}
+                          onChange={(e) => {
+                            const clean = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                            const nextPayouts = { ...(board.payouts || {}), [key]: clean };
+                            saveState({ ...board, payouts: nextPayouts });
+                          }}
+                          className="w-16 px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-black text-right text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
                   </div>
 
+                  {/* Winner Banner if Score is entered */}
+                  {winner?.winnerName && (
+                    <div className={`px-2.5 py-1.5 rounded-xl flex items-center justify-between text-xs font-black ${winnerBg}`}>
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Winner: {winner.winnerName}
+                      </span>
+                      {payout && (
+                        <span className="bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded-lg text-slate-900 dark:text-white">
+                          ${Number(payout).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Score inputs for AFC and NFC */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold block truncate">
