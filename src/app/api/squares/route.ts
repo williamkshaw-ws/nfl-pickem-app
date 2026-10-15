@@ -141,3 +141,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function GET(request: Request) {
+  try {
+    let caller;
+    try {
+      caller = await requireUser(request);
+    } catch {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const db = adminDb();
+    const snap = await db
+      .collection("squares_pools")
+      .where("creatorUserId", "==", caller.uid)
+      .get();
+
+    const pools = snap.docs.map((doc) => {
+      const data = doc.data();
+      const board = data.board || {};
+      return {
+        id: doc.id,
+        title: board.title || "Super Bowl Squares",
+        topTeam: board.topTeam || "Team 1",
+        leftTeam: board.leftTeam || "Team 2",
+        costPerSquare: typeof board.costPerSquare === "number" ? board.costPerSquare : 0,
+        totalClaimed: board.grid ? Object.keys(board.grid).length : 0,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      };
+    });
+
+    pools.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+
+    return NextResponse.json({ success: true, pools });
+  } catch (err: unknown) {
+    console.error("Error fetching user squares pools:", err);
+    const msg = err instanceof Error ? err.message : "Failed to load pools";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+

@@ -391,6 +391,19 @@ function SquaresPoolApp() {
   const [poolCreatorId, setPoolCreatorId] = useState<string | null>(null);
   const [poolCreatorName, setPoolCreatorName] = useState<string | null>(null);
 
+  // User's existing created pools
+  const [userPools, setUserPools] = useState<
+    Array<{
+      id: string;
+      title: string;
+      topTeam: string;
+      leftTeam: string;
+      costPerSquare: number;
+      totalClaimed: number;
+    }>
+  >([]);
+  const [showUserPoolsMenu, setShowUserPoolsMenu] = useState(false);
+
   const getAuthToken = useCallback(async () => {
     try {
       const { auth } = await import("@/lib/firebase");
@@ -405,7 +418,8 @@ function SquaresPoolApp() {
 
   const isOwner = useMemo(() => {
     if (isAuthDenied) return false;
-    if (!poolId) return true;
+    // When no pool ID is in the URL, commissioner must be signed in to create/edit
+    if (!poolId) return Boolean(user);
     if (publishedPoolId && publishedPoolId === poolId) return true;
     if (user && poolCreatorId && user.id === poolCreatorId) return true;
     if (typeof window !== "undefined") {
@@ -494,6 +508,34 @@ function SquaresPoolApp() {
         });
     }
   }, [searchParams, loadFromLocal]);
+
+  // Fetch user's created pools if logged in
+  useEffect(() => {
+    let active = true;
+    if (!user) return;
+
+    const fetchUserPools = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token || !active) return;
+        const res = await fetch("/api/squares", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok && active) {
+          const data = await res.json();
+          if (Array.isArray(data.pools)) {
+            setUserPools(data.pools);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load user pools:", e);
+      }
+    };
+    fetchUserPools();
+    return () => {
+      active = false;
+    };
+  }, [user, getAuthToken]);
 
   // 2. Save State: LocalStorage + Online Firestore sync (debounced)
   const saveState = (updated: SquaresBoardState, immediateOnline = false) => {
@@ -1095,85 +1137,161 @@ function SquaresPoolApp() {
               </span>
             )}
 
+            {/* Commissioner's Saved Pools Dropdown */}
+            {user && userPools.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowUserPoolsMenu((prev) => !prev)}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
+                  title="Switch between your squares boards"
+                >
+                  <Grid className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span className="hidden sm:inline">My Boards ({userPools.length})</span>
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showUserPoolsMenu ? "rotate-180" : ""}`} />
+                </button>
+
+                {showUserPoolsMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
+                    <div className="absolute right-0 mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-80 overflow-y-auto">
+                      <div className="px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        Your Squares Boards
+                      </div>
+                      {userPools.map((p) => {
+                        const isCurrent = poolId === p.id;
+                        return (
+                          <Link
+                            key={p.id}
+                            href={`/squares?id=${p.id}`}
+                            onClick={() => setShowUserPoolsMenu(false)}
+                            className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                              isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="font-bold truncate">{p.title}</div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {p.topTeam} vs {p.leftTeam} &bull; {p.totalClaimed}/100 sq
+                              </div>
+                            </div>
+                            {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
+                          </Link>
+                        );
+                      })}
+                      <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1">
+                        <Link
+                          href="/squares"
+                          onClick={() => {
+                            setShowUserPoolsMenu(false);
+                            setPublishedPoolId(null);
+                            setPoolCreatorId(user.id);
+                            loadFromLocal();
+                          }}
+                          className="px-3.5 py-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold transition"
+                        >
+                          <Grid className="w-3.5 h-3.5" />
+                          <span>+ Create New Board</span>
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Share / Copy Link Button */}
-            {isOwner ? (
+            {poolId ? (
+              isOwner ? (
+                <button
+                  type="button"
+                  onClick={handleShareOnline}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
+                  title="Share this board online with friends (view-only for players)"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(window.location.href);
+                      showToast("Board link copied! Send it to your friends.");
+                    } catch {
+                      showToast("Could not copy link to clipboard.");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
+                  title="Copy shareable link"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </button>
+              )
+            ) : user ? (
               <button
                 type="button"
                 onClick={handleShareOnline}
                 className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
                 title="Share this board online with friends (view-only for players)"
               >
-                {poolId ? <Copy className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                <span>{poolId ? "Copy" : "Share"}</span>
-                <span className="hidden md:inline">{poolId ? " Link" : " Online"}</span>
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Share Online</span>
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(window.location.href);
-                    showToast("Board link copied! Send it to your friends.");
-                  } catch {
-                    showToast("Could not copy link to clipboard.");
-                  }
-                }}
-                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
-                title="Copy shareable link"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Copy Link</span>
-              </button>
+            ) : null}
+
+            {/* Print / PDF with Dropdown (only for active board or signed in commissioner) */}
+            {(poolId || user) && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPrintMenu((prev) => !prev)}
+                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
+                  title="Print or Save PDF"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="hidden sm:inline">Print / PDF</span>
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showPrintMenu ? "rotate-180" : ""}`} />
+                </button>
+
+                {showPrintMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowPrintMenu(false)} />
+                    <div className="absolute right-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPrintMenu(false);
+                          setIsPrintingBlank(false);
+                          setTimeout(() => window.print(), 50);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>Print Board</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPrintMenu(false);
+                          setIsPrintingBlank(true);
+                          setTimeout(() => {
+                            window.print();
+                            setTimeout(() => setIsPrintingBlank(false), 1000);
+                          }, 50);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                      >
+                        <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span>Print Blank Grid</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
-
-            {/* Print / PDF with Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowPrintMenu((prev) => !prev)}
-                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
-                title="Print or Save PDF"
-              >
-                <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span className="hidden sm:inline">Print / PDF</span>
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showPrintMenu ? "rotate-180" : ""}`} />
-              </button>
-
-              {showPrintMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowPrintMenu(false)} />
-                  <div className="absolute right-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPrintMenu(false);
-                        setIsPrintingBlank(false);
-                        setTimeout(() => window.print(), 50);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>Print Board</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPrintMenu(false);
-                        setIsPrintingBlank(true);
-                        setTimeout(() => {
-                          window.print();
-                          setTimeout(() => setIsPrintingBlank(false), 1000);
-                        }, 50);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400 cursor-pointer"
-                    >
-                      <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Print Blank Grid</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
 
             <button
               type="button"
@@ -1223,30 +1341,56 @@ function SquaresPoolApp() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-8 w-full flex-1 print-container">
-        {/* Guest Banner if not signed in and on local draft */}
-        {!authLoading && !user && !poolId && (
-          <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs no-print">
-            <div>
-              <span className="font-black text-amber-950 dark:text-amber-100">Super Bowl Squares Commissioner:</span> Log in or create an account to publish and manage your squares pool online across devices.
+        {/* Loading State when checking auth on draft */}
+        {authLoading && !poolId ? (
+          <div className="flex flex-col items-center justify-center py-28 text-slate-400 dark:text-slate-500">
+            <Loader2 className="w-9 h-9 animate-spin text-amber-500 mb-3" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Checking commissioner access...</p>
+          </div>
+        ) : !user && !poolId ? (
+          /* Dedicated Commissioner Lock Screen when visiting /squares without an id and unauthenticated */
+          <div className="max-w-xl mx-auto py-12 sm:py-20 px-4 text-center animate-in fade-in duration-300">
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner mb-6">
+              <Grid className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-4 border border-amber-200 dark:border-amber-800">
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Commissioner Access Required</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
+              Super Bowl Squares
+            </h1>
+            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-8 max-w-md mx-auto">
+              Setting up a 100-cell Squares pool requires a PocketPicks commissioner account. Log in or create a free account to customize your board, manage payouts, and generate shareable links for your pool.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto mb-8">
               <Link
                 href="/auth/login?redirect=/squares"
-                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
               >
-                Log In
+                <LogIn className="w-4 h-4" />
+                <span>Log In to Setup Board</span>
               </Link>
               <Link
                 href="/auth/register?redirect=/squares"
-                className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 font-bold text-xs transition"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700 transition-all hover:-translate-y-0.5"
               >
-                Create Account
+                <UserPlus className="w-4 h-4" />
+                <span>Create Free Account</span>
               </Link>
             </div>
-          </div>
-        )}
 
-        {/* Spectator View Mode (When opened via shareable link or previewed by owner) */}
+            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <span>Have a link from your commissioner?</span>
+              <span className="font-semibold text-slate-600 dark:text-slate-400">Open their shared link to view the board.</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Spectator View Mode (When opened via shareable link or previewed by owner) */}
         {isReadOnly ? (
           <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-6 no-print">
             {/* If owner is previewing spectator view, show banner to exit preview */}
@@ -2162,7 +2306,9 @@ function SquaresPoolApp() {
             )}
           </div>
         </div>
-      </main>
+      </>
+    )}
+  </main>
 
       {/* EDIT HEADER POPUP MODAL */}
       {editingHeader && (
