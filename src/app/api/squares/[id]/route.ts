@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/server-auth";
+import { adminDb, requireUser } from "@/lib/server-auth";
 import { validateAndSanitizeBoard, generateOwnerKey } from "@/lib/squares-validation";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -36,6 +36,8 @@ export async function GET(
       success: true,
       id: poolId,
       board: safeBoard,
+      creatorUserId: data?.creatorUserId || null,
+      creatorName: data?.creatorName || null,
       updatedAt: data?.updatedAt,
     });
   } catch (err: unknown) {
@@ -89,8 +91,32 @@ export async function POST(
 
     const docData = docSnap.data();
 
-    // Authorization: Verify owner key
-    if (docData?.ownerKey) {
+    // Check caller authentication
+    let caller = null;
+    try {
+      caller = await requireUser(request);
+    } catch {
+      // Unauthenticated caller - check legacy ownerKey fallback below
+    }
+
+    // Authorization checks:
+    if (docData?.creatorUserId) {
+      // Pool is owned by a user account
+      const isCreator = caller && caller.uid === docData.creatorUserId;
+      if (!isCreator) {
+        // Fallback to legacy owner key if available
+        const headerKey = request.headers.get("x-owner-key") || "";
+        const bodyKey = typeof body?.ownerKey === "string" ? body.ownerKey : "";
+        const providedKey = (headerKey || bodyKey).trim();
+        if (!providedKey || !docData.ownerKey || providedKey !== docData.ownerKey) {
+          return NextResponse.json(
+            { error: "Unauthorized: only the commissioner can edit this board" },
+            { status: 403 }
+          );
+        }
+      }
+    } else if (docData?.ownerKey) {
+      // Legacy pool created before creatorUserId
       const headerKey = request.headers.get("x-owner-key") || "";
       const bodyKey = typeof body?.ownerKey === "string" ? body.ownerKey : "";
       const providedKey = (headerKey || bodyKey).trim();
@@ -101,10 +127,33 @@ export async function POST(
           { status: 403 }
         );
       }
+
+      // If caller is authenticated, upgrade legacy pool to associate with their account
+      if (caller?.uid) {
+        await poolRef.set(
+          {
+            creatorUserId: caller.uid,
+            creatorEmail: caller.email || "",
+            creatorName: caller.email?.split("@")[0] || "Commissioner",
+          },
+          { merge: true }
+        );
+      }
     } else {
-      // Legacy pool created before ownerKey protection: generate one now
-      const newKey = generateOwnerKey();
-      await poolRef.set({ ownerKey: newKey }, { merge: true });
+      // Legacy pool without key: claim or generate key
+      if (caller?.uid) {
+        await poolRef.set(
+          {
+            creatorUserId: caller.uid,
+            creatorEmail: caller.email || "",
+            creatorName: caller.email?.split("@")[0] || "Commissioner",
+          },
+          { merge: true }
+        );
+      } else {
+        const newKey = generateOwnerKey();
+        await poolRef.set({ ownerKey: newKey }, { merge: true });
+      }
     }
 
     const now = new Date().toISOString();

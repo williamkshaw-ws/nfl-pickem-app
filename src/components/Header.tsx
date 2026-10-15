@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/api-client";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
+import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 
 interface HeaderProps {
   settings: LeagueSettings;
@@ -246,9 +247,7 @@ export function Header({
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} flex items-center justify-center flex-shrink-0 transition-colors shadow-xs`}>
-              <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
-            </div>
+            <GameSwitcherDropdown currentGame="pickem" />
             <div className="flex items-center min-w-0 gap-2">
               <h1 className="font-extrabold text-sm sm:text-lg tracking-tight text-slate-900 dark:text-white truncate flex items-center gap-1 sm:gap-1.5">
                 {settings.leagueName} <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>

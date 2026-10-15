@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb, requireUser, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   BracketPicks,
   BracketParticipant,
@@ -101,6 +102,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`bracket_post:${ip}`, 60, 60_000, "Too many requests. Please wait a moment.");
+
+    const caller = await requireUser(request);
     const body = await request.json().catch(() => null);
     const db = adminDb();
 
@@ -167,7 +172,6 @@ export async function POST(request: Request) {
     }
 
     // STANDARD ACTION: Save authenticated user picks & tiebreaker
-    const caller = await requireUser(request);
     const { picks, tiebreaker, userName, userAvatar } = body || {};
 
     if (!picks || typeof picks !== "object") {

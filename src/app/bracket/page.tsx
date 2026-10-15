@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import Link from "next/link";
 import {
   Trophy,
-  ArrowLeft,
   RotateCcw,
   Sparkles,
   CheckCircle2,
@@ -15,7 +14,6 @@ import {
   Medal,
   Sun,
   Moon,
-  Lock,
   Users,
   Flame,
   Trash2,
@@ -26,6 +24,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
+import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import {
   BracketGameId,
   BracketPicks,
@@ -99,77 +98,104 @@ export default function BracketPage() {
     awayScore: 21,
     totalScore: 45,
   });
+  const [homeScoreInput, setHomeScoreInput] = useState<string>("24");
+  const [awayScoreInput, setAwayScoreInput] = useState<string>("21");
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [results, setResults] = useState<SimulationResults>({});
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [leaderboard, setLeaderboard] = useState<BracketParticipant[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
   const [savingPicks, setSavingPicks] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  }, []);
+
+  const getAuthToken = useCallback(async () => {
+    try {
+      const { auth } = await import("@/lib/firebase");
+      return (await auth.currentUser?.getIdToken()) || null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Load initial bracket state from API / localStorage
-  const loadData = useCallback(async () => {
-    try {
-      setLoadingData(true);
-      const token = user ? await (await import("@/lib/firebase")).auth.currentUser?.getIdToken() : null;
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch("/api/bracket", { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setResults(data.results || {});
-        setIsSimulated(!!data.isSimulated);
-        setIsLocked(!!data.isLocked);
-        setLeaderboard(data.leaderboard || []);
-
-        if (data.currentUserEntry?.picks) {
-          setPicks(data.currentUserEntry.picks);
-        } else {
-          const cached = localStorage.getItem(STORAGE_PICKS_KEY);
-          if (cached) {
-            try {
-              setPicks(JSON.parse(cached));
-            } catch {
-              // Ignore corrupt cache
-            }
-          }
-        }
-
-        if (data.currentUserEntry?.tiebreaker) {
-          setTiebreaker(data.currentUserEntry.tiebreaker);
-        } else {
-          const cachedTb = localStorage.getItem(STORAGE_TIEBREAKER_KEY);
-          if (cachedTb) {
-            try {
-              setTiebreaker(JSON.parse(cachedTb));
-            } catch {
-              // Ignore
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch bracket data:", err);
-      const cached = localStorage.getItem(STORAGE_PICKS_KEY);
-      if (cached) {
-        try {
-          setPicks(JSON.parse(cached));
-        } catch {
-          // Ignore
-        }
-      }
-    } finally {
-      setLoadingData(false);
-    }
-  }, [user]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let active = true;
+    const fetchBracketData = async () => {
+      try {
+        const token = user ? await (await import("@/lib/firebase")).auth.currentUser?.getIdToken() : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("/api/bracket", { headers });
+        if (!active) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (!active) return;
+          setResults(data.results || {});
+          setIsSimulated(!!data.isSimulated);
+          setIsLocked(!!data.isLocked);
+          setLeaderboard(data.leaderboard || []);
+
+          if (data.currentUserEntry?.picks) {
+            setPicks(data.currentUserEntry.picks);
+          } else {
+            const cached = localStorage.getItem(STORAGE_PICKS_KEY);
+            if (cached) {
+              try {
+                setPicks(JSON.parse(cached));
+              } catch {
+                // Ignore corrupt cache
+              }
+            }
+          }
+
+          if (data.currentUserEntry?.tiebreaker) {
+            setTiebreaker(data.currentUserEntry.tiebreaker);
+            setHomeScoreInput(String(data.currentUserEntry.tiebreaker.homeScore ?? 24));
+            setAwayScoreInput(String(data.currentUserEntry.tiebreaker.awayScore ?? 21));
+          } else {
+            const cachedTb = localStorage.getItem(STORAGE_TIEBREAKER_KEY);
+            if (cachedTb) {
+              try {
+                const parsedTb = JSON.parse(cachedTb);
+                setTiebreaker(parsedTb);
+                if (parsedTb.homeScore !== undefined) setHomeScoreInput(String(parsedTb.homeScore));
+                if (parsedTb.awayScore !== undefined) setAwayScoreInput(String(parsedTb.awayScore));
+              } catch {
+                // Ignore
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch bracket data:", err);
+        const cached = localStorage.getItem(STORAGE_PICKS_KEY);
+        if (cached) {
+          try {
+            setPicks(JSON.parse(cached));
+          } catch {
+            // Ignore
+          }
+        }
+      }
+    };
+
+    fetchBracketData();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   // Persist picks and tiebreaker to localStorage
   useEffect(() => {
@@ -181,43 +207,65 @@ export default function BracketPage() {
     }
   }, [picks, tiebreaker]);
 
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    };
+  }, []);
+
   // Save picks and tiebreaker to Firestore backend automatically
-  const savePicksToBackend = async (newPicks: BracketPicks, newTb: TiebreakerPrediction) => {
-    if (!user || isLocked) return;
-    setSavingPicks(true);
-    try {
-      const { auth } = await import("@/lib/firebase");
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
+  const savePicksToBackend = useCallback(
+    async (newPicks: BracketPicks, newTb: TiebreakerPrediction) => {
+      if (!user || isLocked) return;
+      setSavingPicks(true);
+      try {
+        const { auth } = await import("@/lib/firebase");
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
 
-      const res = await fetch("/api/bracket", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          picks: newPicks,
-          tiebreaker: newTb,
-          userName: user.name || user.username || "PocketPicks Fan",
-          userAvatar: user.avatarColor || "bg-emerald-600",
-        }),
-      });
+        const res = await fetch("/api/bracket", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            picks: newPicks,
+            tiebreaker: newTb,
+            userName: user.name || user.username || "PocketPicks Fan",
+            userAvatar: user.avatarColor || "bg-emerald-600",
+          }),
+        });
 
-      if (res.ok) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2000);
-        const data = await res.json();
-        if (data.leaderboard) {
-          setLeaderboard(data.leaderboard);
+        if (res.ok) {
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 2000);
+          const data = await res.json();
+          if (data.leaderboard) {
+            setLeaderboard(data.leaderboard);
+          }
         }
+      } catch (err) {
+        console.error("Error saving picks:", err);
+      } finally {
+        setSavingPicks(false);
       }
-    } catch (err) {
-      console.error("Error saving picks:", err);
-    } finally {
-      setSavingPicks(false);
-    }
-  };
+    },
+    [user, isLocked]
+  );
+
+  const debouncedSavePicksToBackend = useCallback(
+    (newPicks: BracketPicks, newTb: TiebreakerPrediction, delayMs = 600) => {
+      if (!user || isLocked) return;
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+      setSavingPicks(true);
+      saveDebounceRef.current = setTimeout(() => {
+        savePicksToBackend(newPicks, newTb);
+      }, delayMs);
+    },
+    [user, isLocked, savePicksToBackend]
+  );
 
   // Handle pick selection and cascade clearing of invalid downstream picks
   const handleSelectTeam = (gameId: BracketGameId, teamAbbr: string) => {
@@ -225,92 +273,115 @@ export default function BracketPage() {
       return;
     }
 
-    setPicks((prev) => {
-      const updated = { ...prev, [gameId]: teamAbbr };
-      const newMatchups = resolveBracketMatchups(updated);
+    const updated = { ...picks, [gameId]: teamAbbr };
+    const newMatchups = resolveBracketMatchups(updated);
 
-      // Verify Divisional picks
-      if (
-        updated.afc_div_1 &&
-        newMatchups.afc_div_1.homeTeam?.abbr !== updated.afc_div_1 &&
-        newMatchups.afc_div_1.awayTeam?.abbr !== updated.afc_div_1
-      ) {
-        delete updated.afc_div_1;
-      }
-      if (
-        updated.afc_div_2 &&
-        newMatchups.afc_div_2.homeTeam?.abbr !== updated.afc_div_2 &&
-        newMatchups.afc_div_2.awayTeam?.abbr !== updated.afc_div_2
-      ) {
-        delete updated.afc_div_2;
-      }
-      if (
-        updated.nfc_div_1 &&
-        newMatchups.nfc_div_1.homeTeam?.abbr !== updated.nfc_div_1 &&
-        newMatchups.nfc_div_1.awayTeam?.abbr !== updated.nfc_div_1
-      ) {
-        delete updated.nfc_div_1;
-      }
-      if (
-        updated.nfc_div_2 &&
-        newMatchups.nfc_div_2.homeTeam?.abbr !== updated.nfc_div_2 &&
-        newMatchups.nfc_div_2.awayTeam?.abbr !== updated.nfc_div_2
-      ) {
-        delete updated.nfc_div_2;
-      }
+    // Verify Divisional picks
+    if (
+      updated.afc_div_1 &&
+      newMatchups.afc_div_1.homeTeam?.abbr !== updated.afc_div_1 &&
+      newMatchups.afc_div_1.awayTeam?.abbr !== updated.afc_div_1
+    ) {
+      delete updated.afc_div_1;
+    }
+    if (
+      updated.afc_div_2 &&
+      newMatchups.afc_div_2.homeTeam?.abbr !== updated.afc_div_2 &&
+      newMatchups.afc_div_2.awayTeam?.abbr !== updated.afc_div_2
+    ) {
+      delete updated.afc_div_2;
+    }
+    if (
+      updated.nfc_div_1 &&
+      newMatchups.nfc_div_1.homeTeam?.abbr !== updated.nfc_div_1 &&
+      newMatchups.nfc_div_1.awayTeam?.abbr !== updated.nfc_div_1
+    ) {
+      delete updated.nfc_div_1;
+    }
+    if (
+      updated.nfc_div_2 &&
+      newMatchups.nfc_div_2.homeTeam?.abbr !== updated.nfc_div_2 &&
+      newMatchups.nfc_div_2.awayTeam?.abbr !== updated.nfc_div_2
+    ) {
+      delete updated.nfc_div_2;
+    }
 
-      // Verify Conference picks
-      const updatedMatchups2 = resolveBracketMatchups(updated);
-      if (
-        updated.afc_champ &&
-        updatedMatchups2.afc_champ.homeTeam?.abbr !== updated.afc_champ &&
-        updatedMatchups2.afc_champ.awayTeam?.abbr !== updated.afc_champ
-      ) {
-        delete updated.afc_champ;
-      }
-      if (
-        updated.nfc_champ &&
-        updatedMatchups2.nfc_champ.homeTeam?.abbr !== updated.nfc_champ &&
-        updatedMatchups2.nfc_champ.awayTeam?.abbr !== updated.nfc_champ
-      ) {
-        delete updated.nfc_champ;
-      }
+    // Verify Conference picks
+    const updatedMatchups2 = resolveBracketMatchups(updated);
+    if (
+      updated.afc_champ &&
+      updatedMatchups2.afc_champ.homeTeam?.abbr !== updated.afc_champ &&
+      updatedMatchups2.afc_champ.awayTeam?.abbr !== updated.afc_champ
+    ) {
+      delete updated.afc_champ;
+    }
+    if (
+      updated.nfc_champ &&
+      updatedMatchups2.nfc_champ.homeTeam?.abbr !== updated.nfc_champ &&
+      updatedMatchups2.nfc_champ.awayTeam?.abbr !== updated.nfc_champ
+    ) {
+      delete updated.nfc_champ;
+    }
 
-      // Verify Super Bowl pick
-      const updatedMatchups3 = resolveBracketMatchups(updated);
-      if (
-        updated.super_bowl &&
-        updatedMatchups3.super_bowl.homeTeam?.abbr !== updated.super_bowl &&
-        updatedMatchups3.super_bowl.awayTeam?.abbr !== updated.super_bowl
-      ) {
-        delete updated.super_bowl;
-      }
+    // Verify Super Bowl pick
+    const updatedMatchups3 = resolveBracketMatchups(updated);
+    if (
+      updated.super_bowl &&
+      updatedMatchups3.super_bowl.homeTeam?.abbr !== updated.super_bowl &&
+      updatedMatchups3.super_bowl.awayTeam?.abbr !== updated.super_bowl
+    ) {
+      delete updated.super_bowl;
+    }
 
-      savePicksToBackend(updated, tiebreaker);
-      return updated;
-    });
+    setPicks(updated);
+    debouncedSavePicksToBackend(updated, tiebreaker, 300);
   };
 
-  // Tiebreaker inputs change handler
-  const handleTiebreakerChange = (field: "home" | "away", val: number) => {
+  // Tiebreaker inputs change handler (debounced)
+  const handleTiebreakerInputChange = (field: "home" | "away", rawVal: string) => {
     if (isLocked) return;
-    const clamped = Math.max(0, Math.min(99, isNaN(val) ? 0 : val));
+    const cleanStr = rawVal.replace(/[^0-9]/g, "").slice(0, 2);
+    if (field === "home") {
+      setHomeScoreInput(cleanStr);
+    } else {
+      setAwayScoreInput(cleanStr);
+    }
+
+    const homeVal = field === "home" ? (cleanStr === "" ? 0 : parseInt(cleanStr, 10)) : tiebreaker.homeScore;
+    const awayVal = field === "away" ? (cleanStr === "" ? 0 : parseInt(cleanStr, 10)) : tiebreaker.awayScore;
+
     const nextTb: TiebreakerPrediction = {
-      homeScore: field === "home" ? clamped : tiebreaker.homeScore,
-      awayScore: field === "away" ? clamped : tiebreaker.awayScore,
-      totalScore: (field === "home" ? clamped : tiebreaker.homeScore) + (field === "away" ? clamped : tiebreaker.awayScore),
+      homeScore: homeVal,
+      awayScore: awayVal,
+      totalScore: homeVal + awayVal,
     };
     setTiebreaker(nextTb);
-    savePicksToBackend(picks, nextTb);
+    debouncedSavePicksToBackend(picks, nextTb, 600);
+  };
+
+  const handleTiebreakerBlur = (field: "home" | "away") => {
+    if (field === "home" && homeScoreInput === "") {
+      setHomeScoreInput("0");
+    } else if (field === "away" && awayScoreInput === "") {
+      setAwayScoreInput("0");
+    }
   };
 
   // Simulate outcomes button handler (locks bracket on simulate)
   const handleSimulate = async () => {
+    if (!user) {
+      showToast("Please sign in or register to simulate playoff scores.");
+      return;
+    }
     try {
       setSimulating(true);
+      const token = await getAuthToken();
       const res = await fetch("/api/bracket/simulate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "simulate" }),
       });
       if (res.ok) {
@@ -319,9 +390,14 @@ export default function BracketPage() {
         setIsSimulated(true);
         setIsLocked(true); // Automatically locks when scores are simulated
         setLeaderboard(data.leaderboard || []);
+        showToast("⚡ Playoff scores simulated & bracket locked!");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Simulation failed. Please try again.");
       }
     } catch (err) {
       console.error("Simulation failed:", err);
+      showToast("Simulation failed. Please try again.");
     } finally {
       setSimulating(false);
     }
@@ -329,11 +405,19 @@ export default function BracketPage() {
 
   // Reset simulation handler (unlocks bracket when reset)
   const handleResetSimulation = async () => {
+    if (!user) {
+      showToast("Please sign in to reset tournament scores.");
+      return;
+    }
     try {
       setSimulating(true);
+      const token = await getAuthToken();
       const res = await fetch("/api/bracket/simulate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "reset" }),
       });
       if (res.ok) {
@@ -342,9 +426,14 @@ export default function BracketPage() {
         setIsSimulated(false);
         setIsLocked(false); // Unlocks when simulation is reset
         setLeaderboard(data.leaderboard || []);
+        showToast("Scores reset to unplayed state.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Reset failed. Please try again.");
       }
     } catch (err) {
       console.error("Reset failed:", err);
+      showToast("Reset failed. Please try again.");
     } finally {
       setSimulating(false);
     }
@@ -352,19 +441,32 @@ export default function BracketPage() {
 
   // Seed sample competitors
   const handleSeedParticipants = async () => {
+    if (!user) {
+      showToast("Please sign in to seed test competitors.");
+      return;
+    }
     try {
       setSeeding(true);
+      const token = await getAuthToken();
       const res = await fetch("/api/bracket", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "seed" }),
       });
       if (res.ok) {
         const data = await res.json();
         setLeaderboard(data.leaderboard || []);
+        showToast("Sample competitors added to leaderboard!");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Failed to seed competitors.");
       }
     } catch (err) {
       console.error("Failed to seed participants:", err);
+      showToast("Failed to seed competitors.");
     } finally {
       setSeeding(false);
     }
@@ -372,19 +474,32 @@ export default function BracketPage() {
 
   // Clear sample competitors
   const handleClearSampleParticipants = async () => {
+    if (!user) {
+      showToast("Please sign in to clear test competitors.");
+      return;
+    }
     try {
       setSeeding(true);
+      const token = await getAuthToken();
       const res = await fetch("/api/bracket", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "clear_samples" }),
       });
       if (res.ok) {
         const data = await res.json();
         setLeaderboard(data.leaderboard || []);
+        showToast("Test competitors removed.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Failed to clear test competitors.");
       }
     } catch (err) {
       console.error("Failed to clear sample participants:", err);
+      showToast("Failed to clear test competitors.");
     } finally {
       setSeeding(false);
     }
@@ -573,20 +688,73 @@ export default function BracketPage() {
   const sbHomeName = activeMatchups.super_bowl.homeTeam?.name || "Home Team";
   const sbAwayName = activeMatchups.super_bowl.awayTeam?.name || "Away Team";
 
+  // Helper to render the Super Bowl Champion card and tiebreaker inputs (shared between Desktop & Mobile)
+  const renderSuperBowlCenterCard = () => (
+    <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
+      <Trophy className="w-8 h-8 text-amber-500" />
+      <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
+        Super Bowl Champion
+      </div>
+      {renderMatchupCard("super_bowl")}
+
+      {/* Super Bowl Tiebreaker Prediction Input (arrow-free & debounced) */}
+      <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
+            Tiebreaker Score
+          </span>
+          <span className="text-[11px] font-mono font-black text-purple-600 dark:text-purple-400">
+            Total: {tiebreaker.homeScore + tiebreaker.awayScore}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbHomeName}>
+              {sbHomeName}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              disabled={isLocked}
+              value={homeScoreInput}
+              onChange={(e) => handleTiebreakerInputChange("home", e.target.value)}
+              onBlur={() => handleTiebreakerBlur("home")}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbAwayName}>
+              {sbAwayName}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              disabled={isLocked}
+              value={awayScoreInput}
+              onChange={(e) => handleTiebreakerInputChange("away", e.target.value)}
+              onBlur={() => handleTiebreakerBlur("away")}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+        </div>
+        <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
+          Tier 1: Closest total &bull; Tier 2: Home diff &bull; Tier 3: Away diff
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full overflow-x-hidden">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Back & Logo */}
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <Link
-              href="/"
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shrink-0"
-              title="Return to Home"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
+          {/* Left: Branding & Game Switcher */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <GameSwitcherDropdown currentGame="bracket" />
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
@@ -779,12 +947,17 @@ export default function BracketPage() {
                 </div>
               )}
 
-              {saveSuccess && (
+              {savingPicks ? (
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                  <span>Saving...</span>
+                </span>
+              ) : saveSuccess ? (
                 <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in shrink-0 whitespace-nowrap">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                   <span>Saved</span>
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -937,65 +1110,7 @@ export default function BracketPage() {
                 </div>
 
                 {/* Lombardi Trophy & Super Bowl Card */}
-                <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
-                  <Trophy className="w-8 h-8 text-amber-500" />
-                  <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                    Super Bowl Champion
-                  </div>
-                  {renderMatchupCard("super_bowl")}
-
-                  {/* Super Bowl Tiebreaker Prediction Input (arrow-free) */}
-                  <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
-                        Tiebreaker Score
-                      </span>
-                      <span className="text-[11px] font-mono font-black text-purple-600 dark:text-purple-400">
-                        Total: {tiebreaker.homeScore + tiebreaker.awayScore}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbHomeName}>
-                          {sbHomeName}
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          disabled={isLocked}
-                          value={tiebreaker.homeScore}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9]/g, "");
-                            handleTiebreakerChange("home", raw === "" ? 0 : parseInt(raw, 10));
-                          }}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbAwayName}>
-                          {sbAwayName}
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          disabled={isLocked}
-                          value={tiebreaker.awayScore}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9]/g, "");
-                            handleTiebreakerChange("away", raw === "" ? 0 : parseInt(raw, 10));
-                          }}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </div>
-                    </div>
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
-                      Tier 1: Closest total &bull; Tier 2: Home diff &bull; Tier 3: Away diff
-                    </span>
-                  </div>
-                </div>
+                {renderSuperBowlCenterCard()}
 
                 {/* NFC Championship */}
                 <div className="w-full flex justify-center">
@@ -1092,65 +1207,7 @@ export default function BracketPage() {
 
               {mobileRoundTab === "sb" && (
                 <div className="w-full flex flex-col gap-4 items-center">
-                  <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
-                    <Trophy className="w-8 h-8 text-amber-500" />
-                    <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                      Super Bowl Championship
-                    </div>
-                    {renderMatchupCard("super_bowl")}
-
-                    {/* Tiebreaker Input on Mobile (arrow-free) */}
-                    <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
-                          Tiebreaker Score
-                        </span>
-                        <span className="text-[11px] font-mono font-black text-purple-600 dark:text-purple-400">
-                          Total: {tiebreaker.homeScore + tiebreaker.awayScore}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbHomeName}>
-                            {sbHomeName}
-                          </label>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            disabled={isLocked}
-                            value={tiebreaker.homeScore}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/[^0-9]/g, "");
-                              handleTiebreakerChange("home", raw === "" ? 0 : parseInt(raw, 10));
-                            }}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbAwayName}>
-                            {sbAwayName}
-                          </label>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            disabled={isLocked}
-                            value={tiebreaker.awayScore}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/[^0-9]/g, "");
-                              handleTiebreakerChange("away", raw === "" ? 0 : parseInt(raw, 10));
-                            }}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                      </div>
-                      <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
-                        Tier 1: Closest total &bull; Tier 2: Home diff &bull; Tier 3: Away diff
-                      </span>
-                    </div>
-                  </div>
+                  {renderSuperBowlCenterCard()}
                 </div>
               )}
             </div>
@@ -1788,6 +1845,14 @@ export default function BracketPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* FEEDBACK TOAST */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-2xl shadow-xl animate-in slide-in-from-bottom-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

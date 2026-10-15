@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, useSyncExternalStore, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Trophy,
-  ArrowLeft,
   Printer,
   RotateCcw,
   Shuffle,
@@ -29,9 +29,13 @@ import {
   Check,
   Tv,
   HelpCircle,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
+import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { SquaresBoardState } from "@/lib/squares-validation";
 
 const DEFAULT_TOP_NUMBERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -138,9 +142,170 @@ function getInitialBoardState(): SquaresBoardState {
   return INITIAL_STATE;
 }
 
+interface SquareCellProps {
+  rIdx: number;
+  cIdx: number;
+  name: string;
+  isSelected: boolean;
+  isReadOnly: boolean;
+  isFilterMatch: boolean;
+  isQ1Winner: boolean;
+  isQ2Winner: boolean;
+  isQ3Winner: boolean;
+  isFinalWinner: boolean;
+  isPrintingBlank: boolean;
+  topNumber: string;
+  leftNumber: string;
+  onSelect: (r: number, c: number) => void;
+  onChange: (r: number, c: number, name: string) => void;
+  onBlur: () => void;
+  onKeyDown: (e: React.KeyboardEvent, r: number, c: number) => void;
+}
+
+const SquareCell = React.memo(function SquareCell({
+  rIdx,
+  cIdx,
+  name,
+  isSelected,
+  isReadOnly,
+  isFilterMatch,
+  isQ1Winner,
+  isQ2Winner,
+  isQ3Winner,
+  isFinalWinner,
+  isPrintingBlank,
+  topNumber,
+  leftNumber,
+  onSelect,
+  onChange,
+  onBlur,
+  onKeyDown,
+}: SquareCellProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isSelected && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isSelected]);
+
+  const isAnyWinner = isQ1Winner || isQ2Winner || isQ3Winner || isFinalWinner;
+  let winnerBorderColor = "";
+  let winnerBgColor = "";
+  if (isFinalWinner) {
+    winnerBorderColor = "border-emerald-600";
+    winnerBgColor = "bg-emerald-50/80 dark:bg-emerald-950/40";
+  } else if (isQ3Winner) {
+    winnerBorderColor = "border-purple-500";
+    winnerBgColor = "bg-purple-50/80 dark:bg-purple-950/40";
+  } else if (isQ2Winner) {
+    winnerBorderColor = "border-sky-500";
+    winnerBgColor = "bg-sky-50/80 dark:bg-sky-950/40";
+  } else if (isQ1Winner) {
+    winnerBorderColor = "border-amber-500";
+    winnerBgColor = "bg-amber-50/80 dark:bg-amber-950/40";
+  }
+
+  return (
+    <td
+      onClick={() => !isReadOnly && onSelect(rIdx, cIdx)}
+      className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition select-none overflow-hidden last:border-r-0 ${
+        isReadOnly ? "cursor-default" : "cursor-pointer"
+      } ${
+        isSelected
+          ? "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
+          : isAnyWinner
+          ? winnerBgColor
+          : isFilterMatch
+          ? "bg-amber-100/90 dark:bg-amber-950/60"
+          : name
+          ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
+          : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
+      }`}
+    >
+      {/* Symmetrical Uniform 2px Border Highlight (Equal thickness on top, bottom, left, and right) */}
+      {isSelected ? (
+        <div className="absolute inset-0 border-2 border-emerald-500 pointer-events-none z-20" />
+      ) : isAnyWinner ? (
+        <div className={`absolute inset-0 border-2 ${winnerBorderColor} pointer-events-none z-20`} />
+      ) : isFilterMatch ? (
+        <div className="absolute inset-0 border-2 border-amber-400 pointer-events-none z-20" />
+      ) : null}
+
+      {isSelected ? (
+        <div className="w-full h-full flex items-center justify-center p-0.5">
+          <input
+            ref={inputRef}
+            type="text"
+            value={name}
+            onChange={(e) => onChange(rIdx, cIdx, e.target.value)}
+            onBlur={onBlur}
+            onKeyDown={(e) => onKeyDown(e, rIdx, cIdx)}
+            placeholder="Name"
+            className="w-full h-7 text-center text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded border border-emerald-500 shadow-2xs px-1 focus:outline-hidden"
+          />
+        </div>
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center px-0.5">
+          {!isPrintingBlank && name ? (
+            /* If name contains spaces (first & last name), split into two rows to prevent wide stretching */
+            name.includes(" ") ? (
+              <div className="flex flex-col items-center justify-center leading-tight max-w-full">
+                {name.split(" ").filter(Boolean).map((part, pIdx) => (
+                  <span
+                    key={pIdx}
+                    className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full"
+                  >
+                    {part}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
+                {name}
+              </span>
+            )
+          ) : (
+            <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium select-none no-print">
+              {leftNumber},{topNumber}
+            </span>
+          )}
+
+          {/* Winner Badge on square with matched color */}
+          {isAnyWinner && (
+            <div className="absolute top-0.5 right-0.5 flex gap-0.5 no-print z-10">
+              {isQ1Winner && (
+                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-amber-500 text-white shadow-2xs">
+                  Q1
+                </span>
+              )}
+              {isQ2Winner && (
+                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-sky-500 text-white shadow-2xs">
+                  Q2
+                </span>
+              )}
+              {isQ3Winner && (
+                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-purple-500 text-white shadow-2xs">
+                  Q3
+                </span>
+              )}
+              {isFinalWinner && (
+                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-emerald-600 text-white shadow-2xs">
+                  FINAL
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </td>
+  );
+});
+
 function SquaresPoolApp() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Board State
   const [board, setBoard] = useState<SquaresBoardState>(getInitialBoardState);
@@ -155,7 +320,6 @@ function SquaresPoolApp() {
   // Live Score Tracker State
   const [liveGame, setLiveGame] = useState<LiveGameData | null>(null);
   const [isFetchingScore, setIsFetchingScore] = useState(false);
-  const [lastScoreUpdate, setLastScoreUpdate] = useState<Date | null>(null);
   const [autoSyncScores, setAutoSyncScores] = useState<boolean>(true);
   const [availableGames, setAvailableGames] = useState<AvailableGameOption[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("");
@@ -183,7 +347,35 @@ function SquaresPoolApp() {
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const cellInputRef = useRef<HTMLInputElement>(null);
+  // Prevent background scrolling and handle Escape key when any modal is open
+  const isAnyModalOpen = Boolean(showRulesModal || confirmModal.isOpen || editingHeader);
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalPaddingRight = document.body.style.paddingRight;
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      if (scrollBarWidth > 0) {
+        document.body.style.paddingRight = `${scrollBarWidth}px`;
+      }
+      document.body.style.overflow = "hidden";
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setShowRulesModal(false);
+          setEditingHeader(null);
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.paddingRight = originalPaddingRight;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isAnyModalOpen]);
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = (msg: string) => {
@@ -193,17 +385,40 @@ function SquaresPoolApp() {
     }, 3500);
   };
 
+  const { user, loading: authLoading } = useAuth();
+  const [poolCreatorId, setPoolCreatorId] = useState<string | null>(null);
+  const [poolCreatorName, setPoolCreatorName] = useState<string | null>(null);
+
+  const getAuthToken = useCallback(async () => {
+    try {
+      const { auth } = await import("@/lib/firebase");
+      return (await auth.currentUser?.getIdToken()) || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // Viewer & Commissioner Mode State
-  const [isOwner, setIsOwner] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    const idParam = searchParams.get("id");
-    if (!idParam) return true;
-    const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
-    if (editParam) return true;
-    const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
-    const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
-    return Boolean(storedKey || legacyOwner);
-  });
+  const [isAuthDenied, setIsAuthDenied] = useState(false);
+
+  const isOwner = useMemo(() => {
+    if (isAuthDenied) return false;
+    if (!poolId) return true;
+    if (publishedPoolId && publishedPoolId === poolId) return true;
+    if (user && poolCreatorId && user.id === poolCreatorId) return true;
+    if (typeof window !== "undefined") {
+      const storedKey = localStorage.getItem(`squares_owner_key_${poolId}`);
+      const legacyOwner = localStorage.getItem(`squares_owner_${poolId}`) === "true";
+      const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
+      if (storedKey || legacyOwner || editParam) {
+        return true;
+      }
+    }
+    if (poolCreatorId && (!user || user.id !== poolCreatorId)) {
+      return false;
+    }
+    return false;
+  }, [isAuthDenied, poolId, publishedPoolId, user, poolCreatorId, searchParams]);
 
   const [isViewerPreview, setIsViewerPreview] = useState<boolean>(() => {
     const viewParam = searchParams.get("view") === "1" || searchParams.get("mode") === "view";
@@ -219,7 +434,7 @@ function SquaresPoolApp() {
   });
 
   // Computed read-only status
-  const isReadOnly = (!isOwner || isViewerPreview) && searchParams.get("edit") !== "true" && searchParams.get("edit") !== "1";
+  const isReadOnly = !isOwner || isViewerPreview;
 
   // Sync document.title
   useEffect(() => {
@@ -258,6 +473,12 @@ function SquaresPoolApp() {
               costPerSquare: typeof data.board.costPerSquare === "number" ? data.board.costPerSquare : 10,
               payouts: data.board.payouts || { q1: "", q2: "", q3: "", final: "" },
             });
+            if (data.creatorUserId) {
+              setPoolCreatorId(data.creatorUserId);
+            }
+            if (data.creatorName) {
+              setPoolCreatorName(data.creatorName);
+            }
             setSyncStatus("synced");
           }
         })
@@ -293,22 +514,26 @@ function SquaresPoolApp() {
 
       const doSync = async () => {
         try {
+          const token = await getAuthToken();
           const ownerKey = typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${poolId}`) || "" : "";
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          if (ownerKey) headers["x-owner-key"] = ownerKey;
+
           const res = await fetch(`/api/squares/${encodeURIComponent(poolId)}`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(ownerKey ? { "x-owner-key": ownerKey } : {}),
-            },
+            headers,
             body: JSON.stringify({ board: updated }),
           });
           if (res.ok) {
             setSyncStatus("synced");
           } else if (res.status === 403) {
             setSyncStatus("local");
-            setIsOwner(false);
+            setIsAuthDenied(true);
             setIsViewerPreview(true);
-            showToast("Viewing as player (read-only). Changes are not saved to commissioner board.");
+            showToast("Viewing as spectator (read-only). Changes are not saved to commissioner board.");
           } else {
             setSyncStatus("local");
           }
@@ -336,6 +561,11 @@ function SquaresPoolApp() {
     autoSyncScoresRef.current = autoSyncScores;
   }, [autoSyncScores]);
 
+  const saveStateRef = useRef(saveState);
+  useEffect(() => {
+    saveStateRef.current = saveState;
+  });
+
   // Fetch live score from ESPN & auto-populate quarter scores
   const fetchLiveScore = useCallback(async (forcedGameId?: string) => {
     try {
@@ -353,7 +583,6 @@ function SquaresPoolApp() {
       if (data.success) {
         setLiveGame(data.matchedGame || null);
         setAvailableGames(data.availableGames || []);
-        setLastScoreUpdate(new Date());
 
         // Automatically populate quarter scores if autoSyncScores is enabled
         if (autoSyncScoresRef.current && data.matchedGame?.quarters) {
@@ -404,7 +633,7 @@ function SquaresPoolApp() {
           }
 
           if (changed) {
-            saveState(nextBoard);
+            saveStateRef.current(nextBoard);
             showToast("⚡ Quarter scores auto-updated from live game!");
           }
         }
@@ -454,33 +683,65 @@ function SquaresPoolApp() {
   const handleShareOnline = async () => {
     if (poolId) {
       localStorage.setItem(`squares_owner_${poolId}`, "true");
-      setIsOwner(true);
+      setIsAuthDenied(false);
       const url = `${window.location.origin}/squares?id=${poolId}&view=1`;
       await navigator.clipboard.writeText(url);
       showToast("Shareable link copied! (View-only for players)");
       return;
     }
 
+    // Require authentication to publish a new pool online
+    if (!user) {
+      setConfirmModal({
+        isOpen: true,
+        title: "Account Required to Publish",
+        message: "You need a PocketPicks account to publish and manage your Super Bowl Squares pool online so you can access it across devices. Your local draft will be saved.",
+        actionLabel: "Log In / Register",
+        actionVariant: "primary",
+        onConfirm: () => {
+          router.push("/auth/login?redirect=/squares");
+        },
+      });
+      return;
+    }
+
     setSyncStatus("saving");
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        showToast("Please sign in again to publish.");
+        setSyncStatus("local");
+        return;
+      }
+
       const existingKey = poolId && typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${poolId}`) || "" : "";
       const res = await fetch("/api/squares", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
           ...(existingKey ? { "x-owner-key": existingKey } : {}),
         },
-        body: JSON.stringify({ board }),
+        body: JSON.stringify({
+          board,
+          creatorName: user.name || user.username || "",
+        }),
       });
       const data = await res.json();
       if (data.success && data.id) {
         setPublishedPoolId(data.id);
+        if (data.creatorUserId) {
+          setPoolCreatorId(data.creatorUserId);
+        }
+        if (data.creatorName) {
+          setPoolCreatorName(data.creatorName);
+        }
         setSyncStatus("synced");
         if (data.ownerKey) {
           localStorage.setItem(`squares_owner_key_${data.id}`, data.ownerKey);
         }
         localStorage.setItem(`squares_owner_${data.id}`, "true");
-        setIsOwner(true);
+        setIsAuthDenied(false);
         window.history.replaceState({}, "", `/squares?id=${data.id}`);
         const shareUrl = `${window.location.origin}/squares?id=${data.id}&view=1`;
         await navigator.clipboard.writeText(shareUrl);
@@ -496,17 +757,26 @@ function SquaresPoolApp() {
     }
   };
 
+  // Stable callbacks for SquareCell
+  const handleSelectCell = useCallback((r: number, c: number) => {
+    setSelectedCell({ r, c });
+  }, []);
+
+  const handleCellBlur = useCallback(() => {
+    setSelectedCell(null);
+  }, []);
+
   // Cell Updates - preserve spaces while typing!
-  const handleCellChange = (r: number, c: number, name: string) => {
+  const handleCellChange = useCallback((r: number, c: number, name: string) => {
     const key = `${r}_${c}`;
-    const nextGrid = { ...board.grid };
+    const nextGrid = { ...boardRef.current.grid };
     if (name === "") {
       delete nextGrid[key];
     } else {
       nextGrid[key] = name;
     }
-    saveState({ ...board, grid: nextGrid });
-  };
+    saveStateRef.current({ ...boardRef.current, grid: nextGrid });
+  }, []);
 
   // Header Updates
   const openHeaderEdit = (type: "top" | "left", index: number) => {
@@ -620,35 +890,34 @@ function SquaresPoolApp() {
     return { totalClaimed, remaining, percentage, userList, totalPot, fullPot, cost };
   }, [board.grid, board.costPerSquare]);
 
-  // Scoring / Winner calculation
-  const getWinnerForScore = (topScoreStr: string, leftScoreStr: string) => {
-    if (!topScoreStr || !leftScoreStr) return null;
-    const topNum = topScoreStr.trim();
-    const leftNum = leftScoreStr.trim();
-    const topLastDigit = topNum.charAt(topNum.length - 1);
-    const leftLastDigit = leftNum.charAt(leftNum.length - 1);
-
-    const cIndex = board.topNumbers.findIndex((n) => n.trim() === topLastDigit);
-    const rIndex = board.leftNumbers.findIndex((n) => n.trim() === leftLastDigit);
-
-    if (cIndex !== -1 && rIndex !== -1) {
-      const winnerName = board.grid[`${rIndex}_${cIndex}`];
-      return { rIndex, cIndex, winnerName, topDigit: topLastDigit, leftDigit: leftLastDigit };
-    }
-    return null;
-  };
-
   const quarterWinners = useMemo(() => {
+    const getWinner = (topScoreStr: string, leftScoreStr: string) => {
+      if (!topScoreStr || !leftScoreStr) return null;
+      const topNum = topScoreStr.trim();
+      const leftNum = leftScoreStr.trim();
+      const topLastDigit = topNum.charAt(topNum.length - 1);
+      const leftLastDigit = leftNum.charAt(leftNum.length - 1);
+
+      const cIndex = board.topNumbers.findIndex((n) => n.trim() === topLastDigit);
+      const rIndex = board.leftNumbers.findIndex((n) => n.trim() === leftLastDigit);
+
+      if (cIndex !== -1 && rIndex !== -1) {
+        const winnerName = board.grid[`${rIndex}_${cIndex}`];
+        return { rIndex, cIndex, winnerName, topDigit: topLastDigit, leftDigit: leftLastDigit };
+      }
+      return null;
+    };
+
     return {
-      q1: getWinnerForScore(board.q1Score.top, board.q1Score.left),
-      q2: getWinnerForScore(board.q2Score.top, board.q2Score.left),
-      q3: getWinnerForScore(board.q3Score.top, board.q3Score.left),
-      final: getWinnerForScore(board.finalScore.top, board.finalScore.left),
+      q1: getWinner(board.q1Score.top, board.q1Score.left),
+      q2: getWinner(board.q2Score.top, board.q2Score.left),
+      q3: getWinner(board.q3Score.top, board.q3Score.left),
+      final: getWinner(board.finalScore.top, board.finalScore.left),
     };
   }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore, board.topNumbers, board.leftNumbers, board.grid]);
 
-  // Keyboard navigation across cells
-  const handleCellKeyDown = (e: React.KeyboardEvent, r: number, c: number) => {
+  // Keyboard navigation across cells (memoized)
+  const handleCellKeyDown = useCallback((e: React.KeyboardEvent, r: number, c: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       if (c < 9) {
@@ -673,13 +942,7 @@ function SquaresPoolApp() {
       e.preventDefault();
       if (r > 0) setSelectedCell({ r: r - 1, c });
     }
-  };
-
-  useEffect(() => {
-    if (selectedCell && cellInputRef.current) {
-      cellInputRef.current.focus();
-    }
-  }, [selectedCell]);
+  }, []);
 
   if (!mounted || isLoadingOnline) {
     return (
@@ -772,18 +1035,8 @@ function SquaresPoolApp() {
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 transition-colors no-print">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-            <Link
-              href="/"
-              className="p-1.5 sm:p-2 -ml-1 sm:-ml-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
-              title="Return to Home"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-xs shrink-0">
-                <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="min-w-0">
+            <GameSwitcherDropdown currentGame="squares" />
+            <div className="min-w-0">
                 <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
                   <span className="truncate">{board.title || "Super Bowl Squares"}</span>
                   {poolId ? (
@@ -802,7 +1055,6 @@ function SquaresPoolApp() {
                 </p>
               </div>
             </div>
-          </div>
 
           {/* Right Toolbar Actions */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -822,6 +1074,23 @@ function SquaresPoolApp() {
                 <span className="hidden sm:inline">{isViewerPreview ? "Exit Preview" : "Spectator Preview"}</span>
                 <span className="sm:hidden">{isViewerPreview ? "Edit" : "View"}</span>
               </button>
+            )}
+
+            {/* Sync status indicator */}
+            {poolId && isOwner && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0">
+                {syncStatus === "saving" ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    <span>Saving...</span>
+                  </>
+                ) : syncStatus === "synced" ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-emerald-600 dark:text-emerald-400">Synced</span>
+                  </>
+                ) : null}
+              </span>
             )}
 
             {/* Share / Copy Link Button */}
@@ -912,12 +1181,69 @@ function SquaresPoolApp() {
             >
               {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
+
+            {/* User Profile / Auth Button */}
+            {user ? (
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 ${
+                    user.avatarColor || "bg-emerald-600"
+                  }`}
+                >
+                  {(user.name || user.username || user.email || "U").charAt(0).toUpperCase()}
+                </div>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 max-w-[100px] truncate hidden md:inline">
+                  {user.name || user.username || (user.email ? user.email.split("@")[0] : "User")}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
+                <Link
+                  href={`/auth/login?redirect=${encodeURIComponent(poolId ? `/squares?id=${poolId}` : "/squares")}`}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sign In</span>
+                  <span className="sm:hidden">Login</span>
+                </Link>
+                <Link
+                  href={`/auth/register?redirect=${encodeURIComponent(poolId ? `/squares?id=${poolId}` : "/squares")}`}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors shrink-0"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Register</span>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-8 w-full flex-1 print-container">
+        {/* Guest Banner if not signed in and on local draft */}
+        {!authLoading && !user && !poolId && (
+          <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs no-print">
+            <div>
+              <span className="font-black text-amber-950 dark:text-amber-100">Super Bowl Squares Commissioner:</span> Log in or create an account to publish and manage your squares pool online across devices.
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/auth/login?redirect=/squares"
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/auth/register?redirect=/squares"
+                className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 font-bold text-xs transition"
+              >
+                Create Account
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Spectator View Mode (When opened via shareable link or previewed by owner) */}
         {isReadOnly ? (
           <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-6 no-print">
@@ -946,7 +1272,7 @@ function SquaresPoolApp() {
                     {board.title || "Super Bowl Squares Pool"}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    100 Squares Pool &bull; View-only board
+                    100 Squares Pool &bull; {poolCreatorName ? `Commissioner: ${poolCreatorName}` : "View-only board"}
                   </p>
                 </div>
 
@@ -1007,10 +1333,13 @@ function SquaresPoolApp() {
                   <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end min-w-0">
                     <div className="text-right min-w-0">
                       <div className="text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center justify-end gap-1">
-                        <img
+                        <Image
                           src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
                           alt="AFC"
+                          width={12}
+                          height={12}
                           className="w-3 h-3 object-contain"
+                          unoptimized
                         />
                         AFC
                       </div>
@@ -1053,10 +1382,13 @@ function SquaresPoolApp() {
                     <TeamLogo alt={liveGame.leftTeam.name} className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
                     <div className="text-left min-w-0">
                       <div className="text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
-                        <img
+                        <Image
                           src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
                           alt="NFC"
+                          width={12}
+                          height={12}
                           className="w-3 h-3 object-contain"
+                          unoptimized
                         />
                         NFC
                       </div>
@@ -1208,10 +1540,13 @@ function SquaresPoolApp() {
                 <div className="flex items-center gap-1.5 sm:gap-3 flex-1 justify-end min-w-0">
                   <div className="text-right min-w-0">
                     <div className="text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center justify-end gap-1">
-                      <img
+                      <Image
                         src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
                         alt="AFC"
+                        width={12}
+                        height={12}
                         className="w-3 h-3 object-contain"
+                        unoptimized
                       />
                       AFC
                     </div>
@@ -1262,10 +1597,13 @@ function SquaresPoolApp() {
                   </div>
                   <div className="text-left min-w-0">
                     <div className="text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
-                      <img
+                      <Image
                         src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
                         alt="NFC"
+                        width={12}
+                        height={12}
                         className="w-3 h-3 object-contain"
+                        unoptimized
                       />
                       NFC
                     </div>
@@ -1416,10 +1754,13 @@ function SquaresPoolApp() {
           {/* Top Team Banner (AFC) above grid */}
           <div className="bg-slate-100/90 dark:bg-slate-800/80 px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 sm:gap-2.5 text-center">
             <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black uppercase text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 px-2 py-0.5 rounded-md tracking-wider">
-              <img
+              <Image
                 src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
                 alt="AFC"
+                width={14}
+                height={14}
                 className="w-3.5 h-3.5 object-contain"
+                unoptimized
               />
               AFC
             </span>
@@ -1436,10 +1777,13 @@ function SquaresPoolApp() {
               <div className="w-12 sm:w-14 bg-slate-100/90 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center select-none py-4 shrink-0">
                 <div className="flex items-center justify-center gap-2.5 [writing-mode:vertical-lr] rotate-180 select-none">
                   <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black uppercase text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-900/60 px-2 py-0.5 rounded-md tracking-wider">
-                    <img
+                    <Image
                       src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
                       alt="NFC"
+                      width={14}
+                      height={14}
                       className="w-3.5 h-3.5 object-contain rotate-90"
+                      unoptimized
                     />
                     NFC
                   </span>
@@ -1515,128 +1859,38 @@ function SquaresPoolApp() {
                           const key = `${rIdx}_${cIdx}`;
                           const name = board.grid[key] || "";
                           const isSelected = !isReadOnly && selectedCell?.r === rIdx && selectedCell?.c === cIdx;
-                          const isFilterMatch =
+                          const isFilterMatch = Boolean(
                             filterUser.trim() &&
-                            name.toLowerCase().includes(filterUser.trim().toLowerCase());
+                            name.toLowerCase().includes(filterUser.trim().toLowerCase())
+                          );
 
                           // Check if this square won any quarter
                           const isQ1Winner = quarterWinners.q1?.rIndex === rIdx && quarterWinners.q1?.cIndex === cIdx;
                           const isQ2Winner = quarterWinners.q2?.rIndex === rIdx && quarterWinners.q2?.cIndex === cIdx;
                           const isQ3Winner = quarterWinners.q3?.rIndex === rIdx && quarterWinners.q3?.cIndex === cIdx;
                           const isFinalWinner = quarterWinners.final?.rIndex === rIdx && quarterWinners.final?.cIndex === cIdx;
-                          const isAnyWinner = isQ1Winner || isQ2Winner || isQ3Winner || isFinalWinner;
-
-                          // Color-match winner highlight border to tag color
-                          let winnerBorderColor = "";
-                          let winnerBgColor = "";
-                          if (isFinalWinner) {
-                            winnerBorderColor = "border-emerald-600";
-                            winnerBgColor = "bg-emerald-50/80 dark:bg-emerald-950/40";
-                          } else if (isQ3Winner) {
-                            winnerBorderColor = "border-purple-500";
-                            winnerBgColor = "bg-purple-50/80 dark:bg-purple-950/40";
-                          } else if (isQ2Winner) {
-                            winnerBorderColor = "border-sky-500";
-                            winnerBgColor = "bg-sky-50/80 dark:bg-sky-950/40";
-                          } else if (isQ1Winner) {
-                            winnerBorderColor = "border-amber-500";
-                            winnerBgColor = "bg-amber-50/80 dark:bg-amber-950/40";
-                          }
 
                           return (
-                            <td
+                            <SquareCell
                               key={cIdx}
-                              onClick={() => !isReadOnly && setSelectedCell({ r: rIdx, c: cIdx })}
-                              className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition select-none overflow-hidden last:border-r-0 ${
-                                isReadOnly ? "cursor-default" : "cursor-pointer"
-                              } ${
-                                isSelected
-                                  ? "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
-                                  : isAnyWinner
-                                  ? winnerBgColor
-                                  : isFilterMatch
-                                  ? "bg-amber-100/90 dark:bg-amber-950/60"
-                                  : name
-                                  ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                  : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
-                              }`}
-                            >
-                              {/* Symmetrical Uniform 2px Border Highlight (Equal thickness on top, bottom, left, and right) */}
-                              {isSelected ? (
-                                <div className="absolute inset-0 border-2 border-emerald-500 pointer-events-none z-20" />
-                              ) : isAnyWinner ? (
-                                <div className={`absolute inset-0 border-2 ${winnerBorderColor} pointer-events-none z-20`} />
-                              ) : isFilterMatch ? (
-                                <div className="absolute inset-0 border-2 border-amber-400 pointer-events-none z-20" />
-                              ) : null}
-
-                              {isSelected ? (
-                                <div className="w-full h-full flex items-center justify-center p-0.5">
-                                  <input
-                                    ref={cellInputRef}
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
-                                    onBlur={() => setSelectedCell(null)}
-                                    onKeyDown={(e) => handleCellKeyDown(e, rIdx, cIdx)}
-                                    placeholder="Name"
-                                    className="w-full h-7 text-center text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded border border-emerald-500 shadow-2xs px-1 focus:outline-hidden"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center px-0.5">
-                                  {!isPrintingBlank && name ? (
-                                    /* If name contains spaces (first & last name), split into two rows to prevent wide stretching */
-                                    name.includes(" ") ? (
-                                      <div className="flex flex-col items-center justify-center leading-tight max-w-full">
-                                        {name.split(" ").filter(Boolean).map((part, pIdx) => (
-                                          <span
-                                            key={pIdx}
-                                            className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full"
-                                          >
-                                            {part}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
-                                        {name}
-                                      </span>
-                                    )
-                                  ) : (
-                                    <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium select-none no-print">
-                                      {board.leftNumbers[rIdx]},{board.topNumbers[cIdx]}
-                                    </span>
-                                  )}
-
-                                  {/* Winner Badge on square with matched color */}
-                                  {isAnyWinner && (
-                                    <div className="absolute top-0.5 right-0.5 flex gap-0.5 no-print z-10">
-                                      {isQ1Winner && (
-                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-amber-500 text-white shadow-2xs">
-                                          Q1
-                                        </span>
-                                      )}
-                                      {isQ2Winner && (
-                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-sky-500 text-white shadow-2xs">
-                                          Q2
-                                        </span>
-                                      )}
-                                      {isQ3Winner && (
-                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-purple-500 text-white shadow-2xs">
-                                          Q3
-                                        </span>
-                                      )}
-                                      {isFinalWinner && (
-                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-emerald-600 text-white shadow-2xs">
-                                          FINAL
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </td>
+                              rIdx={rIdx}
+                              cIdx={cIdx}
+                              name={name}
+                              isSelected={isSelected}
+                              isReadOnly={isReadOnly}
+                              isFilterMatch={isFilterMatch}
+                              isQ1Winner={isQ1Winner}
+                              isQ2Winner={isQ2Winner}
+                              isQ3Winner={isQ3Winner}
+                              isFinalWinner={isFinalWinner}
+                              isPrintingBlank={isPrintingBlank}
+                              topNumber={board.topNumbers[cIdx]}
+                              leftNumber={board.leftNumbers[rIdx]}
+                              onSelect={handleSelectCell}
+                              onChange={handleCellChange}
+                              onBlur={handleCellBlur}
+                              onKeyDown={handleCellKeyDown}
+                            />
                           );
                         })}
                       </tr>
@@ -1910,8 +2164,14 @@ function SquaresPoolApp() {
 
       {/* EDIT HEADER POPUP MODAL */}
       {editingHeader && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-sm border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+        <div
+          onClick={() => setEditingHeader(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-sm border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain"
+          >
             <h3 className="text-lg font-black text-slate-900 dark:text-white">
               Edit {editingHeader.type === "top" ? `Column ${editingHeader.index + 1}` : `Row ${editingHeader.index + 1}`} Header
             </h3>
@@ -1952,8 +2212,14 @@ function SquaresPoolApp() {
 
       {/* CONFIRMATION SITE MODAL */}
       {confirmModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+        <div
+          onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto overscroll-contain"
+          >
             <div className="flex items-start gap-4">
               <div
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
@@ -2004,8 +2270,14 @@ function SquaresPoolApp() {
 
       {/* RULES & HOW IT WORKS MODAL */}
       {showRulesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 no-print">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-4">
+        <div
+          onClick={() => setShowRulesModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain"
+          >
             <button
               type="button"
               onClick={() => setShowRulesModal(false)}

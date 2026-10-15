@@ -35,6 +35,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
+import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 
 export function LandingPage() {
   const router = useRouter();
@@ -238,15 +239,13 @@ export function LandingPage() {
       ───────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-              <Trophy className="w-4 h-4" />
-            </div>
-            <span className="font-black text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">
+          {/* Logo & Game Switcher */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <GameSwitcherDropdown currentGame="pickem" />
+            <Link href="/" className="font-black text-base sm:text-lg tracking-tight text-slate-900 dark:text-white hover:opacity-90 transition-opacity">
               PocketPicks<span className="text-[10px] align-super font-bold text-emerald-600 dark:text-emerald-400 ml-0.5">TM</span>
-            </span>
-          </Link>
+            </Link>
+          </div>
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">

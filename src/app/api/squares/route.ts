@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/server-auth";
+import { adminDb, requireUser, HttpError } from "@/lib/server-auth";
 import { validateAndSanitizeBoard, generateOwnerKey } from "@/lib/squares-validation";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -23,8 +23,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 429 });
     }
 
+    // Authentication: Only authenticated users can create or publish a squares pool
+    let caller;
+    try {
+      caller = await requireUser(request);
+    } catch (authErr: unknown) {
+      const msg = authErr instanceof HttpError ? authErr.message : "Authentication required";
+      return NextResponse.json(
+        { error: msg === "Not signed in" ? "Please log in to create or publish a squares pool" : msg },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json().catch(() => null);
-    const { board: rawBoard, requestedId } = body || {};
+    const { board: rawBoard, requestedId, creatorName: clientCreatorName } = body || {};
 
     if (!rawBoard) {
       return NextResponse.json({ error: "Missing board payload" }, { status: 400 });
@@ -55,22 +67,49 @@ export async function POST(request: Request) {
     const existingData = existing.exists ? existing.data() : null;
 
     // Authorization check if pool already exists
-    let ownerKey = "";
-    if (existingData?.ownerKey) {
-      const headerKey = request.headers.get("x-owner-key") || "";
-      const bodyKey = typeof body?.ownerKey === "string" ? body.ownerKey : "";
-      const providedKey = (headerKey || bodyKey).trim();
-
-      if (!providedKey || providedKey !== existingData.ownerKey) {
+    let ownerKey = existingData?.ownerKey || "";
+    if (existingData) {
+      // If pool already has a creatorUserId, ensure caller matches
+      if (existingData.creatorUserId && existingData.creatorUserId !== caller.uid) {
         return NextResponse.json(
-          { error: "Unauthorized: only the commissioner can modify this board" },
+          { error: "Unauthorized: only the commissioner who created this board can modify it" },
           { status: 403 }
         );
       }
-      ownerKey = existingData.ownerKey;
+
+      // If legacy pool missing creatorUserId, check legacy ownerKey
+      if (!existingData.creatorUserId && existingData.ownerKey) {
+        const headerKey = request.headers.get("x-owner-key") || "";
+        const bodyKey = typeof body?.ownerKey === "string" ? body.ownerKey : "";
+        const providedKey = (headerKey || bodyKey).trim();
+
+        if (!providedKey || providedKey !== existingData.ownerKey) {
+          return NextResponse.json(
+            { error: "Unauthorized: only the commissioner can modify this board" },
+            { status: 403 }
+          );
+        }
+      }
     } else {
-      // New pool (or legacy pool missing key) gets a fresh ownerKey
+      // New pool gets a fresh ownerKey for backward compatibility
       ownerKey = generateOwnerKey();
+    }
+
+    // Resolve creator's display name from client body, Firestore user profile, or email
+    let creatorName = typeof clientCreatorName === "string" ? clientCreatorName.trim() : "";
+    if (!creatorName) {
+      try {
+        const userDoc = await db.collection("users").doc(caller.uid).get();
+        if (userDoc.exists) {
+          const u = userDoc.data();
+          creatorName = u?.name || u?.username || "";
+        }
+      } catch {
+        // Fallback to email
+      }
+    }
+    if (!creatorName) {
+      creatorName = caller.email ? caller.email.split("@")[0] : "Commissioner";
     }
 
     const now = new Date().toISOString();
@@ -78,6 +117,9 @@ export async function POST(request: Request) {
       {
         id: poolId,
         board,
+        creatorUserId: existingData?.creatorUserId || caller.uid,
+        creatorEmail: existingData?.creatorEmail || caller.email || "",
+        creatorName: existingData?.creatorName || creatorName,
         ownerKey,
         updatedAt: now,
         createdAt: existingData?.createdAt || now,
@@ -85,7 +127,14 @@ export async function POST(request: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({ success: true, id: poolId, ownerKey, board });
+    return NextResponse.json({
+      success: true,
+      id: poolId,
+      creatorUserId: existingData?.creatorUserId || caller.uid,
+      creatorName: existingData?.creatorName || creatorName,
+      ownerKey,
+      board,
+    });
   } catch (err: unknown) {
     console.error("Error creating/saving squares pool:", err);
     const msg = err instanceof Error ? err.message : "Failed to save pool";

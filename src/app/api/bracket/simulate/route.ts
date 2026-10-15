@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/server-auth";
+import { adminDb, requireUser, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   simulatePlayoffOutcomes,
   rankBracketParticipants,
@@ -11,6 +12,10 @@ const PLAYOFFS_DOC_ID = "nfl_playoffs_2025";
 
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`bracket_simulate:${ip}`, 30, 60_000, "Too many simulation requests. Please slow down.");
+
+    await requireUser(request);
     const body = await request.json().catch(() => ({}));
     const action = body.action || "simulate";
     const db = adminDb();
@@ -88,6 +93,9 @@ export async function POST(request: Request) {
       leaderboard: rankedLeaderboard,
     });
   } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error running bracket simulation:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to run simulation" },

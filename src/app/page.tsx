@@ -10,6 +10,7 @@ import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings } from "lucide-rea
 import { authFetch } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
+import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 
 interface LeagueMembership {
   id: string;
@@ -240,9 +241,7 @@ export default function Home() {
       {/* Top Bar */}
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm">
-            <Trophy className="w-5 h-5" />
-          </div>
+          <GameSwitcherDropdown currentGame="pickem" />
           <span className="font-black text-lg tracking-tight">PocketPicks</span>
         </div>
 
