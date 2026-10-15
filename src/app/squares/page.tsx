@@ -728,13 +728,13 @@ function SquaresPoolApp() {
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full flex-1 print-container">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-8 w-full flex-1 print-container">
         {/* Banner / Title & Event Configuration */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs mb-6 space-y-5 no-print">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs mb-3 sm:mb-6 space-y-3 sm:space-y-5 no-print">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
+                <label className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                   Pool / Event Title
                 </label>
                 {poolId && (
@@ -748,34 +748,34 @@ function SquaresPoolApp() {
                 value={board.title}
                 onChange={(e) => saveState({ ...board, title: e.target.value })}
                 placeholder="Super Bowl Squares Pool"
-                className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-emerald-500 focus:outline-hidden transition w-full py-0.5"
+                className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-emerald-500 focus:outline-hidden transition w-full py-0.5 truncate"
               />
             </div>
 
-            {/* Quick Metrics */}
-            <div className="flex items-center flex-wrap gap-2.5 sm:gap-3 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-800/80 px-3 py-2 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-2">
-                <Grid className="w-4 h-4 text-emerald-500" />
-                <div>
+            {/* Quick Metrics - All fit on a single line on mobile */}
+            <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs shrink-0 overflow-x-auto pb-0.5 sm:pb-0">
+              <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <div className="whitespace-nowrap">
                   <span className="font-extrabold text-slate-900 dark:text-white">{stats.totalClaimed}</span>
-                  <span className="text-slate-500 dark:text-slate-400"> / 100 Squares</span>
+                  <span className="text-slate-500 dark:text-slate-400">/100<span className="hidden xs:inline"> Sq</span></span>
                 </div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-800/80 px-3 py-2 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-2">
-                <Users className="w-4 h-4 text-sky-500" />
-                <div>
+              <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                <div className="whitespace-nowrap">
                   <span className="font-extrabold text-slate-900 dark:text-white">{stats.userList.length}</span>
                   <span className="text-slate-500 dark:text-slate-400"> Players</span>
                 </div>
               </div>
 
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2 text-emerald-900 dark:text-emerald-300">
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2.5 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 sm:gap-2 text-emerald-900 dark:text-emerald-300 shrink-0 whitespace-nowrap">
                 <div>
                   {stats.cost > 0 ? (
                     <>
                       <span className="font-black">${stats.totalPot.toLocaleString()}</span>
-                      <span className="opacity-80"> Pot (${stats.cost}/sq)</span>
+                      <span className="opacity-80"> Pot<span className="hidden xs:inline"> (${stats.cost}/sq)</span></span>
                     </>
                   ) : (
                     <span className="font-bold">Free Pool</span>
@@ -785,64 +785,62 @@ function SquaresPoolApp() {
             </div>
           </div>
 
-          {/* Teams Selector & Price Per Square (No dollar sign) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-            {/* Top Team (AFC) - Columns */}
-            <div className="md:col-span-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
-                <TeamLogo alt={board.topTeam} className="w-8 h-8 object-contain" />
+          {/* Teams Selector & Price Per Square - 2 columns side-by-side on mobile */}
+          <div className="grid grid-cols-2 md:grid-cols-12 gap-2 sm:gap-4 pt-2.5 sm:pt-4 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Top Team (AFC) */}
+            <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+                  Top Team
+                </span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+                  AFC
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Top Team (Columns)
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                    AFC
-                  </span>
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
+                  <TeamLogo alt={board.topTeam} className="w-5 h-5 sm:w-7 sm:h-7 object-contain" />
                 </div>
                 <input
                   type="text"
                   value={board.topTeam}
                   onChange={(e) => saveState({ ...board, topTeam: e.target.value })}
-                  placeholder="e.g. Buffalo Bills"
-                  className="w-full text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. Bills"
+                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
 
-            {/* Left Team (NFC) - Rows */}
-            <div className="md:col-span-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
-                <TeamLogo alt={board.leftTeam} className="w-8 h-8 object-contain" />
+            {/* Left Team (NFC) */}
+            <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+                  Left Team
+                </span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 sm:px-2 py-0.5 rounded-md">
+                  NFC
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Left Team (Rows)
-                  </span>
-                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
-                    NFC
-                  </span>
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
+                  <TeamLogo alt={board.leftTeam} className="w-5 h-5 sm:w-7 sm:h-7 object-contain" />
                 </div>
                 <input
                   type="text"
                   value={board.leftTeam}
                   onChange={(e) => saveState({ ...board, leftTeam: e.target.value })}
-                  placeholder="e.g. San Francisco 49ers"
-                  className="w-full text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. 49ers"
+                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
 
-            {/* Price Per Square Input - Dollar sign removed */}
-            <div className="md:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-center">
-              <div className="flex items-center justify-between gap-1 mb-1">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  Price / Square
-                </span>
-              </div>
-              <div>
+            {/* Price Per Square Input */}
+            <div className="col-span-2 md:col-span-2 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-row md:flex-col items-center justify-between gap-2">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                Price / Square
+              </span>
+              <div className="w-20 md:w-full">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -853,8 +851,8 @@ function SquaresPoolApp() {
                     const num = clean === "" ? 0 : parseInt(clean, 10);
                     saveState({ ...board, costPerSquare: num });
                   }}
-                  placeholder="0 (Free)"
-                  className="w-full px-3 py-1.5 text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-center focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  placeholder="0"
+                  className="w-full px-2 py-1 text-xs sm:text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl text-center focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -919,71 +917,61 @@ function SquaresPoolApp() {
         </div>
 
         {/* Live NFL Game Scoreboard Banner (no-print) */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-6 no-print">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-3 sm:mb-6 no-print">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-3 pb-2 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
             {/* Live Status Badge */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black shadow-2xs">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-black shadow-2xs truncate">
                 {liveGame?.status?.state === "in" ? (
-                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-full">
+                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                     LIVE &bull; {liveGame.status.detail || "In Progress"}
                   </span>
                 ) : liveGame?.status?.completed || liveGame?.status?.state === "post" ? (
-                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                     <Check className="w-3.5 h-3.5" />
                     FINAL SCORE
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
-                    <Radio className="w-3.5 h-3.5 text-slate-400" />
-                    {liveGame?.status?.detail || "Game Scheduled / Upcoming"}
+                  <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                    <Radio className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>Scheduled<span className="hidden xs:inline"> / Upcoming</span></span>
                   </span>
                 )}
               </div>
-
-              {lastScoreUpdate && (
-                <span className="text-[11px] text-slate-400 hidden sm:inline">
-                  Updated {lastScoreUpdate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                  {liveGame?.status?.state === "in" ? " (30s live poll)" : ""}
-                </span>
-              )}
             </div>
 
-            {/* Controls: Auto-sync toggle & Manual Refresh */}
-            <div className="flex items-center flex-wrap gap-2.5">
+            {/* Controls: Auto-sync toggle, Sync & Games */}
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <label
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700/60 transition"
+                className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none"
                 title="Automatically populate Q1, Halftime, Q3, and Final scores from ESPN when each quarter ends"
               >
                 <input
                   type="checkbox"
                   checked={autoSyncScores}
                   onChange={(e) => setAutoSyncScores(e.target.checked)}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3 h-3"
                 />
-                <span className="flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  Auto-Populate Quarter Scores
-                </span>
+                <span>Auto<span className="hidden xs:inline">-Scores</span></span>
               </label>
 
               <button
                 type="button"
                 onClick={() => fetchLiveScore()}
                 disabled={isFetchingScore}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition disabled:opacity-50"
+                className="inline-flex items-center gap-1 p-1 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition disabled:opacity-50"
                 title="Fetch latest score from ESPN"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isFetchingScore ? "animate-spin text-emerald-500" : ""}`} />
-                <span>{isFetchingScore ? "Syncing..." : "Sync Score"}</span>
+                <span className="hidden sm:inline">{isFetchingScore ? "Syncing..." : "Sync"}</span>
               </button>
 
               {availableGames.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowGamePicker(!showGamePicker)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg sm:rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] sm:text-xs font-bold transition"
                   title="Choose which game to track"
                 >
                   <Tv className="w-3.5 h-3.5 text-slate-500" />
@@ -1004,11 +992,11 @@ function SquaresPoolApp() {
                     });
                     showToast(`Board updated to ${liveGame.topTeam.name} vs ${liveGame.leftTeam.name}`);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-black shadow-xs transition"
                   title="Update board teams at the top and on the grid to match this game"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Update Board to Game</span>
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Apply</span>
                 </button>
               )}
             </div>
@@ -1016,9 +1004,9 @@ function SquaresPoolApp() {
 
           {/* Optional Game Selector dropdown */}
           {showGamePicker && availableGames.length > 0 && (
-            <div className="mt-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+            <div className="mt-2.5 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
-                <span>Select an active or upcoming game to track on this board:</span>
+                <span className="text-[11px] sm:text-xs">Select a game to track:</span>
                 <div className="flex items-center gap-2">
                   {liveGame && (board.topTeam !== liveGame.topTeam.name || board.leftTeam !== liveGame.leftTeam.name) && (
                     <button
@@ -1032,7 +1020,7 @@ function SquaresPoolApp() {
                         setShowGamePicker(false);
                         showToast(`Board updated to ${liveGame.topTeam.name} vs ${liveGame.leftTeam.name}`);
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs"
+                      className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-xs"
                     >
                       <CheckCircle2 className="w-3 h-3" />
                       <span>Update Board Teams</span>
@@ -1046,14 +1034,14 @@ function SquaresPoolApp() {
                         fetchLiveScore("");
                         setShowGamePicker(false);
                       }}
-                      className="text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
+                      className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
                     >
-                      Reset to Board Teams ({board.topTeam} vs {board.leftTeam})
+                      Reset
                     </button>
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2">
                 {availableGames.map((g) => {
                   const isSelected = selectedGameId === g.id || (!selectedGameId && liveGame?.id === g.id);
                   return (
@@ -1094,7 +1082,7 @@ function SquaresPoolApp() {
 
           {/* Main Scoreboard Display */}
           {liveGame ? (
-            <div className="pt-3">
+            <div className="pt-2 sm:pt-3">
               <div className="flex items-center justify-between gap-2 sm:gap-4">
                 {/* AFC / Top Team */}
                 <div className="flex items-center gap-2 sm:gap-3.5 flex-1 justify-end min-w-0">
@@ -1153,10 +1141,15 @@ function SquaresPoolApp() {
               </div>
             </div>
           ) : (
-            <div className="pt-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Radio className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>
-                Tracking matchup for <strong>{board.topTeam}</strong> vs <strong>{board.leftTeam}</strong>. When the game starts, live score and quarter totals will automatically populate.
+            <div className="pt-2 sm:pt-3 flex items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5 min-w-0 truncate">
+                <Radio className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className="truncate">
+                  Tracking <strong>{board.topTeam}</strong> vs <strong>{board.leftTeam}</strong>
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 shrink-0 hidden xs:inline">
+                Auto-syncs live
               </span>
             </div>
           )}
