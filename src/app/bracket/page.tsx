@@ -21,6 +21,7 @@ import {
   Trash2,
   X,
   Eye,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -1321,164 +1322,307 @@ export default function BracketPage() {
       </main>
 
       {/* MODAL 1: VIEW PARTICIPANT BRACKET */}
-      {viewingParticipant && (
-        <div
-          onClick={() => setViewingParticipant(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl relative my-auto max-h-[90vh] flex flex-col"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 ${
-                    viewingParticipant.userAvatar || "bg-emerald-600"
-                  }`}
-                >
-                  {viewingParticipant.userName.charAt(0).toUpperCase()}
+      {/* MODAL 1: VIEW PARTICIPANT BRACKET (OLD SCHOOL STYLE) */}
+      {viewingParticipant && (() => {
+        const pMatchups = resolveBracketMatchups(viewingParticipant.picks);
+
+        const renderViewerMatchupBox = (gameId: BracketGameId, label?: string) => {
+          const slot = pMatchups[gameId];
+          const pick = viewingParticipant.picks[gameId];
+          const res = results[gameId];
+          const isDone = isSimulated && res?.isCompleted;
+          const isCorrect = isDone && pick && pick === res.winner;
+          const isWrong = isDone && pick && pick !== res.winner;
+          const actualWinnerTeam = isDone && res?.winner ? TEAM_BY_ABBR[res.winner] : null;
+
+          const renderViewerTeamLine = (team: PlayoffTeam | null) => {
+            if (!team) {
+              return (
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/60 text-slate-400 text-[11px]">
+                  <span>TBD</span>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-base text-slate-900 dark:text-white truncate">
-                      {viewingParticipant.userName}&apos;s Bracket
-                    </h3>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
-                      {viewingParticipant.score} / 13 pts
-                    </span>
-                  </div>
-                  {viewingParticipant.tiebreaker && (
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Tiebreaker: {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore} ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} total pts)
-                    </span>
+              );
+            }
+
+            const isPicked = pick === team.abbr;
+            const isWinner = isDone && res?.winner === team.abbr;
+
+            return (
+              <div
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  isPicked
+                    ? isCorrect
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : isWrong
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-500/50 text-emerald-900 dark:text-emerald-200"
+                    : "bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={`w-4 h-4 flex items-center justify-center rounded text-[9px] font-black shrink-0 ${
+                      isPicked
+                        ? isCorrect || isWrong
+                          ? "bg-white/20 text-white"
+                          : "bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    {team.seed}
+                  </span>
+                  <TeamLogo alt={team.abbr} width={16} height={16} className="w-4 h-4 shrink-0 object-contain" />
+                  <span className="truncate text-[11px]">{team.name}</span>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                  {isPicked && (
+                    isCorrect ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                    ) : isWrong ? (
+                      <XCircle className="w-3.5 h-3.5 text-white shrink-0" />
+                    ) : (
+                      <span className="text-[9px] font-black uppercase px-1 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200">
+                        Pick
+                      </span>
+                    )
+                  )}
+                  {!isPicked && isWinner && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   )}
                 </div>
               </div>
+            );
+          };
 
-              <button
-                type="button"
-                onClick={() => setViewingParticipant(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Body: Round-by-round picks breakdown */}
-            <div className="py-4 overflow-y-auto space-y-4 flex-1 pr-1">
-              {/* Super Bowl Pick Hero */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/10 to-amber-500/10 border border-purple-500/20 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Trophy className="w-6 h-6 text-amber-500" />
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400 block">
-                      Super Bowl Champion Pick
-                    </span>
-                    <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                      {viewingParticipant.superBowlWinner ? (
-                        <>
-                          <TeamLogo alt={viewingParticipant.superBowlWinner} width={18} height={18} className="w-4 h-4 object-contain inline" />
-                          {TEAM_BY_ABBR[viewingParticipant.superBowlWinner]?.name || viewingParticipant.superBowlWinner}
-                        </>
-                      ) : (
-                        "None Selected"
-                      )}
-                    </span>
-                  </div>
-                </div>
-                {isSimulated && viewingParticipant.superBowlWinner && (
+          return (
+            <div
+              key={gameId}
+              className={`w-full bg-white dark:bg-slate-900 border rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col gap-1.5 transition-all ${
+                isCorrect
+                  ? "border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/10"
+                  : isWrong
+                  ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/10"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 px-0.5">
+                <span className="truncate">{label || slot.title}</span>
+                {isDone && (
                   <span
-                    className={`text-xs font-black px-2.5 py-1 rounded-xl flex items-center gap-1 ${
-                      viewingParticipant.superBowlWinner === results.super_bowl?.winner
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                        : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                    className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 inline-flex items-center gap-0.5 ${
+                      isCorrect
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        : isWrong
+                        ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300"
+                        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
-                    {viewingParticipant.superBowlWinner === results.super_bowl?.winner ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Correct
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-3.5 h-3.5" /> Wrong
-                      </>
-                    )}
+                    {isCorrect ? "+1 Pt" : isWrong ? "0 Pts" : "Final"}
                   </span>
                 )}
               </div>
 
-              {/* All 13 Picks Grid */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
-                  Full 13-Game Pick Breakdown
-                </h4>
+              {renderViewerTeamLine(slot.awayTeam)}
+              {renderViewerTeamLine(slot.homeTeam)}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {Object.entries(resolveBracketMatchups(viewingParticipant.picks)).map(([gid, slot]) => {
-                    const pickAbbr = viewingParticipant.picks[gid as BracketGameId];
-                    const pickedTeam = pickAbbr ? TEAM_BY_ABBR[pickAbbr] : null;
-                    const res = results[gid as BracketGameId];
-                    const isDone = isSimulated && res?.isCompleted;
-                    const isCorrect = isDone && pickAbbr && pickAbbr === res.winner;
+              {/* Show actual winner if participant picked wrong */}
+              {isWrong && actualWinnerTeam && (
+                <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] px-1 text-slate-400 dark:text-slate-500">
+                  <span>Actual:</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                    <TeamLogo alt={actualWinnerTeam.abbr} width={12} height={12} className="w-3 h-3 object-contain" />
+                    <span className="truncate max-w-[120px]">{actualWinnerTeam.name}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        };
 
-                    return (
-                      <div
-                        key={gid}
-                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition ${
-                          isCorrect
-                            ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/60"
-                            : isDone
-                            ? "bg-rose-50/30 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40"
-                            : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
-                        }`}
-                      >
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[10px] text-slate-400 font-bold truncate">
-                            {slot.title}
-                          </span>
-                          <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate mt-0.5">
-                            {pickedTeam ? (
-                              <>
-                                <TeamLogo alt={pickedTeam.abbr} width={16} height={16} className="w-4 h-4 object-contain shrink-0" />
-                                <span className="truncate">{pickedTeam.name}</span>
-                              </>
-                            ) : (
-                              <span className="text-slate-400">No Pick</span>
-                            )}
+        return (
+          <div
+            onClick={() => setViewingParticipant(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-6xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 ${
+                      viewingParticipant.userAvatar || "bg-emerald-600"
+                    }`}
+                  >
+                    {viewingParticipant.userName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-base text-slate-900 dark:text-white truncate">
+                        {viewingParticipant.userName}&apos;s Bracket
+                      </h3>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 whitespace-nowrap">
+                        {viewingParticipant.score} / 13 pts
+                      </span>
+                    </div>
+                    {viewingParticipant.tiebreaker && (
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Tiebreaker: {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore} ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} total pts)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setViewingParticipant(null)}
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scroll sideways hint on smaller screens */}
+              <div className="xl:hidden flex items-center justify-center gap-1.5 py-1 px-3 mt-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Scroll sideways to view all 5 rounds</span>
+              </div>
+
+              {/* Modal Body: Old School 5-Column Bracket Canvas */}
+              <div className="overflow-x-auto overflow-y-auto flex-1 py-3 pr-1">
+                <div className="min-w-[1020px] py-2">
+                  <div className="grid grid-cols-5 gap-3.5 items-stretch">
+                    {/* Col 1: AFC Wild Card */}
+                    <div className="flex flex-col gap-3">
+                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        AFC Wild Card
+                      </div>
+                      {renderViewerMatchupBox("afc_wc_1")}
+                      {renderViewerMatchupBox("afc_wc_2")}
+                      {renderViewerMatchupBox("afc_wc_3")}
+                    </div>
+
+                    {/* Col 2: AFC Divisional */}
+                    <div className="flex flex-col justify-around h-full py-4 gap-4">
+                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                        AFC Divisional
+                      </div>
+                      {renderViewerMatchupBox("afc_div_1")}
+                      {renderViewerMatchupBox("afc_div_2")}
+                    </div>
+
+                    {/* Col 3: Center Column (AFC Champ, Super Bowl with Trophy & Tiebreaker, NFC Champ) */}
+                    <div className="flex flex-col justify-between h-full py-1 gap-3.5 items-center">
+                      {/* AFC Championship */}
+                      <div className="w-full">
+                        <div className="text-center font-black text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1.5">
+                          AFC Championship
+                        </div>
+                        {renderViewerMatchupBox("afc_champ", "AFC Title Game")}
+                      </div>
+
+                      {/* Super Bowl Center Card */}
+                      <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-3 flex flex-col items-center gap-2 text-center shadow-md">
+                        <div className="flex items-center gap-1.5 text-amber-500">
+                          <Trophy className="w-5 h-5" />
+                          <span className="font-black text-[11px] uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                            Super Bowl LIX
                           </span>
                         </div>
 
-                        {isDone && (
-                          <span className="shrink-0">
-                            {isCorrect ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-rose-500" />
-                            )}
-                          </span>
+                        {/* Super Bowl Matchup */}
+                        <div className="w-full text-left">
+                          {renderViewerMatchupBox("super_bowl", "Super Bowl")}
+                        </div>
+
+                        {/* Predicted Champion Hero */}
+                        {viewingParticipant.superBowlWinner && (
+                          <div className="w-full pt-1.5 border-t border-purple-300/30 dark:border-purple-800/40 flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-extrabold uppercase text-slate-400">
+                              Champion Pick:
+                            </span>
+                            <span className="font-black text-slate-900 dark:text-white flex items-center gap-1">
+                              <TeamLogo alt={viewingParticipant.superBowlWinner} width={14} height={14} className="w-3.5 h-3.5 object-contain" />
+                              {TEAM_BY_ABBR[viewingParticipant.superBowlWinner]?.name || viewingParticipant.superBowlWinner}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Predicted Tiebreaker Score */}
+                        {viewingParticipant.tiebreaker && (
+                          <div className="w-full pt-1.5 border-t border-purple-200/40 dark:border-purple-800/30 flex items-center justify-between text-[11px]">
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              Tiebreaker:
+                            </span>
+                            <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                              {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore}{" "}
+                              <span className="text-[10px] text-slate-400">
+                                ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} pts)
+                              </span>
+                            </span>
+                          </div>
                         )}
                       </div>
-                    );
-                  })}
+
+                      {/* NFC Championship */}
+                      <div className="w-full">
+                        <div className="text-center font-black text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1.5">
+                          NFC Championship
+                        </div>
+                        {renderViewerMatchupBox("nfc_champ", "NFC Title Game")}
+                      </div>
+                    </div>
+
+                    {/* Col 4: NFC Divisional */}
+                    <div className="flex flex-col justify-around h-full py-4 gap-4">
+                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                        NFC Divisional
+                      </div>
+                      {renderViewerMatchupBox("nfc_div_1")}
+                      {renderViewerMatchupBox("nfc_div_2")}
+                    </div>
+
+                    {/* Col 5: NFC Wild Card */}
+                    <div className="flex flex-col gap-3">
+                      <div className="text-center font-black text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        NFC Wild Card
+                      </div>
+                      {renderViewerMatchupBox("nfc_wc_1")}
+                      {renderViewerMatchupBox("nfc_wc_2")}
+                      {renderViewerMatchupBox("nfc_wc_3")}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewingParticipant(null)}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
-              >
-                Close
-              </button>
+              {/* Modal Footer */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+                  Total Score: <span className="text-slate-900 dark:text-white font-black">{viewingParticipant.score} / 13</span> pts
+                  {isSimulated && (
+                    <span className="ml-2 text-[11px] text-purple-600 dark:text-purple-400">
+                      ({viewingParticipant.score} correct picks)
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setViewingParticipant(null)}
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 2: CLEAR PICKS CONFIRMATION */}
       {showClearModal && (
