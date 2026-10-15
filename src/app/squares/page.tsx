@@ -53,7 +53,7 @@ const DEFAULT_LEFT_NUMBERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 const INITIAL_STATE: SquaresBoardState = {
   title: "Super Bowl Squares Pool",
-  topTeam: "Kansas City Chiefs",
+  topTeam: "Buffalo Bills",
   leftTeam: "San Francisco 49ers",
   topNumbers: [...DEFAULT_TOP_NUMBERS],
   leftNumbers: [...DEFAULT_LEFT_NUMBERS],
@@ -163,6 +163,7 @@ function SquaresPoolApp() {
         setBoard({
           ...INITIAL_STATE,
           ...parsed,
+          topTeam: parsed.topTeam === "Kansas City Chiefs" ? "Buffalo Bills" : (parsed.topTeam || "Buffalo Bills"),
           topNumbers: Array.isArray(parsed.topNumbers) && parsed.topNumbers.length === 10 ? parsed.topNumbers : DEFAULT_TOP_NUMBERS,
           leftNumbers: Array.isArray(parsed.leftNumbers) && parsed.leftNumbers.length === 10 ? parsed.leftNumbers : DEFAULT_LEFT_NUMBERS,
           grid: parsed.grid || {},
@@ -814,8 +815,8 @@ function SquaresPoolApp() {
               {/* NFC Team Column on the Left - Flex sibling to table, perfectly matching height */}
               <div className="w-12 sm:w-14 bg-slate-100/90 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center select-none py-4 shrink-0">
                 <div className="flex items-center justify-center gap-2.5 [writing-mode:vertical-lr] rotate-180 select-none">
-                  {/* Rotated logo sideways (-rotate-90) to flow along the text direction */}
-                  <div className="-rotate-90 shrink-0">
+                  {/* Rotated logo sideways (rotate-90) to flow along the text direction */}
+                  <div className="rotate-90 shrink-0">
                     <TeamLogo alt={board.leftTeam} className="w-6 h-6 object-contain" />
                   </div>
                   <span className="text-xs uppercase font-extrabold text-sky-600 dark:text-sky-400 tracking-wider">
