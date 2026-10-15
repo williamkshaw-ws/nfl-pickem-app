@@ -129,13 +129,43 @@ function SquaresPoolApp() {
     }, 3500);
   };
 
+  // Viewer & Commissioner Mode State
+  const [isOwner, setIsOwner] = useState<boolean>(true);
+  const [isViewerPreview, setIsViewerPreview] = useState<boolean>(false);
+
+  // Computed read-only status
+  const isReadOnly = (!isOwner || isViewerPreview) && searchParams.get("edit") !== "true" && searchParams.get("edit") !== "1";
+
+  // Sync document.title
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.title = `${board.title || "Super Bowl Squares"} | PocketPicks`;
+    }
+  }, [board.title]);
+
   // 1. Initial Load: Check if online pool ID in query param, otherwise local storage
   useEffect(() => {
     setMounted(true);
     const idParam = searchParams.get("id");
+    const viewParam = searchParams.get("view") === "1" || searchParams.get("mode") === "view";
+    const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
 
     if (idParam) {
       setPoolId(idParam);
+      const isOwnerSaved = typeof window !== "undefined" && localStorage.getItem(`squares_owner_${idParam}`) === "true";
+
+      if (editParam) {
+        localStorage.setItem(`squares_owner_${idParam}`, "true");
+        setIsOwner(true);
+        setIsViewerPreview(false);
+      } else if (isOwnerSaved) {
+        setIsOwner(true);
+        setIsViewerPreview(viewParam);
+      } else {
+        setIsOwner(false);
+        setIsViewerPreview(true);
+      }
+
       setIsLoadingOnline(true);
       fetch(`/api/squares/${encodeURIComponent(idParam)}`)
         .then((res) => {
@@ -165,6 +195,8 @@ function SquaresPoolApp() {
           setIsLoadingOnline(false);
         });
     } else {
+      setIsOwner(true);
+      setIsViewerPreview(false);
       loadFromLocal();
     }
   }, [searchParams]);
@@ -193,6 +225,9 @@ function SquaresPoolApp() {
   // 2. Save State: LocalStorage + Online Firestore sync (debounced)
   const saveState = (updated: SquaresBoardState, immediateOnline = false) => {
     setBoard(updated);
+
+    // If viewer is viewing a shared board, do not modify localStorage or overwrite online
+    if (!isOwner || isViewerPreview) return;
 
     // Save locally
     try {
@@ -351,9 +386,11 @@ function SquaresPoolApp() {
   // 3. Share / Publish Online
   const handleShareOnline = async () => {
     if (poolId) {
-      const url = `${window.location.origin}/squares?id=${poolId}`;
+      localStorage.setItem(`squares_owner_${poolId}`, "true");
+      setIsOwner(true);
+      const url = `${window.location.origin}/squares?id=${poolId}&view=1`;
       await navigator.clipboard.writeText(url);
-      showToast("Online link copied! Anyone with this link can view this board.");
+      showToast("Shareable link copied! (View-only for players)");
       return;
     }
 
@@ -368,10 +405,13 @@ function SquaresPoolApp() {
       if (data.success && data.id) {
         setPoolId(data.id);
         setSyncStatus("synced");
+        localStorage.setItem(`squares_owner_${data.id}`, "true");
+        setIsOwner(true);
         const newUrl = `${window.location.origin}/squares?id=${data.id}`;
         window.history.replaceState({}, "", `/squares?id=${data.id}`);
-        await navigator.clipboard.writeText(newUrl);
-        showToast("Board published online! Shareable link copied to clipboard.");
+        const shareUrl = `${window.location.origin}/squares?id=${data.id}&view=1`;
+        await navigator.clipboard.writeText(shareUrl);
+        showToast("Board published online! Shareable link copied (View-only for players).");
       } else {
         throw new Error(data.error || "Failed to publish");
       }
@@ -671,11 +711,11 @@ function SquaresPoolApp() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
-                  <span className="truncate">Super Bowl Squares</span>
+                  <span className="truncate">{board.title || "Super Bowl Squares"}</span>
                   {poolId ? (
                     <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/60 flex items-center gap-1 shrink-0">
                       <Globe className="w-2.5 h-2.5" />
-                      <span>Live<span className="hidden sm:inline"> Online</span></span>
+                      <span>{isReadOnly ? "Live Board" : "Live Online"}</span>
                     </span>
                   ) : (
                     <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
@@ -692,17 +732,37 @@ function SquaresPoolApp() {
 
           {/* Right Toolbar Actions */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Share Online Button */}
-            <button
-              type="button"
-              onClick={handleShareOnline}
-              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
-              title="Share this board online with friends"
-            >
-              {poolId ? <Copy className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              <span>{poolId ? "Copy" : "Share"}</span>
-              <span className="hidden md:inline">{poolId ? " Link" : " Online"}</span>
-            </button>
+            {/* Spectator Preview Toggle for Owner */}
+            {isOwner && poolId && (
+              <button
+                type="button"
+                onClick={() => setIsViewerPreview(!isViewerPreview)}
+                className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs border shrink-0 ${
+                  isViewerPreview
+                    ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600"
+                    : "bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+                }`}
+                title={isViewerPreview ? "Exit preview and return to commissioner editing" : "Preview how players see the shared link"}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isViewerPreview ? "Exit Preview" : "Spectator Preview"}</span>
+                <span className="sm:hidden">{isViewerPreview ? "Edit" : "View"}</span>
+              </button>
+            )}
+
+            {/* Share Online Button (Owner only) */}
+            {isOwner && (
+              <button
+                type="button"
+                onClick={handleShareOnline}
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
+                title="Share this board online with friends (view-only for players)"
+              >
+                {poolId ? <Copy className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                <span>{poolId ? "Copy" : "Share"}</span>
+                <span className="hidden md:inline">{poolId ? " Link" : " Online"}</span>
+              </button>
+            )}
 
             {/* Print / PDF */}
             <button
@@ -729,367 +789,294 @@ function SquaresPoolApp() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-8 w-full flex-1 print-container">
-        {/* Banner / Title & Event Configuration */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs mb-3 sm:mb-6 space-y-3 sm:space-y-5 no-print">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
-                <label className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                  Pool / Event Title
-                </label>
-                {poolId && (
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    ID: {poolId}
-                  </span>
-                )}
+        {/* Spectator View Mode (When opened via shareable link or previewed by owner) */}
+        {isReadOnly ? (
+          <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-6 no-print">
+            {/* If owner is previewing spectator view, show banner to exit preview */}
+            {isOwner && isViewerPreview && (
+              <div className="p-2 sm:p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>Previewing Spectator View (players cannot edit this board)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsViewerPreview(false)}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] shadow-2xs"
+                >
+                  Exit Preview
+                </button>
               </div>
-              <input
-                type="text"
-                value={board.title}
-                onChange={(e) => saveState({ ...board, title: e.target.value })}
-                placeholder="Super Bowl Squares Pool"
-                className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-emerald-500 focus:outline-hidden transition w-full py-0.5 truncate"
-              />
-            </div>
+            )}
 
-            {/* Quick Metrics - All fit on a single line on mobile */}
-            <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs shrink-0 overflow-x-auto pb-0.5 sm:pb-0">
-              <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <div className="whitespace-nowrap">
-                  <span className="font-extrabold text-slate-900 dark:text-white">{stats.totalClaimed}</span>
-                  <span className="text-slate-500 dark:text-slate-400">/100<span className="hidden xs:inline"> Sq</span></span>
+            {/* Spectator Pool Header Bar */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white truncate">
+                    {board.title || "Super Bowl Squares Pool"}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    100 Squares Pool &bull; View-only board
+                  </p>
+                </div>
+
+                {/* Quick stats pills */}
+                <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs shrink-0 overflow-x-auto pb-0.5 sm:pb-0">
+                  <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
+                    <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="font-extrabold text-slate-900 dark:text-white">{stats.totalClaimed}</span>
+                    <span className="text-slate-500 dark:text-slate-400">/100 Sq</span>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
+                    <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                    <span className="font-extrabold text-slate-900 dark:text-white">{stats.userList.length}</span>
+                    <span className="text-slate-500 dark:text-slate-400"> Players</span>
+                  </div>
+
+                  <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 shrink-0 whitespace-nowrap">
+                    {stats.cost > 0 ? (
+                      <>
+                        <span className="font-black">${stats.totalPot.toLocaleString()}</span>
+                        <span className="opacity-80"> Pot (${stats.cost}/sq)</span>
+                      </>
+                    ) : (
+                      <span className="font-bold">Free Pool</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                <div className="whitespace-nowrap">
+              {/* Player Filter Bar */}
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={filterUser}
+                  onChange={(e) => setFilterUser(e.target.value)}
+                  placeholder="Type your name to highlight your squares..."
+                  className="w-full pl-9 pr-7 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+                {filterUser && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterUser("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Spectator Live Score Banner (if game exists) */}
+            {liveGame && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
+                  {/* AFC Team */}
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end min-w-0">
+                    <div className="text-right min-w-0">
+                      <div className="text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center justify-end gap-1">
+                        <img
+                          src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
+                          alt="AFC"
+                          className="w-3 h-3 object-contain"
+                        />
+                        AFC
+                      </div>
+                      <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
+                        {liveGame.topTeam.name}
+                      </div>
+                    </div>
+                    <TeamLogo alt={liveGame.topTeam.name} className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
+                    <div className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums px-1">
+                      {liveGame.topTeam.score}
+                    </div>
+                  </div>
+
+                  {/* Status / Quarter clock */}
+                  <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2 py-0.5">
+                    <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                      {liveGame.status.shortDetail || "VS"}
+                    </span>
+                    {liveGame.topTeam.linescores?.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-lg overflow-x-auto max-w-[130px] sm:max-w-none">
+                        {liveGame.topTeam.linescores.map((val: number, idx: number) => {
+                          const leftVal = liveGame.leftTeam.linescores?.[idx] ?? 0;
+                          const qLabel = idx < 4 ? `Q${idx + 1}` : "OT";
+                          return (
+                            <span key={idx} className="whitespace-nowrap">
+                              {qLabel}: {val}-{leftVal}
+                              {idx < liveGame.topTeam.linescores.length - 1 && <span className="mx-0.5 text-slate-300 dark:text-slate-600">&bull;</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* NFC Team */}
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-start min-w-0">
+                    <div className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums px-1">
+                      {liveGame.leftTeam.score}
+                    </div>
+                    <TeamLogo alt={liveGame.leftTeam.name} className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
+                    <div className="text-left min-w-0">
+                      <div className="text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                        <img
+                          src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
+                          alt="NFC"
+                          className="w-3 h-3 object-contain"
+                        />
+                        NFC
+                      </div>
+                      <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
+                        {liveGame.leftTeam.name}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Commissioner Unified Control Card */
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-3 sm:mb-6 space-y-3 sm:space-y-4 no-print">
+            {/* Row 1: Title & Metrics & Price per square */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <label className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                    Pool Title
+                  </label>
+                  {poolId && (
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ID: {poolId}
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={board.title}
+                  onChange={(e) => saveState({ ...board, title: e.target.value })}
+                  placeholder="Super Bowl Squares Pool"
+                  className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-emerald-500 focus:outline-hidden transition w-full py-0.5 truncate"
+                />
+              </div>
+
+              {/* Quick Metrics & Price per square */}
+              <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs shrink-0 overflow-x-auto pb-0.5 sm:pb-0">
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
+                  <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="font-extrabold text-slate-900 dark:text-white">{stats.totalClaimed}</span>
+                  <span className="text-slate-500 dark:text-slate-400">/100 Sq</span>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
+                  <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                   <span className="font-extrabold text-slate-900 dark:text-white">{stats.userList.length}</span>
                   <span className="text-slate-500 dark:text-slate-400"> Players</span>
                 </div>
-              </div>
 
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2.5 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 sm:gap-2 text-emerald-900 dark:text-emerald-300 shrink-0 whitespace-nowrap">
-                <div>
+                {/* Price / Square input */}
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1 shrink-0" title="Set cost per square">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={board.costPerSquare === 0 ? "" : board.costPerSquare.toString()}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, "").slice(0, 5);
+                      const num = clean === "" ? 0 : parseInt(clean, 10);
+                      saveState({ ...board, costPerSquare: num });
+                    }}
+                    placeholder="0"
+                    className="w-9 sm:w-11 text-xs sm:text-sm font-black text-center text-slate-900 dark:text-white bg-transparent focus:outline-hidden"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">/sq</span>
+                </div>
+
+                {/* Pot */}
+                <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 shrink-0 whitespace-nowrap">
                   {stats.cost > 0 ? (
-                    <>
-                      <span className="font-black">${stats.totalPot.toLocaleString()}</span>
-                      <span className="opacity-80"> Pot<span className="hidden xs:inline"> (${stats.cost}/sq)</span></span>
-                    </>
+                    <span className="font-black">${stats.totalPot.toLocaleString()} Pot</span>
                   ) : (
                     <span className="font-bold">Free Pool</span>
                   )}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Teams Selector & Price Per Square - 2 columns side-by-side on mobile */}
-          <div className="grid grid-cols-2 md:grid-cols-12 gap-2 sm:gap-4 pt-2.5 sm:pt-4 border-t border-slate-100 dark:border-slate-800/80">
-            {/* Top Team (AFC) */}
-            <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 px-1.5 sm:px-2 py-0.5 rounded-md">
-                  <img
-                    src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
-                    alt="AFC"
-                    className="w-3.5 h-3.5 object-contain"
-                  />
-                  AFC
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-3">
-                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
-                  <TeamLogo alt={board.topTeam} className="w-5 h-5 sm:w-7 sm:h-7 object-contain" />
-                </div>
-                <input
-                  type="text"
-                  value={board.topTeam}
-                  onChange={(e) => saveState({ ...board, topTeam: e.target.value })}
-                  placeholder="e.g. Bills"
-                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-            </div>
-
-            {/* Left Team (NFC) */}
-            <div className="col-span-1 md:col-span-5 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between gap-1.5 sm:gap-2">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-900/60 px-1.5 sm:px-2 py-0.5 rounded-md">
-                  <img
-                    src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
-                    alt="NFC"
-                    className="w-3.5 h-3.5 object-contain"
-                  />
-                  NFC
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-3">
-                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
-                  <TeamLogo alt={board.leftTeam} className="w-5 h-5 sm:w-7 sm:h-7 object-contain" />
-                </div>
-                <input
-                  type="text"
-                  value={board.leftTeam}
-                  onChange={(e) => saveState({ ...board, leftTeam: e.target.value })}
-                  placeholder="e.g. 49ers"
-                  className="w-full text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
-                />
-              </div>
-            </div>
-
-            {/* Price Per Square Input */}
-            <div className="col-span-2 md:col-span-2 p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-row md:flex-col items-center justify-between gap-2">
-              <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                Price / Square
-              </span>
-              <div className="w-20 md:w-full">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={board.costPerSquare === 0 ? "" : board.costPerSquare.toString()}
-                  onChange={(e) => {
-                    const clean = e.target.value.replace(/\D/g, "").slice(0, 5);
-                    const num = clean === "" ? 0 : parseInt(clean, 10);
-                    saveState({ ...board, costPerSquare: num });
-                  }}
-                  placeholder="0"
-                  className="w-full px-2 py-1 text-xs sm:text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl text-center focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Toolbar / Tools Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-800/80">
-            {/* Row 1 on mobile: Filter / Search by name */}
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={filterUser}
-                onChange={(e) => setFilterUser(e.target.value)}
-                placeholder="Highlight player's squares..."
-                className="w-full pl-9 pr-7 py-1.5 sm:py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-              />
-              {filterUser && (
-                <button
-                  type="button"
-                  onClick={() => setFilterUser("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Row 2 on mobile: 3 buttons side-by-side on one row */}
-            <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => randomizeNumbers("both")}
-                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                title="Randomly assign 0-9 digits to rows and columns"
-              >
-                <Shuffle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Randomize<span className="hidden md:inline"> (0-9)</span></span>
-              </button>
-
-              <button
-                type="button"
-                onClick={resetHeadersToDefault}
-                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                title="Reset Top to 1-0 and First Column to A-J"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                <span>Reset<span className="hidden md:inline"> Headers</span></span>
-              </button>
-
-              <button
-                type="button"
-                onClick={clearAllSquares}
-                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                title="Clear all names on the board"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                <span>Clear<span className="hidden md:inline"> Names</span></span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Live NFL Game Scoreboard Banner (no-print) */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-3 sm:mb-6 no-print">
-          <div className="flex items-center justify-between gap-1.5 sm:gap-3 pb-2 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
-            {/* Live Status Badge */}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-black shadow-2xs truncate">
-                {liveGame?.status?.state === "in" ? (
-                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                    LIVE &bull; {liveGame.status.detail || "In Progress"}
-                  </span>
-                ) : liveGame?.status?.completed || liveGame?.status?.state === "post" ? (
-                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                    <Check className="w-3.5 h-3.5" />
-                    FINAL SCORE
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    <Radio className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>Scheduled<span className="hidden xs:inline"> / Upcoming</span></span>
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Controls: Auto-sync toggle, Sync & Games */}
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <label
-                className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none"
-                title="Automatically populate Q1, Halftime, Q3, and Final scores from ESPN when each quarter ends"
-              >
-                <input
-                  type="checkbox"
-                  checked={autoSyncScores}
-                  onChange={(e) => setAutoSyncScores(e.target.checked)}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3 h-3"
-                />
-                <span>Auto<span className="hidden xs:inline">-Scores</span></span>
-              </label>
-
-              <button
-                type="button"
-                onClick={() => fetchLiveScore()}
-                disabled={isFetchingScore}
-                className="inline-flex items-center gap-1 p-1 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition disabled:opacity-50"
-                title="Fetch latest score from ESPN"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingScore ? "animate-spin text-emerald-500" : ""}`} />
-                <span className="hidden sm:inline">{isFetchingScore ? "Syncing..." : "Sync"}</span>
-              </button>
-
-              {availableGames.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowGamePicker(!showGamePicker)}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg sm:rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] sm:text-xs font-bold transition"
-                  title="Choose which game to track"
-                >
-                  <Tv className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Games</span>
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showGamePicker ? "rotate-180" : ""}`} />
-                </button>
-              )}
-
-              {/* Update Board Teams to Match Game button */}
-              {liveGame && (board.topTeam !== liveGame.topTeam.name || board.leftTeam !== liveGame.leftTeam.name) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    saveState({
-                      ...board,
-                      topTeam: liveGame.topTeam.name,
-                      leftTeam: liveGame.leftTeam.name,
-                    });
-                    showToast(`Board updated to ${liveGame.topTeam.name} vs ${liveGame.leftTeam.name}`);
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-black shadow-xs transition"
-                  title="Update board teams at the top and on the grid to match this game"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Apply</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Optional Game Selector dropdown */}
-          {showGamePicker && availableGames.length > 0 && (
-            <div className="mt-2.5 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
-                <span className="text-[11px] sm:text-xs">Select a game to track:</span>
-                <div className="flex items-center gap-2">
-                  {liveGame && (board.topTeam !== liveGame.topTeam.name || board.leftTeam !== liveGame.leftTeam.name) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        saveState({
-                          ...board,
-                          topTeam: liveGame.topTeam.name,
-                          leftTeam: liveGame.leftTeam.name,
-                        });
-                        setShowGamePicker(false);
-                        showToast(`Board updated to ${liveGame.topTeam.name} vs ${liveGame.leftTeam.name}`);
-                      }}
-                      className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-xs"
-                    >
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Update Board Teams</span>
-                    </button>
+            {/* Row 2: Matchup & Scoreboard & Games Selector */}
+            <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 space-y-2.5">
+              {/* Header of matchup: Live state & Controls */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  {liveGame?.status?.state === "in" ? (
+                    <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      LIVE &bull; {liveGame.status.detail || "In Progress"}
+                    </span>
+                  ) : liveGame?.status?.completed || liveGame?.status?.state === "post" ? (
+                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black">
+                      <Check className="w-3 h-3" />
+                      FINAL
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-[10px] sm:text-xs font-bold">
+                      <Radio className="w-3 h-3 text-slate-400" />
+                      <span>{liveGame ? (liveGame.status?.shortDetail || "Scheduled") : "NFL Game Matchup"}</span>
+                    </span>
                   )}
-                  {selectedGameId && (
+                </div>
+
+                {/* Action Controls: Auto-sync, Sync, and Change Game button */}
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <label
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none"
+                    title="Auto-fill quarter scores from ESPN"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={autoSyncScores}
+                      onChange={(e) => setAutoSyncScores(e.target.checked)}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3 h-3"
+                    />
+                    <span>Auto-Scores</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => fetchLiveScore()}
+                    disabled={isFetchingScore}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 text-[10px] sm:text-[11px] font-bold transition disabled:opacity-50"
+                    title="Sync score from ESPN"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isFetchingScore ? "animate-spin text-emerald-500" : ""}`} />
+                    <span className="hidden sm:inline">Sync</span>
+                  </button>
+
+                  {availableGames.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedGameId("");
-                        fetchLiveScore("");
-                        setShowGamePicker(false);
-                      }}
-                      className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
+                      onClick={() => setShowGamePicker(!showGamePicker)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-bold transition shadow-2xs"
+                      title="Choose NFL game to automatically set board teams"
                     >
-                      Reset
+                      <Tv className="w-3.5 h-3.5" />
+                      <span>Change Game</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${showGamePicker ? "rotate-180" : ""}`} />
                     </button>
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2">
-                {availableGames.map((g) => {
-                  const isSelected = selectedGameId === g.id || (!selectedGameId && liveGame?.id === g.id);
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedGameId(g.id);
-                        fetchLiveScore(g.id);
-                        setShowGamePicker(false);
-                      }}
-                      className={`p-2 rounded-xl text-left border text-xs transition flex flex-col justify-between gap-1 ${
-                        isSelected
-                          ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-100 font-bold"
-                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-extrabold truncate">{g.name}</span>
-                        {g.state === "in" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                        <span>{g.status}</span>
-                        {(g.state === "in" || g.state === "post") && (
-                          <span className="font-black text-slate-900 dark:text-white">
-                            {g.awayScore} - {g.homeScore}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
-          {/* Main Scoreboard Display */}
-          {liveGame ? (
-            <div className="pt-2 sm:pt-3">
-              <div className="flex items-center justify-between gap-2 sm:gap-4">
-                {/* AFC / Top Team */}
-                <div className="flex items-center gap-2 sm:gap-3.5 flex-1 justify-end min-w-0">
+              {/* Matchup Banner: AFC Team vs NFC Team */}
+              <div className="flex items-center justify-between gap-2 sm:gap-4 pt-1">
+                {/* AFC Team */}
+                <div className="flex items-center gap-1.5 sm:gap-3 flex-1 justify-end min-w-0">
                   <div className="text-right min-w-0">
                     <div className="text-[9px] sm:text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center justify-end gap-1">
                       <img
@@ -1099,25 +1086,32 @@ function SquaresPoolApp() {
                       />
                       AFC
                     </div>
-                    <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
-                      {liveGame.topTeam.name}
+                    <input
+                      type="text"
+                      value={board.topTeam}
+                      onChange={(e) => saveState({ ...board, topTeam: e.target.value })}
+                      placeholder="e.g. Bills"
+                      title="Click to edit team name"
+                      className="text-xs sm:text-base font-black text-slate-900 dark:text-white bg-transparent text-right border-b border-transparent hover:border-slate-300 focus:border-red-500 focus:outline-hidden transition w-full max-w-[120px] sm:max-w-[180px] truncate"
+                    />
+                  </div>
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
+                    <TeamLogo alt={board.topTeam} className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
+                  </div>
+                  {liveGame && (
+                    <div className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums px-0.5">
+                      {liveGame.topTeam.score}
                     </div>
-                  </div>
-                  <TeamLogo alt={liveGame.topTeam.name} className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
-                  <div className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums px-1 sm:px-2">
-                    {liveGame.topTeam.score}
-                  </div>
+                  )}
                 </div>
 
-                {/* Score Divider & Quarter Pills */}
-                <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2 py-0.5">
+                {/* Center Divider / Clock */}
+                <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2">
                   <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                    {liveGame.status.shortDetail || "VS"}
+                    {liveGame?.status?.shortDetail || "VS"}
                   </span>
-
-                  {/* Linescores breakdown (Q1, Q2, Q3, Q4) */}
-                  {liveGame.topTeam.linescores?.length > 0 && (
-                    <div className="flex items-center gap-1 mt-1 text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 sm:px-2.5 py-0.5 rounded-lg overflow-x-auto max-w-[130px] sm:max-w-none">
+                  {liveGame?.topTeam?.linescores?.length > 0 && (
+                    <div className="flex items-center gap-1 mt-0.5 text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                       {liveGame.topTeam.linescores.map((val: number, idx: number) => {
                         const leftVal = liveGame.leftTeam.linescores?.[idx] ?? 0;
                         const qLabel = idx < 4 ? `Q${idx + 1}` : "OT";
@@ -1132,12 +1126,16 @@ function SquaresPoolApp() {
                   )}
                 </div>
 
-                {/* NFC / Left Team */}
-                <div className="flex items-center gap-2 sm:gap-3.5 flex-1 justify-start min-w-0">
-                  <div className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums px-1 sm:px-2">
-                    {liveGame.leftTeam.score}
+                {/* NFC Team */}
+                <div className="flex items-center gap-1.5 sm:gap-3 flex-1 justify-start min-w-0">
+                  {liveGame && (
+                    <div className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums px-0.5">
+                      {liveGame.leftTeam.score}
+                    </div>
+                  )}
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
+                    <TeamLogo alt={board.leftTeam} className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
                   </div>
-                  <TeamLogo alt={liveGame.leftTeam.name} className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
                   <div className="text-left min-w-0">
                     <div className="text-[9px] sm:text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
                       <img
@@ -1147,27 +1145,142 @@ function SquaresPoolApp() {
                       />
                       NFC
                     </div>
-                    <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
-                      {liveGame.leftTeam.name}
-                    </div>
+                    <input
+                      type="text"
+                      value={board.leftTeam}
+                      onChange={(e) => saveState({ ...board, leftTeam: e.target.value })}
+                      placeholder="e.g. 49ers"
+                      title="Click to edit team name"
+                      className="text-xs sm:text-base font-black text-slate-900 dark:text-white bg-transparent text-left border-b border-transparent hover:border-slate-300 focus:border-sky-500 focus:outline-hidden transition w-full max-w-[120px] sm:max-w-[180px] truncate"
+                    />
                   </div>
                 </div>
               </div>
+
+              {/* Optional Game Selector dropdown */}
+              {showGamePicker && availableGames.length > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <span className="text-[11px] sm:text-xs">Click a game to set board teams & score:</span>
+                    {selectedGameId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedGameId("");
+                          fetchLiveScore("");
+                          setShowGamePicker(false);
+                        }}
+                        className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
+                      >
+                        Reset Game
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2">
+                    {availableGames.map((g) => {
+                      const isSelected = selectedGameId === g.id || (!selectedGameId && liveGame?.id === g.id);
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => {
+                            const updated = {
+                              ...board,
+                              topTeam: g.awayTeam || board.topTeam,
+                              leftTeam: g.homeTeam || board.leftTeam,
+                            };
+                            saveState(updated);
+                            setSelectedGameId(g.id);
+                            fetchLiveScore(g.id);
+                            setShowGamePicker(false);
+                            showToast(`Board updated to ${g.awayTeam} vs ${g.homeTeam}`);
+                          }}
+                          className={`p-2 rounded-xl text-left border text-xs transition flex flex-col justify-between gap-1 ${
+                            isSelected
+                              ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-100 font-bold"
+                              : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-extrabold truncate">{g.name}</span>
+                            {g.state === "in" && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                            <span>{g.status}</span>
+                            {(g.state === "in" || g.state === "post") && (
+                              <span className="font-black text-slate-900 dark:text-white">
+                                {g.awayScore} - {g.homeScore}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="pt-2 sm:pt-3 flex items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-1.5 min-w-0 truncate">
-                <Radio className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span className="truncate">
-                  Tracking <strong>{board.topTeam}</strong> vs <strong>{board.leftTeam}</strong>
-                </span>
+
+            {/* Row 3: Quick Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              {/* Filter / Search by name */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={filterUser}
+                  onChange={(e) => setFilterUser(e.target.value)}
+                  placeholder="Highlight player's squares..."
+                  className="w-full pl-9 pr-7 py-1.5 sm:py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+                {filterUser && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterUser("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
-              <span className="text-[10px] text-slate-400 shrink-0 hidden xs:inline">
-                Auto-syncs live
-              </span>
+
+              {/* 3 buttons side-by-side */}
+              <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => randomizeNumbers("both")}
+                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
+                  title="Randomly assign 0-9 digits to rows and columns"
+                >
+                  <Shuffle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Randomize<span className="hidden md:inline"> (0-9)</span></span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetHeadersToDefault}
+                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
+                  title="Reset Top to 1-0 and First Column to A-J"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                  <span>Reset<span className="hidden md:inline"> Headers</span></span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={clearAllSquares}
+                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
+                  title="Clear all names on the board"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Clear<span className="hidden md:inline"> Names</span></span>
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* PRINT HEADER (Visible only when printed) */}
         <div className="hidden print:block mb-2 text-center">
@@ -1247,11 +1360,13 @@ function SquaresPoolApp() {
                       {board.topNumbers.map((num, cIdx) => (
                         <th
                           key={cIdx}
-                          onClick={() => openHeaderEdit("top", cIdx)}
-                          className="p-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border-b border-r border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group last:border-r-0"
-                          title="Click to edit top number"
+                          onClick={() => !isReadOnly && openHeaderEdit("top", cIdx)}
+                          className={`p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center transition select-none group last:border-r-0 ${
+                            isReadOnly ? "cursor-default" : "hover:bg-slate-200/80 dark:hover:bg-slate-700/80 cursor-pointer"
+                          }`}
+                          title={isReadOnly ? `AFC digit: ${num}` : "Click to edit top number"}
                         >
-                          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-red-500 transition">
+                          <span className={`text-base sm:text-lg font-black text-slate-900 dark:text-white transition ${!isReadOnly ? "group-hover:text-red-500" : ""}`}>
                             {num}
                           </span>
                         </th>
@@ -1264,11 +1379,13 @@ function SquaresPoolApp() {
                       <tr key={rIdx} className="h-12 sm:h-14">
                         {/* First Column Header (Row letter: default A to J) */}
                         <th
-                          onClick={() => openHeaderEdit("left", rIdx)}
-                          className="p-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border-b border-r border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group"
-                          title="Click to edit row letter/number"
+                          onClick={() => !isReadOnly && openHeaderEdit("left", rIdx)}
+                          className={`p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center transition select-none group ${
+                            isReadOnly ? "cursor-default" : "hover:bg-slate-200/80 dark:hover:bg-slate-700/80 cursor-pointer"
+                          }`}
+                          title={isReadOnly ? `NFC digit: ${rowLetter}` : "Click to edit row letter/number"}
                         >
-                          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-sky-500 transition">
+                          <span className={`text-base sm:text-lg font-black text-slate-900 dark:text-white transition ${!isReadOnly ? "group-hover:text-sky-500" : ""}`}>
                             {rowLetter}
                           </span>
                         </th>
@@ -1277,7 +1394,7 @@ function SquaresPoolApp() {
                         {Array.from({ length: 10 }).map((_, cIdx) => {
                           const key = `${rIdx}_${cIdx}`;
                           const name = board.grid[key] || "";
-                          const isSelected = selectedCell?.r === rIdx && selectedCell?.c === cIdx;
+                          const isSelected = !isReadOnly && selectedCell?.r === rIdx && selectedCell?.c === cIdx;
                           const isFilterMatch =
                             filterUser.trim() &&
                             name.toLowerCase().includes(filterUser.trim().toLowerCase());
@@ -1309,8 +1426,10 @@ function SquaresPoolApp() {
                           return (
                             <td
                               key={cIdx}
-                              onClick={() => setSelectedCell({ r: rIdx, c: cIdx })}
-                              className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition cursor-pointer select-none overflow-hidden last:border-r-0 ${
+                              onClick={() => !isReadOnly && setSelectedCell({ r: rIdx, c: cIdx })}
+                              className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition select-none overflow-hidden last:border-r-0 ${
+                                isReadOnly ? "cursor-default" : "cursor-pointer"
+                              } ${
                                 isSelected
                                   ? "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
                                   : isAnyWinner
@@ -1497,25 +1616,31 @@ function SquaresPoolApp() {
                       )}
                     </div>
 
-                    {/* Quarter Payout Input */}
+                    {/* Quarter Payout Input / Display */}
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Payout</span>
-                      <div className="relative flex items-center">
-                        <span className="text-xs font-bold text-slate-400 mr-0.5">$</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={payout}
-                          onChange={(e) => {
-                            const clean = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
-                            const nextPayouts = { ...(board.payouts || {}), [key]: clean };
-                            saveState({ ...board, payouts: nextPayouts });
-                          }}
-                          className="w-16 px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-black text-right text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
+                      {isReadOnly ? (
+                        <span className="text-xs font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                          {payout ? `$${Number(payout).toLocaleString()}` : "—"}
+                        </span>
+                      ) : (
+                        <div className="relative flex items-center">
+                          <span className="text-xs font-bold text-slate-400 mr-0.5">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="0"
+                            value={payout}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                              const nextPayouts = { ...(board.payouts || {}), [key]: clean };
+                              saveState({ ...board, payouts: nextPayouts });
+                            }}
+                            className="w-16 px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-black text-right text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1534,43 +1659,55 @@ function SquaresPoolApp() {
                     </div>
                   )}
 
-                  {/* Score inputs for AFC and NFC */}
+                  {/* Score inputs or displays for AFC and NFC */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-[10px] text-red-600 dark:text-red-400 uppercase font-bold block truncate">
                         {board.topTeam || "AFC"}
                       </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder="0"
-                        value={state.top}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "").slice(0, 3);
-                          const next = { ...board, [`${key}Score`]: { ...state, top: val } };
-                          saveState(next);
-                        }}
-                        className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500"
-                      />
+                      {isReadOnly ? (
+                        <div className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm text-slate-900 dark:text-white">
+                          {state.top !== "" ? state.top : "—"}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={state.top}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                            const next = { ...board, [`${key}Score`]: { ...state, top: val } };
+                            saveState(next);
+                          }}
+                          className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500"
+                        />
+                      )}
                     </div>
                     <div>
                       <span className="text-[10px] text-sky-600 dark:text-sky-400 uppercase font-bold block truncate">
                         {board.leftTeam || "NFC"}
                       </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder="0"
-                        value={state.left}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "").slice(0, 3);
-                          const next = { ...board, [`${key}Score`]: { ...state, left: val } };
-                          saveState(next);
-                        }}
-                        className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-500"
-                      />
+                      {isReadOnly ? (
+                        <div className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm text-slate-900 dark:text-white">
+                          {state.left !== "" ? state.left : "—"}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={state.left}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                            const next = { ...board, [`${key}Score`]: { ...state, left: val } };
+                            saveState(next);
+                          }}
+                          className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                        />
+                      )}
                     </div>
                   </div>
 
