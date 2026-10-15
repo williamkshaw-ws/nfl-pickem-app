@@ -444,18 +444,23 @@ export default function BracketPage() {
         {/* Home Team Option */}
         {renderTeamRow(slotKey, slot.homeTeam, gameResult?.homeScore, isGameDone, gameResult?.winner)}
 
-        {/* Display eliminated pick if user's pick was knocked out in an earlier round */}
+        {/* Slim, discreet footer if user's predicted pick was eliminated in an earlier round */}
         {isPickEliminated && eliminatedTeam && (
-          <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-bold text-rose-800 dark:text-rose-200">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-rose-200 dark:bg-rose-900/80 text-rose-800 dark:text-rose-200">
-                {eliminatedTeam.seed}
+          <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] px-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Pick:</span>
+              <TeamLogo
+                alt={eliminatedTeam.abbr}
+                width={14}
+                height={14}
+                className="w-3.5 h-3.5 shrink-0 object-contain"
+              />
+              <span className="truncate font-bold text-slate-700 dark:text-slate-300">
+                {eliminatedTeam.name}
               </span>
-              <TeamLogo alt={eliminatedTeam.abbr} width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
-              <span className="truncate">{eliminatedTeam.name}</span>
             </div>
-            <span className="text-xs font-extrabold text-rose-600 dark:text-rose-400 shrink-0 ml-2">
-              ❌ (Out)
+            <span className="inline-flex items-center text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 shrink-0 ml-1.5">
+              Out
             </span>
           </div>
         )}
