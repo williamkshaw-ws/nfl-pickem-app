@@ -1658,12 +1658,12 @@ function SquaresPoolApp() {
             </div>
           </div>
 
-          {/* Table Footer Instructions */}
-          <div className="bg-slate-50 dark:bg-slate-800/40 px-4 py-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 no-print">
+          {/* Table Footer Instructions (Desktop only - hidden on mobile since touch users tap to enter) */}
+          <div className="hidden sm:flex bg-slate-50 dark:bg-slate-800/40 px-4 py-2 border-t border-slate-200 dark:border-slate-800 items-center justify-between text-xs text-slate-500 dark:text-slate-400 no-print">
             <span className="text-[11px]">
               Click any square or header number to edit. Use <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Arrow Keys</kbd>, <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Tab</kbd>, or <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Enter</kbd> to move between squares.
             </span>
-            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
               {poolId ? "Online Synced" : "Auto-saved to device"}
             </span>
           </div>
