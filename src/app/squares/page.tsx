@@ -78,6 +78,12 @@ const INITIAL_STATE: SquaresBoardState = {
 
 const STORAGE_KEY = "pocketpicks_squares_v1";
 
+function getTeamNickname(fullName: string): string {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(/\s+/);
+  return parts[parts.length - 1] || fullName;
+}
+
 function SquaresPoolApp() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const searchParams = useSearchParams();
@@ -885,7 +891,7 @@ function SquaresPoolApp() {
                         />
                         AFC
                       </div>
-                      <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
+                      <div className="hidden sm:block text-xs sm:text-base font-black text-slate-900 dark:text-white whitespace-nowrap">
                         {liveGame.topTeam.name}
                       </div>
                     </div>
@@ -931,7 +937,7 @@ function SquaresPoolApp() {
                         />
                         NFC
                       </div>
-                      <div className="text-xs sm:text-base font-black text-slate-900 dark:text-white truncate">
+                      <div className="hidden sm:block text-xs sm:text-base font-black text-slate-900 dark:text-white whitespace-nowrap">
                         {liveGame.leftTeam.name}
                       </div>
                     </div>
@@ -1086,14 +1092,9 @@ function SquaresPoolApp() {
                       />
                       AFC
                     </div>
-                    <input
-                      type="text"
-                      value={board.topTeam}
-                      onChange={(e) => saveState({ ...board, topTeam: e.target.value })}
-                      placeholder="e.g. Bills"
-                      title="Click to edit team name"
-                      className="text-xs sm:text-base font-black text-slate-900 dark:text-white bg-transparent text-right border-b border-transparent hover:border-slate-300 focus:border-red-500 focus:outline-hidden transition w-full max-w-[120px] sm:max-w-[180px] truncate"
-                    />
+                    <div className="hidden sm:block text-sm sm:text-base font-black text-slate-900 dark:text-white whitespace-nowrap">
+                      {board.topTeam}
+                    </div>
                   </div>
                   <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-2xs">
                     <TeamLogo alt={board.topTeam} className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
@@ -1145,14 +1146,9 @@ function SquaresPoolApp() {
                       />
                       NFC
                     </div>
-                    <input
-                      type="text"
-                      value={board.leftTeam}
-                      onChange={(e) => saveState({ ...board, leftTeam: e.target.value })}
-                      placeholder="e.g. 49ers"
-                      title="Click to edit team name"
-                      className="text-xs sm:text-base font-black text-slate-900 dark:text-white bg-transparent text-left border-b border-transparent hover:border-slate-300 focus:border-sky-500 focus:outline-hidden transition w-full max-w-[120px] sm:max-w-[180px] truncate"
-                    />
+                    <div className="hidden sm:block text-sm sm:text-base font-black text-slate-900 dark:text-white whitespace-nowrap">
+                      {board.leftTeam}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1663,7 +1659,7 @@ function SquaresPoolApp() {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-[10px] text-red-600 dark:text-red-400 uppercase font-bold block truncate">
-                        {board.topTeam || "AFC"}
+                        {getTeamNickname(board.topTeam) || "AFC"}
                       </span>
                       {isReadOnly ? (
                         <div className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm text-slate-900 dark:text-white">
@@ -1687,7 +1683,7 @@ function SquaresPoolApp() {
                     </div>
                     <div>
                       <span className="text-[10px] text-sky-600 dark:text-sky-400 uppercase font-bold block truncate">
-                        {board.leftTeam || "NFC"}
+                        {getTeamNickname(board.leftTeam) || "NFC"}
                       </span>
                       {isReadOnly ? (
                         <div className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm text-slate-900 dark:text-white">
@@ -1715,7 +1711,7 @@ function SquaresPoolApp() {
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
                       <span>Winning square digits:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-300">
-                        {winner.topDigit} ({board.topTeam || "AFC"}), {winner.leftDigit} ({board.leftTeam || "NFC"})
+                        {winner.topDigit} ({getTeamNickname(board.topTeam) || "AFC"}), {winner.leftDigit} ({getTeamNickname(board.leftTeam) || "NFC"})
                       </span>
                     </div>
                   ) : (
