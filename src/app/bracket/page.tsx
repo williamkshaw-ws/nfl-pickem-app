@@ -13,14 +13,14 @@ import {
   UserPlus,
   HelpCircle,
   Medal,
-  RefreshCw,
   Sun,
   Moon,
   Lock,
-  Unlock,
   Users,
   Flame,
   Trash2,
+  X,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -49,9 +49,14 @@ export default function BracketPage() {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
-  const [activeTab, setActiveTab] = useState<"bracket" | "leaderboard" | "rules">("bracket");
+  const [activeTab, setActiveTab] = useState<"bracket" | "leaderboard">("bracket");
   const [mobileRoundTab, setMobileRoundTab] = useState<"wc" | "div" | "conf" | "sb">("wc");
   const [bracketViewMode, setBracketViewMode] = useState<"actual" | "projected">("actual");
+
+  // Modals state
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [viewingParticipant, setViewingParticipant] = useState<BracketParticipant | null>(null);
 
   const [picks, setPicks] = useState<BracketPicks>({});
   const [tiebreaker, setTiebreaker] = useState<TiebreakerPrediction>({
@@ -63,7 +68,6 @@ export default function BracketPage() {
   const [results, setResults] = useState<SimulationResults>({});
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  const [lockTime, setLockTime] = useState<string>("2026-01-10T21:30:00.000Z");
   const [leaderboard, setLeaderboard] = useState<BracketParticipant[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [savingPicks, setSavingPicks] = useState(false);
@@ -85,7 +89,6 @@ export default function BracketPage() {
         setResults(data.results || {});
         setIsSimulated(!!data.isSimulated);
         setIsLocked(!!data.isLocked);
-        if (data.lockTime) setLockTime(data.lockTime);
         setLeaderboard(data.leaderboard || []);
 
         if (data.currentUserEntry?.picks) {
@@ -143,7 +146,7 @@ export default function BracketPage() {
     }
   }, [picks, tiebreaker]);
 
-  // Save picks and tiebreaker to Firestore backend
+  // Save picks and tiebreaker to Firestore backend automatically
   const savePicksToBackend = async (newPicks: BracketPicks, newTb: TiebreakerPrediction) => {
     if (!user || isLocked) return;
     setSavingPicks(true);
@@ -168,7 +171,7 @@ export default function BracketPage() {
 
       if (res.ok) {
         setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2500);
+        setTimeout(() => setSaveSuccess(false), 2000);
         const data = await res.json();
         if (data.leaderboard) {
           setLeaderboard(data.leaderboard);
@@ -184,7 +187,6 @@ export default function BracketPage() {
   // Handle pick selection and cascade clearing of invalid downstream picks
   const handleSelectTeam = (gameId: BracketGameId, teamAbbr: string) => {
     if (isLocked) {
-      alert("Brackets are locked. Picks cannot be modified.");
       return;
     }
 
@@ -267,7 +269,7 @@ export default function BracketPage() {
     savePicksToBackend(picks, nextTb);
   };
 
-  // Simulate outcomes button handler
+  // Simulate outcomes button handler (locks bracket on simulate)
   const handleSimulate = async () => {
     try {
       setSimulating(true);
@@ -280,6 +282,7 @@ export default function BracketPage() {
         const data = await res.json();
         setResults(data.results || {});
         setIsSimulated(true);
+        setIsLocked(true); // Automatically locks when scores are simulated
         setLeaderboard(data.leaderboard || []);
       }
     } catch (err) {
@@ -289,7 +292,7 @@ export default function BracketPage() {
     }
   };
 
-  // Reset simulation handler
+  // Reset simulation handler (unlocks bracket when reset)
   const handleResetSimulation = async () => {
     try {
       setSimulating(true);
@@ -302,29 +305,13 @@ export default function BracketPage() {
         const data = await res.json();
         setResults(data.results || {});
         setIsSimulated(false);
+        setIsLocked(false); // Unlocks when simulation is reset
         setLeaderboard(data.leaderboard || []);
       }
     } catch (err) {
       console.error("Reset failed:", err);
     } finally {
       setSimulating(false);
-    }
-  };
-
-  // Toggle lock status (open/locked)
-  const handleToggleLock = async () => {
-    try {
-      const next = !isLocked;
-      const res = await fetch("/api/bracket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "toggle_lock", isLocked: next }),
-      });
-      if (res.ok) {
-        setIsLocked(next);
-      }
-    } catch (err) {
-      console.error("Failed to toggle lock:", err);
     }
   };
 
@@ -368,17 +355,12 @@ export default function BracketPage() {
     }
   };
 
-  // Clear all user picks
-  const handleClearPicks = () => {
-    if (isLocked) {
-      alert("Brackets are locked. Picks cannot be cleared.");
-      return;
-    }
-    if (confirm("Are you sure you want to clear all your bracket picks?")) {
-      setPicks({});
-      localStorage.removeItem(STORAGE_PICKS_KEY);
-      savePicksToBackend({}, tiebreaker);
-    }
+  // Confirm clear user picks via modal
+  const handleConfirmClearPicks = () => {
+    setPicks({});
+    localStorage.removeItem(STORAGE_PICKS_KEY);
+    savePicksToBackend({}, tiebreaker);
+    setShowClearModal(false);
   };
 
   // Matchup resolvers: User Projected Picks vs Actual Tournament Field
@@ -386,7 +368,7 @@ export default function BracketPage() {
   const actualTournamentMatchups = useMemo(() => resolveBracketMatchups(actualWinners), [actualWinners]);
   const userProjectedMatchups = useMemo(() => resolveBracketMatchups(picks), [picks]);
 
-  // When simulated or tournament active, default to showing the actual teams advancing in the tournament
+  // When simulated, default to showing the actual teams advancing in the tournament
   const isDisplayingActual = isSimulated && bracketViewMode === "actual";
   const activeMatchups = isDisplayingActual ? actualTournamentMatchups : userProjectedMatchups;
 
@@ -444,7 +426,7 @@ export default function BracketPage() {
         {/* Home Team Option */}
         {renderTeamRow(slotKey, slot.homeTeam, gameResult?.homeScore, isGameDone, gameResult?.winner)}
 
-        {/* Slim, discreet footer if user's predicted pick was eliminated in an earlier round */}
+        {/* Slim, discreet sub-line if user's predicted pick was eliminated in an earlier round */}
         {isPickEliminated && eliminatedTeam && (
           <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] px-1">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -536,7 +518,6 @@ export default function BracketPage() {
             </span>
           )}
 
-          {/* Show checkmark for correct pick, RED X for incorrect pick, or green check for unpicked winner */}
           {isSelected && (
             isPickWrong ? (
               <XCircle className="w-4 h-4 text-white shrink-0" />
@@ -586,23 +567,8 @@ export default function BracketPage() {
             </div>
           </div>
 
-          {/* Right: Lock Indicator, Simulation Actions & User Info */}
+          {/* Right: Simulation Controls & User Info */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Lock Status / Toggle */}
-            <button
-              type="button"
-              onClick={handleToggleLock}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                isLocked
-                  ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800"
-                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-              }`}
-              title={isLocked ? "Click to Unlock Brackets" : "Click to Lock Brackets"}
-            >
-              {isLocked ? <Lock className="w-3.5 h-3.5 text-rose-600" /> : <Unlock className="w-3.5 h-3.5 text-emerald-500" />}
-              <span className="hidden sm:inline">{isLocked ? "Locked" : "Open"}</span>
-            </button>
-
             {/* Simulation controls */}
             {isSimulated ? (
               <button
@@ -624,7 +590,20 @@ export default function BracketPage() {
                 title="Generate realistic playoff outcomes to test scoring"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
-                <span>Simulate Outcomes</span>
+                <span>Simulate Scores</span>
+              </button>
+            )}
+
+            {/* Clear Picks Button (in main bar) */}
+            {!isLocked && completedPicksCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowClearModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors"
+                title="Clear all picks"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Clear</span>
               </button>
             )}
 
@@ -679,7 +658,7 @@ export default function BracketPage() {
         {/* Sub-header Navigation Tabs */}
         <div className="border-t border-slate-100 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-2 sm:gap-6 py-2.5">
+            <div className="flex items-center gap-2 sm:gap-4 py-2.5">
               <button
                 type="button"
                 onClick={() => setActiveTab("bracket")}
@@ -712,17 +691,15 @@ export default function BracketPage() {
                 </span>
               </button>
 
+              {/* Simplified Rules Popup Button */}
               <button
                 type="button"
-                onClick={() => setActiveTab("rules")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === "rules"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
+                onClick={() => setShowRulesModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title="View Rules & Scoring"
               >
                 <HelpCircle className="w-3.5 h-3.5" />
-                <span>Rules &amp; Scoring</span>
+                <span>Rules</span>
               </button>
             </div>
 
@@ -758,7 +735,7 @@ export default function BracketPage() {
               {isLocked && (
                 <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs font-bold">
                   <Lock className="w-3 h-3 text-rose-600" />
-                  <span>Picks Locked</span>
+                  <span>Locked</span>
                 </div>
               )}
 
@@ -766,7 +743,7 @@ export default function BracketPage() {
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black">
                   <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   <span>
-                    Your Score: {scoreDetails.score} / 13 pts
+                    {scoreDetails.score} / 13 pts
                   </span>
                 </div>
               )}
@@ -1110,56 +1087,6 @@ export default function BracketPage() {
                 </div>
               )}
             </div>
-
-            {/* Bottom Actions Bar */}
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  Picks: <strong className="text-slate-900 dark:text-white">{completedPicksCount} / 13</strong>
-                </span>
-                <span className="text-slate-300 dark:text-slate-700">&bull;</span>
-                <button
-                  type="button"
-                  disabled={isLocked}
-                  onClick={handleClearPicks}
-                  className="text-xs text-rose-500 hover:text-rose-600 font-bold transition disabled:opacity-50"
-                >
-                  Clear Picks
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {user ? (
-                  <button
-                    type="button"
-                    onClick={() => savePicksToBackend(picks, tiebreaker)}
-                    disabled={savingPicks || isLocked}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 disabled:opacity-60"
-                  >
-                    {savingPicks ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving...
-                      </>
-                    ) : isLocked ? (
-                      <>
-                        <Lock className="w-3.5 h-3.5" /> Locked
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Save Bracket
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <Link
-                    href="/auth/login?redirect=/bracket"
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                  >
-                    <LogIn className="w-3.5 h-3.5" /> Sign in to Save
-                  </Link>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -1170,7 +1097,7 @@ export default function BracketPage() {
               <div>
                 <h2 className="text-lg font-black text-slate-900 dark:text-white">Tournament Leaderboard</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Rankings update dynamically as games complete. Ties broken by Super Bowl score.
+                  Click any participant to view their full playoff bracket.
                 </p>
               </div>
 
@@ -1218,7 +1145,7 @@ export default function BracketPage() {
                 <Trophy className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">No Brackets Submitted Yet</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                  Click &ldquo;Add Sample Competitors&rdquo; above to fill the leaderboard, or make your own picks below!
+                  Click &ldquo;Add Sample Competitors&rdquo; above to fill the leaderboard, or make your own picks!
                 </p>
                 <div className="flex items-center justify-center gap-2 mt-4">
                   <button
@@ -1249,6 +1176,7 @@ export default function BracketPage() {
                         <th className="py-3.5 px-4 text-center">Tiebreaker Prediction</th>
                         <th className="py-3.5 px-4 text-center">Picks Made</th>
                         <th className="py-3.5 px-4 text-right">Points</th>
+                        <th className="py-3.5 px-4 w-16 text-center">Bracket</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1262,10 +1190,11 @@ export default function BracketPage() {
                         return (
                           <tr
                             key={entry.id}
-                            className={`transition-colors ${
+                            onClick={() => setViewingParticipant(entry)}
+                            className={`transition-colors cursor-pointer ${
                               isCurrentUser
                                 ? "bg-emerald-50/50 dark:bg-emerald-950/20 font-bold"
-                                : "hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
+                                : "hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
                             }`}
                           >
                             <td className="py-3.5 px-4 text-center font-black">
@@ -1365,6 +1294,20 @@ export default function BracketPage() {
                                 {entry.score} <span className="text-[10px] text-slate-400 font-normal">pts</span>
                               </span>
                             </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewingParticipant(entry);
+                                }}
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                title="View full bracket"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1375,71 +1318,268 @@ export default function BracketPage() {
             )}
           </div>
         )}
+      </main>
 
-        {/* TAB 3: RULES & SCORING */}
-        {activeTab === "rules" && (
-          <div className="max-w-2xl mx-auto w-full bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col gap-6 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <HelpCircle className="w-5 h-5" />
+      {/* MODAL 1: VIEW PARTICIPANT BRACKET */}
+      {viewingParticipant && (
+        <div
+          onClick={() => setViewingParticipant(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl relative my-auto max-h-[90vh] flex flex-col"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 ${
+                    viewingParticipant.userAvatar || "bg-emerald-600"
+                  }`}
+                >
+                  {viewingParticipant.userName.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-base text-slate-900 dark:text-white truncate">
+                      {viewingParticipant.userName}&apos;s Bracket
+                    </h3>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
+                      {viewingParticipant.score} / 13 pts
+                    </span>
+                  </div>
+                  {viewingParticipant.tiebreaker && (
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tiebreaker: {viewingParticipant.tiebreaker.homeScore} - {viewingParticipant.tiebreaker.awayScore} ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} total pts)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setViewingParticipant(null)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body: Round-by-round picks breakdown */}
+            <div className="py-4 overflow-y-auto space-y-4 flex-1 pr-1">
+              {/* Super Bowl Pick Hero */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/10 to-amber-500/10 border border-purple-500/20 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Trophy className="w-6 h-6 text-amber-500" />
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase text-slate-400 block">
+                      Super Bowl Champion Pick
+                    </span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {viewingParticipant.superBowlWinner ? (
+                        <>
+                          <TeamLogo alt={viewingParticipant.superBowlWinner} width={18} height={18} className="w-4 h-4 object-contain inline" />
+                          {TEAM_BY_ABBR[viewingParticipant.superBowlWinner]?.name || viewingParticipant.superBowlWinner}
+                        </>
+                      ) : (
+                        "None Selected"
+                      )}
+                    </span>
+                  </div>
+                </div>
+                {isSimulated && viewingParticipant.superBowlWinner && (
+                  <span
+                    className={`text-xs font-black px-2.5 py-1 rounded-xl flex items-center gap-1 ${
+                      viewingParticipant.superBowlWinner === results.super_bowl?.winner
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                        : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                    }`}
+                  >
+                    {viewingParticipant.superBowlWinner === results.super_bowl?.winner ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Correct
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-3.5 h-3.5" /> Wrong
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+
+              {/* All 13 Picks Grid */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Full 13-Game Pick Breakdown
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {Object.entries(resolveBracketMatchups(viewingParticipant.picks)).map(([gid, slot]) => {
+                    const pickAbbr = viewingParticipant.picks[gid as BracketGameId];
+                    const pickedTeam = pickAbbr ? TEAM_BY_ABBR[pickAbbr] : null;
+                    const res = results[gid as BracketGameId];
+                    const isDone = isSimulated && res?.isCompleted;
+                    const isCorrect = isDone && pickAbbr && pickAbbr === res.winner;
+
+                    return (
+                      <div
+                        key={gid}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition ${
+                          isCorrect
+                            ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/60"
+                            : isDone
+                            ? "bg-rose-50/30 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40"
+                            : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
+                        }`}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[10px] text-slate-400 font-bold truncate">
+                            {slot.title}
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate mt-0.5">
+                            {pickedTeam ? (
+                              <>
+                                <TeamLogo alt={pickedTeam.abbr} width={16} height={16} className="w-4 h-4 object-contain shrink-0" />
+                                <span className="truncate">{pickedTeam.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-slate-400">No Pick</span>
+                            )}
+                          </span>
+                        </div>
+
+                        {isDone && (
+                          <span className="shrink-0">
+                            {isCorrect ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-rose-500" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewingParticipant(null)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: CLEAR PICKS CONFIRMATION */}
+      {showClearModal && (
+        <div
+          onClick={() => setShowClearModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                  How Playoff Bracket Works
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Simple, authentic NFL playoff rules and scoring.
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Clear All Picks?</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  This will remove all 13 of your playoff picks and reset your tiebreaker score. You can make new picks anytime before the tournament locks.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">1. Simple 1-Point Scoring</strong>
-                <span>
-                  You receive <strong>1 point</strong> for every game picked correctly across all 4 playoff rounds. With 13 total games, the maximum possible score is <strong>13 points</strong>.
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">2. Official 3-Tier Super Bowl Tiebreaker</strong>
-                <span>
-                  Just like the regular season, if two or more participants tie with the same point total, the winner is determined by:
-                </span>
-                <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
-                  <li><strong>Tier 1:</strong> Closest predicted combined total Super Bowl score.</li>
-                  <li><strong>Tier 2:</strong> If tied on total points, closest predicted Home Team score.</li>
-                  <li><strong>Tier 3:</strong> If still tied, closest predicted Away Team score.</li>
-                </ul>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">3. NFL Dynamic Reseeding</strong>
-                <span>
-                  Unlike college basketball brackets, the NFL re-seeds teams in the Divisional round. The <strong>#1 seed</strong> always plays the <strong>lowest remaining seed</strong> (highest seed number) that wins in the Wild Card round. When you pick your Wild Card winners, your Divisional matchups automatically populate!
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">4. Bracket Locking</strong>
-                <span>
-                  Brackets can be locked when the postseason kicks off. Once locked, picks cannot be altered.
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2 text-center">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setActiveTab("bracket")}
-                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs font-black transition shadow-xs"
+                onClick={() => setShowClearModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
               >
-                Go to My Bracket
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearPicks}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-xs"
+              >
+                Clear All Picks
               </button>
             </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
+
+      {/* MODAL 3: RULES & SCORING POPUP */}
+      {showRulesModal && (
+        <div
+          onClick={() => setShowRulesModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <HelpCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">Rules &amp; Scoring</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Playoff Challenge Summary</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                <strong className="text-slate-900 dark:text-white font-bold block mb-0.5">1 Point Per Game (Max 13 Pts)</strong>
+                <span>Score 1 pt for each correct winner across Wild Card (6), Divisional (4), Conference (2), and Super Bowl (1).</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                <strong className="text-slate-900 dark:text-white font-bold block mb-0.5">3-Tier Super Bowl Tiebreaker</strong>
+                <span>If points are tied, the winner is decided by: (1) Closest combined score &bull; (2) Closest home team score &bull; (3) Closest away team score.</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                <strong className="text-slate-900 dark:text-white font-bold block mb-0.5">NFL Reseeding</strong>
+                <span>In the Divisional round, the #1 seed automatically plays the lowest remaining seed that advanced from the Wild Card round.</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

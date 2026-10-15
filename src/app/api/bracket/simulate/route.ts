@@ -17,19 +17,26 @@ export async function POST(request: Request) {
 
     let results: SimulationResults = {};
     let isSimulated = false;
+    let isLocked = false;
     let simulatedAt: string | null = null;
 
     if (action === "simulate") {
       results = simulatePlayoffOutcomes();
       isSimulated = true;
+      isLocked = true; // Lock bracket when simulation outcomes are active
       simulatedAt = new Date().toISOString();
+    } else if (action === "reset") {
+      isSimulated = false;
+      isLocked = false; // Unlock bracket when resetting to unplayed state
+      simulatedAt = null;
     }
 
-    // Save simulation state
+    // Save simulation and lock state
     await db.collection("bracket_state").doc(PLAYOFFS_DOC_ID).set(
       {
         results,
         isSimulated,
+        isLocked,
         simulatedAt,
         updatedAt: new Date().toISOString(),
       },
@@ -76,6 +83,7 @@ export async function POST(request: Request) {
       action,
       results,
       isSimulated,
+      isLocked,
       simulatedAt,
       leaderboard: rankedLeaderboard,
     });
