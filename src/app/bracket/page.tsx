@@ -540,30 +540,30 @@ export default function BracketPage() {
   const sbAwayName = activeMatchups.super_bowl.awayTeam?.name || "Away Team";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Back & Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <Link
               href="/"
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shrink-0"
               title="Return to Home"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white">
+                <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
                   Playoff Bracket
                 </span>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
                   Challenge
                 </span>
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden xs:inline">
-                Pick 13 games &bull; 1 pt per correct game
+              <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                Picks lock at start of 1st game &bull; 1 pt / win
               </span>
             </div>
           </div>
@@ -705,11 +705,11 @@ export default function BracketPage() {
               </button>
             </div>
 
-            {/* Right: Score Pill & View Mode Switch */}
-            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-              {/* Desktop View Mode Toggle (on mobile this is shown right above the round pills) */}
+            {/* Right: Desktop Controls & Indicators (hidden on mobile to keep toolbar strictly centered) */}
+            <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+              {/* Desktop View Mode Toggle */}
               {isSimulated && (
-                <div className="hidden lg:flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
+                <div className="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
                   <button
                     type="button"
                     onClick={() => setBracketViewMode("actual")}
@@ -735,15 +735,9 @@ export default function BracketPage() {
                 </div>
               )}
 
-              {isLocked && (
-                <div className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-[11px] sm:text-xs font-bold shrink-0 whitespace-nowrap">
-                  <Lock className="w-3 h-3 text-rose-600 shrink-0" />
-                  <span className="hidden xs:inline">Locked</span>
-                </div>
-              )}
-
+              {/* Desktop Score Badge */}
               {isSimulated && (
-                <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-[11px] sm:text-xs font-black shrink-0 whitespace-nowrap">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black shrink-0 whitespace-nowrap">
                   <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
                   <span>
                     {scoreDetails.score} / 13 pts
@@ -754,7 +748,7 @@ export default function BracketPage() {
               {saveSuccess && (
                 <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in shrink-0 whitespace-nowrap">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Saved</span>
+                  <span>Saved</span>
                 </span>
               )}
             </div>
@@ -763,7 +757,7 @@ export default function BracketPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col">
+      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
         {/* Guest Banner if not signed in */}
         {!authLoading && !user && (
           <div className="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -790,31 +784,38 @@ export default function BracketPage() {
         {/* TAB 1: INTERACTIVE BRACKET */}
         {activeTab === "bracket" && (
           <div className="flex-1 flex flex-col gap-4 sm:gap-6">
-            {/* Mobile View Mode Switch (Actual Field vs My Picks Tree) */}
+            {/* Mobile Simulation Bar: View Mode Switch + Score Badge */}
             {isSimulated && (
-              <div className="flex lg:hidden items-center justify-between p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setBracketViewMode("actual")}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    bracketViewMode === "actual"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
-                      : "text-slate-500 dark:text-slate-400"
-                  }`}
-                >
-                  Actual Field
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBracketViewMode("projected")}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    bracketViewMode === "projected"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
-                      : "text-slate-500 dark:text-slate-400"
-                  }`}
-                >
-                  My Picks Tree
-                </button>
+              <div className="flex lg:hidden items-center justify-between gap-2 w-full">
+                <div className="flex-1 flex items-center p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setBracketViewMode("actual")}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      bracketViewMode === "actual"
+                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
+                        : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    Actual Field
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBracketViewMode("projected")}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      bracketViewMode === "projected"
+                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
+                        : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    My Picks Tree
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black shrink-0 shadow-2xs whitespace-nowrap">
+                  <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <span>{scoreDetails.score} / 13 pts</span>
+                </div>
               </div>
             )}
 
