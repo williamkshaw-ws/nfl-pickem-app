@@ -1082,15 +1082,19 @@ function SquaresPoolApp() {
             <GameSwitcherDropdown currentGame="squares" />
             <div className="min-w-0">
                 <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
-                  <span className="truncate">{board.title || "Super Bowl Squares"}</span>
+                  <span className="truncate">{poolId ? (board.title || "Super Bowl Squares") : user ? (board.title || "Super Bowl Squares") : "Super Bowl Squares"}</span>
                   {poolId ? (
                     <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/60 flex items-center gap-1 shrink-0">
                       <Globe className="w-2.5 h-2.5" />
                       <span>{isReadOnly ? "Live Board" : "Live Online"}</span>
                     </span>
-                  ) : (
+                  ) : user ? (
                     <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
                       Draft Board
+                    </span>
+                  ) : (
+                    <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
+                      Squares Pool
                     </span>
                   )}
                 </h1>
@@ -1349,43 +1353,45 @@ function SquaresPoolApp() {
           </div>
         ) : !user && !poolId ? (
           /* Dedicated Commissioner Lock Screen when visiting /squares without an id and unauthenticated */
-          <div className="max-w-xl mx-auto py-12 sm:py-20 px-4 text-center animate-in fade-in duration-300">
-            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner mb-6">
-              <Grid className="w-8 h-8 sm:w-10 sm:h-10" />
+          <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
+            <div className="flex flex-col items-center justify-center mb-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner flex items-center justify-center mb-4">
+                <Grid className="w-8 h-8 sm:w-10 sm:h-10" />
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider border border-amber-200 dark:border-amber-800/80 shadow-2xs">
+                <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Commissioner Access Required</span>
+              </div>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-4 border border-amber-200 dark:border-amber-800">
-              <Trophy className="w-3.5 h-3.5" />
-              <span>Commissioner Access Required</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
               Super Bowl Squares
             </h1>
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-8 max-w-md mx-auto">
+            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-8 max-w-md mx-auto">
               Setting up a 100-cell Squares pool requires a PocketPicks commissioner account. Log in or create a free account to customize your board, manage payouts, and generate shareable links for your pool.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto mb-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto mb-6">
               <Link
                 href="/auth/login?redirect=/squares"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Log In to Setup Board</span>
+                <span>Log In to Setup</span>
               </Link>
               <Link
                 href="/auth/register?redirect=/squares"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700 transition-all hover:-translate-y-0.5"
+                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700 transition-all hover:-translate-y-0.5"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Create Free Account</span>
+                <span>Create Account</span>
               </Link>
             </div>
 
-            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500">
+            <div className="pt-5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs text-slate-500">
               <span>Have a link from your commissioner?</span>
-              <span className="font-semibold text-slate-600 dark:text-slate-400">Open their shared link to view the board.</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Open their shared link to view the board.</span>
             </div>
           </div>
         ) : (

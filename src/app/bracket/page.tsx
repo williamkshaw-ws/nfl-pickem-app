@@ -20,6 +20,7 @@ import {
   X,
   Eye,
   ArrowLeftRight,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -764,42 +765,46 @@ export default function BracketPage() {
 
           {/* Right: Simulation Controls & User Info */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Simulation controls */}
-            {isSimulated ? (
-              <button
-                type="button"
-                onClick={handleResetSimulation}
-                disabled={simulating}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-                title="Reset simulation to unplayed state"
-              >
-                <RotateCcw className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
-                <span className="hidden sm:inline">Reset Scores</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSimulate}
-                disabled={simulating}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors"
-                title="Generate realistic playoff outcomes to test scoring"
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
-                <span>Simulate Scores</span>
-              </button>
-            )}
+            {/* Simulation controls (authenticated only) */}
+            {user && (
+              <>
+                {isSimulated ? (
+                  <button
+                    type="button"
+                    onClick={handleResetSimulation}
+                    disabled={simulating}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                    title="Reset simulation to unplayed state"
+                  >
+                    <RotateCcw className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">Reset Scores</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSimulate}
+                    disabled={simulating}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors"
+                    title="Generate realistic playoff outcomes to test scoring"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
+                    <span>Simulate Scores</span>
+                  </button>
+                )}
 
-            {/* Clear Picks Button (in main bar) */}
-            {!isLocked && completedPicksCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowClearModal(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors"
-                title="Clear all picks"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Clear</span>
-              </button>
+                {/* Clear Picks Button (in main bar) */}
+                {!isLocked && completedPicksCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearModal(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors"
+                    title="Clear all picks"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">Clear</span>
+                  </button>
+                )}
+              </>
             )}
 
             {/* Theme Toggle */}
@@ -850,8 +855,9 @@ export default function BracketPage() {
           </div>
         </div>
 
-        {/* Sub-header Navigation Tabs */}
-        <div className="border-t border-slate-100 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8">
+        {/* Sub-header Navigation Tabs (authenticated only) */}
+        {user && (
+          <div className="border-t border-slate-100 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 sm:py-2.5">
             {/* Left: Tabs */}
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
@@ -953,34 +959,63 @@ export default function BracketPage() {
             </div>
           </div>
         </div>
-      </header>
+      )}
+    </header>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
-        {/* Guest Banner if not signed in */}
-        {!authLoading && !user && (
-          <div className="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-            <div>
-              <span className="font-black text-amber-950 dark:text-amber-100">Make your playoff picks!</span> Log in or create an account to save your bracket and compete on the leaderboard.
+        {/* Loading State when checking auth */}
+        {authLoading ? (
+          <div className="flex flex-col items-center justify-center py-28 text-slate-400 dark:text-slate-500">
+            <Loader2 className="w-9 h-9 animate-spin text-emerald-500 mb-3" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Checking bracket access...</p>
+          </div>
+        ) : !user ? (
+          /* Dedicated Bracket Lock / Landing Screen when unauthenticated */
+          <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
+            <div className="flex flex-col items-center justify-center mb-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner flex items-center justify-center mb-4">
+                <Trophy className="w-8 h-8 sm:w-10 sm:h-10" />
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/80 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Account Required</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
+              Playoff Bracket Challenge
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-8 max-w-md mx-auto">
+              Predict the entire postseason journey from Wild Card weekend to the Super Bowl champion. Sign in or create a free account to make your picks, predict final scores, and compete on the leaderboard.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto mb-6">
               <Link
                 href="/auth/login?redirect=/bracket"
-                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
               >
-                Log In
+                <LogIn className="w-4 h-4" />
+                <span>Log In to Make Picks</span>
               </Link>
               <Link
                 href="/auth/register?redirect=/bracket"
-                className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 font-bold text-xs transition"
+                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700 transition-all hover:-translate-y-0.5"
               >
-                Create Account
+                <UserPlus className="w-4 h-4" />
+                <span>Create Account</span>
               </Link>
             </div>
-          </div>
-        )}
 
-        {/* TAB 1: INTERACTIVE BRACKET */}
+            <div className="pt-5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs text-slate-500">
+              <span>Postseason Picks:</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Picks lock automatically at kickoff of the first game.</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* TAB 1: INTERACTIVE BRACKET */}
         {activeTab === "bracket" && (
           <div className="flex-1 flex flex-col gap-4 sm:gap-6">
             {/* Mobile Simulation Bar: View Mode Switch + Score Badge */}
@@ -1434,7 +1469,9 @@ export default function BracketPage() {
             )}
           </div>
         )}
-      </main>
+      </>
+    )}
+  </main>
 
       {/* MODAL 1: VIEW PARTICIPANT BRACKET */}
       {/* MODAL 1: VIEW PARTICIPANT BRACKET (OLD SCHOOL STYLE) */}
