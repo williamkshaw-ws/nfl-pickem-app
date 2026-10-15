@@ -85,7 +85,7 @@ export function GameSwitcherDropdown({ currentGame, className = "" }: GameSwitch
   }, [isOpen]);
 
   return (
-    <div ref={dropdownRef} className={`relative inline-block text-left shrink-0 ${className}`}>
+    <div ref={dropdownRef} className={`relative inline-block text-left shrink-0 ${isOpen ? "z-50" : "z-20"} ${className}`}>
       {/* Clickable Trophy Trigger */}
       <button
         type="button"
