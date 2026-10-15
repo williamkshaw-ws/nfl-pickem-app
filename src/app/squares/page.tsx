@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Check,
   Tv,
+  HelpCircle,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -163,6 +164,9 @@ function SquaresPoolApp() {
   // Modals & UI state
   const [editingHeader, setEditingHeader] = useState<{ type: "top" | "left"; index: number } | null>(null);
   const [headerInputValue, setHeaderInputValue] = useState("");
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
+  const [isPrintingBlank, setIsPrintingBlank] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -820,29 +824,95 @@ function SquaresPoolApp() {
               </button>
             )}
 
-            {/* Share Online Button (Owner only) */}
-            {isOwner && (
+            {/* Share / Copy Link Button */}
+            {isOwner ? (
               <button
                 type="button"
                 onClick={handleShareOnline}
-                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
                 title="Share this board online with friends (view-only for players)"
               >
                 {poolId ? <Copy className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
                 <span>{poolId ? "Copy" : "Share"}</span>
                 <span className="hidden md:inline">{poolId ? " Link" : " Online"}</span>
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(window.location.href);
+                    showToast("Board link copied! Send it to your friends.");
+                  } catch {
+                    showToast("Could not copy link to clipboard.");
+                  }
+                }}
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
+                title="Copy shareable link"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Link</span>
+              </button>
             )}
 
-            {/* Print / PDF */}
+            {/* Print / PDF with Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowPrintMenu((prev) => !prev)}
+                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
+                title="Print or Save PDF"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="hidden sm:inline">Print / PDF</span>
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showPrintMenu ? "rotate-180" : ""}`} />
+              </button>
+
+              {showPrintMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowPrintMenu(false)} />
+                  <div className="absolute right-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPrintMenu(false);
+                        setIsPrintingBlank(false);
+                        setTimeout(() => window.print(), 50);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>Print Board</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPrintMenu(false);
+                        setIsPrintingBlank(true);
+                        setTimeout(() => {
+                          window.print();
+                          setTimeout(() => setIsPrintingBlank(false), 1000);
+                        }, 50);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                    >
+                      <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>Print Blank Grid</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Rules Button */}
             <button
               type="button"
-              onClick={() => window.print()}
-              className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap"
-              title="Print or Save PDF (Single Page Landscape)"
+              onClick={() => setShowRulesModal(true)}
+              className="inline-flex items-center justify-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
+              title="How to Play / Pool Rules"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span className="hidden sm:inline">Print / PDF</span>
+              <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="hidden sm:inline">Rules</span>
             </button>
 
             <button
@@ -1348,6 +1418,7 @@ function SquaresPoolApp() {
           <p className="text-xs font-semibold text-gray-700">
             AFC: {board.topTeam || "AFC"} &bull; NFC: {board.leftTeam || "NFC"}
             {stats.cost > 0 && ` • $${stats.cost} per square`}
+            {isPrintingBlank && " • Blank Grid Sheet"}
           </p>
         </div>
 
@@ -1525,7 +1596,7 @@ function SquaresPoolApp() {
                                 </div>
                               ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center px-0.5">
-                                  {name ? (
+                                  {!isPrintingBlank && name ? (
                                     /* If name contains spaces (first & last name), split into two rows to prevent wide stretching */
                                     name.includes(" ") ? (
                                       <div className="flex flex-col items-center justify-center leading-tight max-w-full">
@@ -1607,7 +1678,15 @@ function SquaresPoolApp() {
                 <Trophy className="w-4 h-4 text-amber-500" />
                 <span>Quarter Winners &amp; Live Score Tracker</span>
               </h3>
-              <span className="text-xs text-slate-400">Scores determine last-digit winners</span>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(true)}
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                title="Click to view scoring rules"
+              >
+                <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>How scoring works</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
@@ -1930,6 +2009,71 @@ function SquaresPoolApp() {
                 {confirmModal.actionLabel}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* RULES & HOW IT WORKS MODAL */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 no-print">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-4">
+            <button
+              type="button"
+              onClick={() => setShowRulesModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-xl shrink-0">
+                🏈
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+                  How Super Bowl Squares Work
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Official pool rules &amp; scoring</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed pt-1">
+              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                <span className="font-black text-emerald-600 dark:text-emerald-400 shrink-0 text-sm">1.</span>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block mb-0.5">Pick Your Squares</span>
+                  Players claim squares on the 10x10 grid. Once the board is set, columns (AFC) and rows (NFC) are assigned randomized numbers from 0 to 9.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                <span className="font-black text-emerald-600 dark:text-emerald-400 shrink-0 text-sm">2.</span>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block mb-0.5">Last-Digit Scoring</span>
+                  At the end of Q1, Halftime (Q2), Q3, and the Final score, take the <strong>last digit</strong> of each team&apos;s score.
+                  <div className="mt-1.5 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[11px] text-slate-800 dark:text-slate-200">
+                    Example: Bills <strong>17</strong>, 49ers <strong>14</strong><br />
+                    Winning square = AFC <strong>7</strong> &bull; NFC <strong>4</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                <span className="font-black text-emerald-600 dark:text-emerald-400 shrink-0 text-sm">3.</span>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block mb-0.5">Quarter Winners &amp; Payouts</span>
+                  Whoever owns the intersecting square wins the prize or bragging rights for that quarter! A single square can win multiple quarters if the numbers hit again.
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowRulesModal(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black text-xs transition shadow-sm cursor-pointer"
+            >
+              Got It
+            </button>
           </div>
         </div>
       )}
