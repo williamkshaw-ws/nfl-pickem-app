@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Trophy,
   ArrowLeft,
@@ -17,7 +18,10 @@ import {
   Moon,
   AlertTriangle,
   X,
-  DollarSign,
+  Share2,
+  Globe,
+  Loader2,
+  Copy,
   Grid,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
@@ -56,12 +60,16 @@ const INITIAL_STATE: SquaresBoardState = {
 
 const STORAGE_KEY = "pocketpicks_squares_v1";
 
-export default function SquaresPage() {
+function SquaresPoolApp() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const searchParams = useSearchParams();
 
   // Board State
   const [board, setBoard] = useState<SquaresBoardState>(INITIAL_STATE);
   const [mounted, setMounted] = useState(false);
+  const [poolId, setPoolId] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "local">("local");
+  const [isLoadingOnline, setIsLoadingOnline] = useState(false);
   const [filterUser, setFilterUser] = useState<string>("");
   const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
 
@@ -85,10 +93,55 @@ export default function SquaresPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const cellInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load from LocalStorage
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
+
+  // 1. Initial Load: Check if online pool ID in query param, otherwise local storage
   useEffect(() => {
     setMounted(true);
+    const idParam = searchParams.get("id");
+
+    if (idParam) {
+      setPoolId(idParam);
+      setIsLoadingOnline(true);
+      fetch(`/api/squares/${encodeURIComponent(idParam)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Pool not found");
+          return res.json();
+        })
+        .then((data) => {
+          if (data.board) {
+            setBoard({
+              ...INITIAL_STATE,
+              ...data.board,
+              topNumbers: Array.isArray(data.board.topNumbers) && data.board.topNumbers.length === 10 ? data.board.topNumbers : DEFAULT_TOP_NUMBERS,
+              leftNumbers: Array.isArray(data.board.leftNumbers) && data.board.leftNumbers.length === 10 ? data.board.leftNumbers : DEFAULT_LEFT_NUMBERS,
+              grid: data.board.grid || {},
+              costPerSquare: typeof data.board.costPerSquare === "number" ? data.board.costPerSquare : 10,
+            });
+            setSyncStatus("synced");
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load online squares pool:", err);
+          showToast("Could not load online pool. Loading local copy.");
+          loadFromLocal();
+        })
+        .finally(() => {
+          setIsLoadingOnline(false);
+        });
+    } else {
+      loadFromLocal();
+    }
+  }, [searchParams]);
+
+  const loadFromLocal = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -105,33 +158,94 @@ export default function SquaresPage() {
     } catch (e) {
       console.error("Failed to load squares from storage:", e);
     }
-  }, []);
+  };
 
-  // Save to LocalStorage
-  const saveState = (updated: SquaresBoardState) => {
+  // 2. Save State: LocalStorage + Online Firestore sync (debounced)
+  const saveState = (updated: SquaresBoardState, immediateOnline = false) => {
     setBoard(updated);
+
+    // Save locally
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
-      console.error("Failed to save squares to storage:", e);
+      console.error("Local save error:", e);
+    }
+
+    // Sync online if this board has an online ID
+    if (poolId) {
+      setSyncStatus("saving");
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+      const doSync = async () => {
+        try {
+          const res = await fetch(`/api/squares/${encodeURIComponent(poolId)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ board: updated }),
+          });
+          if (res.ok) {
+            setSyncStatus("synced");
+          } else {
+            setSyncStatus("local");
+          }
+        } catch (e) {
+          console.error("Online sync error:", e);
+          setSyncStatus("local");
+        }
+      };
+
+      if (immediateOnline) {
+        doSync();
+      } else {
+        saveTimeoutRef.current = setTimeout(doSync, 700);
+      }
     }
   };
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
+  // 3. Share / Publish Online
+  const handleShareOnline = async () => {
+    if (poolId) {
+      // Copy existing online link
+      const url = `${window.location.origin}/squares?id=${poolId}`;
+      await navigator.clipboard.writeText(url);
+      showToast("Online link copied! Anyone with this link can view this board.");
+      return;
+    }
+
+    // Create online pool in Firestore
+    setSyncStatus("saving");
+    try {
+      const res = await fetch("/api/squares", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ board }),
+      });
+      const data = await res.json();
+      if (data.success && data.id) {
+        setPoolId(data.id);
+        setSyncStatus("synced");
+        const newUrl = `${window.location.origin}/squares?id=${data.id}`;
+        window.history.replaceState({}, "", `/squares?id=${data.id}`);
+        await navigator.clipboard.writeText(newUrl);
+        showToast("Board published online! Shareable link copied to clipboard.");
+      } else {
+        throw new Error(data.error || "Failed to publish");
+      }
+    } catch (err: any) {
+      console.error("Share online error:", err);
+      showToast("Could not publish online. Please try again.");
+      setSyncStatus("local");
+    }
   };
 
-  // Cell Updates
+  // Cell Updates - preserve spaces while typing!
   const handleCellChange = (r: number, c: number, name: string) => {
     const key = `${r}_${c}`;
     const nextGrid = { ...board.grid };
-    if (!name.trim()) {
+    if (name === "") {
       delete nextGrid[key];
     } else {
-      nextGrid[key] = name.trim();
+      nextGrid[key] = name;
     }
     saveState({ ...board, grid: nextGrid });
   };
@@ -145,7 +259,7 @@ export default function SquaresPage() {
   const saveHeaderEdit = () => {
     if (!editingHeader) return;
     const { type, index } = editingHeader;
-    const val = headerInputValue.trim().slice(0, 4); // Keep short
+    const val = headerInputValue.trim().slice(0, 4);
     if (type === "top") {
       const nextTop = [...board.topNumbers];
       nextTop[index] = val || (index === 9 ? "0" : `${index + 1}`);
@@ -158,7 +272,7 @@ export default function SquaresPage() {
     setEditingHeader(null);
   };
 
-  // Randomize 0-9 for top and/or left
+  // Randomize 0-9
   const randomizeNumbers = (type: "both" | "top" | "left") => {
     const shuffle = () => {
       const digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -179,14 +293,14 @@ export default function SquaresPage() {
         const nextBoard = { ...board };
         if (type === "both" || type === "top") nextBoard.topNumbers = shuffle();
         if (type === "both" || type === "left") nextBoard.leftNumbers = shuffle();
-        saveState(nextBoard);
+        saveState(nextBoard, true);
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         showToast("Headers randomized 0-9!");
       },
     });
   };
 
-  // Reset to default headers (1-0 and A-J)
+  // Reset to default headers
   const resetHeadersToDefault = () => {
     setConfirmModal({
       isOpen: true,
@@ -195,18 +309,21 @@ export default function SquaresPage() {
       actionLabel: "Reset Headers",
       actionVariant: "primary",
       onConfirm: () => {
-        saveState({
-          ...board,
-          topNumbers: [...DEFAULT_TOP_NUMBERS],
-          leftNumbers: [...DEFAULT_LEFT_NUMBERS],
-        });
+        saveState(
+          {
+            ...board,
+            topNumbers: [...DEFAULT_TOP_NUMBERS],
+            leftNumbers: [...DEFAULT_LEFT_NUMBERS],
+          },
+          true
+        );
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         showToast("Headers reset to 1-0 and A-J.");
       },
     });
   };
 
-  // Clear names from grid
+  // Clear all names
   const clearAllSquares = () => {
     setConfirmModal({
       isOpen: true,
@@ -215,25 +332,23 @@ export default function SquaresPage() {
       actionLabel: "Clear Board",
       actionVariant: "danger",
       onConfirm: () => {
-        saveState({ ...board, grid: {} });
+        saveState({ ...board, grid: {} }, true);
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         showToast("All squares cleared.");
       },
     });
   };
 
-  // Stats & Calculations
+  // Stats
   const stats = useMemo(() => {
-    const claims = Object.values(board.grid);
+    const claims = Object.values(board.grid).map((n) => n.trim()).filter(Boolean);
     const totalClaimed = claims.length;
     const remaining = 100 - totalClaimed;
     const percentage = Math.round((totalClaimed / 100) * 100);
 
     const countsByUser: Record<string, number> = {};
     claims.forEach((name) => {
-      const clean = name.trim();
-      if (!clean) return;
-      countsByUser[clean] = (countsByUser[clean] || 0) + 1;
+      countsByUser[name] = (countsByUser[name] || 0) + 1;
     });
 
     const userList = Object.entries(countsByUser)
@@ -247,7 +362,7 @@ export default function SquaresPage() {
     return { totalClaimed, remaining, percentage, userList, totalPot, fullPot, cost };
   }, [board.grid, board.costPerSquare]);
 
-  // Scoring / Winner resolution helper
+  // Scoring / Winner calculation
   const getWinnerForScore = (topScoreStr: string, leftScoreStr: string) => {
     if (!topScoreStr || !leftScoreStr) return null;
     const topNum = topScoreStr.trim();
@@ -274,11 +389,10 @@ export default function SquaresPage() {
     };
   }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore, board.topNumbers, board.leftNumbers, board.grid]);
 
-  // Keyboard navigation across cells
+  // Keyboard navigation
   const handleCellKeyDown = (e: React.KeyboardEvent, r: number, c: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      // Move to next cell horizontally
       if (c < 9) {
         setSelectedCell({ r, c: c + 1 });
       } else if (r < 9) {
@@ -306,21 +420,21 @@ export default function SquaresPage() {
   useEffect(() => {
     if (selectedCell && cellInputRef.current) {
       cellInputRef.current.focus();
-      cellInputRef.current.select();
     }
   }, [selectedCell]);
 
-  if (!mounted) {
+  if (!mounted || isLoadingOnline) {
     return (
-      <div className="flex-1 min-h-[60vh] flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+      <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        <span className="text-xs font-bold text-slate-500">Loading squares board...</span>
       </div>
     );
   }
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen">
-      {/* Global & Print CSS: disables native input spinner arrows */}
+      {/* Global & Print CSS: Perfect 1-Page Landscape Print without clipping */}
       <style jsx global>{`
         /* Remove spinner arrows from number inputs across all browsers */
         input::-webkit-outer-spin-button,
@@ -333,13 +447,21 @@ export default function SquaresPage() {
         }
 
         @media print {
-          nav, header, footer, .no-print {
-            display: none !important;
+          @page {
+            size: letter landscape !important;
+            margin: 0.3in !important;
           }
-          body {
+          html, body {
             background: white !important;
             color: black !important;
+            margin: 0 !important;
             padding: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          }
+          nav, header, footer, .no-print, [class*="SiteFooter"] {
+            display: none !important;
           }
           .print-container {
             width: 100% !important;
@@ -348,14 +470,31 @@ export default function SquaresPage() {
             margin: 0 !important;
           }
           .squares-grid-table {
-            page-break-inside: avoid;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
             width: 100% !important;
+            table-layout: fixed !important;
             border-collapse: collapse !important;
           }
           .squares-grid-table th, .squares-grid-table td {
-            border: 1px solid #333 !important;
-            font-size: 10px !important;
-            padding: 4px 2px !important;
+            border: 1px solid #334155 !important;
+            padding: 1px !important;
+            color: black !important;
+            background: white !important;
+          }
+          .squares-grid-table th {
+            background: #f1f5f9 !important;
+            font-weight: 900 !important;
+          }
+          .squares-grid-table td {
+            height: 38px !important;
+            max-height: 40px !important;
+          }
+          .squares-grid-table td span {
+            font-size: 11px !important;
+            line-height: 1.1 !important;
+            color: black !important;
+            font-weight: 700 !important;
           }
         }
       `}</style>
@@ -378,12 +517,19 @@ export default function SquaresPage() {
               <div>
                 <h1 className="text-base sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-2">
                   <span>Super Bowl Squares</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800/60">
-                    Live Grid
-                  </span>
+                  {poolId ? (
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/60 flex items-center gap-1">
+                      <Globe className="w-2.5 h-2.5" />
+                      Live Online
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      Draft Board
+                    </span>
+                  )}
                 </h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-0.5 hidden sm:block">
-                  PocketPicks&trade; 100 Squares Pool &bull; Printable &amp; Interactive
+                  PocketPicks&trade; 100 Squares Pool &bull; Printable &amp; Shareable
                 </p>
               </div>
             </div>
@@ -391,11 +537,27 @@ export default function SquaresPage() {
 
           {/* Right Toolbar Actions */}
           <div className="flex items-center gap-2">
+            {/* Share Online Button */}
+            <button
+              type="button"
+              onClick={handleShareOnline}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs ${
+                poolId
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
+              }`}
+              title="Share this board online with friends"
+            >
+              {poolId ? <Copy className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+              <span>{poolId ? "Copy Share Link" : "Share Online"}</span>
+            </button>
+
+            {/* Print / PDF */}
             <button
               type="button"
               onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs"
-              title="Print or Save PDF"
+              title="Print or Save PDF (Formatted for 1 Page Landscape)"
             >
               <Printer className="w-3.5 h-3.5 text-slate-500" />
               <span className="hidden sm:inline">Print / PDF</span>
@@ -419,9 +581,16 @@ export default function SquaresPage() {
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs mb-6 space-y-5 no-print">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex-1">
-              <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
-                Pool / Event Title
-              </label>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                  Pool / Event Title
+                </label>
+                {poolId && (
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    ID: {poolId}
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={board.title}
@@ -450,7 +619,6 @@ export default function SquaresPage() {
               </div>
 
               <div className="bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2 text-emerald-900 dark:text-emerald-300">
-                <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <div>
                   {stats.cost > 0 ? (
                     <>
@@ -458,14 +626,14 @@ export default function SquaresPage() {
                       <span className="opacity-80"> Pot (${stats.cost}/sq)</span>
                     </>
                   ) : (
-                    <span className="font-bold">Free Pool ($0/sq)</span>
+                    <span className="font-bold">Free Pool</span>
                   )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Teams Selector & Price Per Square */}
+          {/* Teams Selector & Price Per Square (No dollar sign) */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
             {/* Top Team (AFC) - Columns */}
             <div className="md:col-span-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3.5">
@@ -485,7 +653,7 @@ export default function SquaresPage() {
                   type="text"
                   value={board.topTeam}
                   onChange={(e) => saveState({ ...board, topTeam: e.target.value })}
-                  placeholder="e.g. Kansas City Chiefs"
+                  placeholder="e.g. Buffalo Bills"
                   className="w-full text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
@@ -515,16 +683,14 @@ export default function SquaresPage() {
               </div>
             </div>
 
-            {/* Price Per Square Input */}
+            {/* Price Per Square Input - Dollar sign removed */}
             <div className="md:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   Price / Square
                 </span>
-                <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
               </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-slate-400 text-sm">$</span>
+              <div>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -536,7 +702,7 @@ export default function SquaresPage() {
                     saveState({ ...board, costPerSquare: num });
                   }}
                   placeholder="0 (Free)"
-                  className="w-full pl-7 pr-3 py-1.5 text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-1.5 text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-center focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -601,9 +767,9 @@ export default function SquaresPage() {
         </div>
 
         {/* PRINT HEADER (Visible only when printed) */}
-        <div className="hidden print:block mb-4 text-center">
-          <h1 className="text-2xl font-black text-black">{board.title}</h1>
-          <p className="text-sm font-semibold text-gray-700">
+        <div className="hidden print:block mb-3 text-center">
+          <h1 className="text-xl font-black text-black leading-tight">{board.title}</h1>
+          <p className="text-xs font-semibold text-gray-700">
             AFC: {board.topTeam || "AFC"} &bull; NFC: {board.leftTeam || "NFC"}
             {stats.cost > 0 && ` • $${stats.cost} per square`}
           </p>
@@ -623,14 +789,14 @@ export default function SquaresPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] border-collapse squares-grid-table">
+            <table className="w-full min-w-[850px] border-collapse squares-grid-table">
               <thead>
                 <tr>
                   {/* Empty spacer corner cell above the NFC vertical column */}
-                  <th className="w-12 p-1 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle" />
+                  <th className="w-14 sm:w-16 p-1 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle" />
 
                   {/* Junction Cell for Coordinates */}
-                  <th className="w-20 p-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                  <th className="w-16 sm:w-20 p-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle">
                     <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider leading-tight">
                       <div className="text-emerald-600 dark:text-emerald-400">AFC &rarr;</div>
                       <div className="border-t border-slate-300 dark:border-slate-600 my-1" />
@@ -638,7 +804,7 @@ export default function SquaresPage() {
                     </div>
                   </th>
 
-                  {/* Top Row Headers (10 columns: default 1 to 0) */}
+                  {/* Top Row Headers (10 columns: default 1 to 0 - COL 1-10 labels removed) */}
                   {board.topNumbers.map((num, cIdx) => (
                     <th
                       key={cIdx}
@@ -647,11 +813,8 @@ export default function SquaresPage() {
                       title="Click to edit top number"
                     >
                       <div className="flex flex-col items-center justify-center">
-                        <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition">
+                        <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition">
                           {num}
-                        </span>
-                        <span className="text-[9px] font-semibold text-slate-400 uppercase hidden sm:block">
-                          Col {cIdx + 1}
                         </span>
                       </div>
                     </th>
@@ -662,36 +825,36 @@ export default function SquaresPage() {
               <tbody>
                 {board.leftNumbers.map((rowLetter, rIdx) => (
                   <tr key={rIdx}>
-                    {/* NFC Team Column spanning all 10 rows on the actual left side */}
+                    {/* NFC Team Column spanning all 10 rows on the actual left side - matching AFC size & inverted logo */}
                     {rIdx === 0 && (
                       <th
                         rowSpan={10}
-                        className="w-12 p-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle"
+                        className="w-14 sm:w-16 p-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle"
                       >
-                        <div className="flex flex-col items-center justify-center gap-3 h-full select-none py-4">
-                          <TeamLogo alt={board.leftTeam} className="w-7 h-7 object-contain shrink-0" />
-                          <span className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
-                            NFC
+                        <div className="flex flex-col items-center justify-center gap-3 h-full select-none py-4 [writing-mode:vertical-lr] rotate-180">
+                          {/* Rotated logo sideways so it flows along the text direction */}
+                          <div className="-rotate-90 shrink-0">
+                            <TeamLogo alt={board.leftTeam} className="w-6 h-6 object-contain" />
+                          </div>
+                          <span className="text-xs uppercase font-extrabold text-sky-600 dark:text-sky-400 tracking-wider">
+                            NFC &bull;
                           </span>
-                          <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider [writing-mode:vertical-lr] rotate-180 truncate max-h-[340px]">
+                          <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide truncate max-h-[380px]">
                             {board.leftTeam || "NFC Team"}
                           </span>
                         </div>
                       </th>
                     )}
 
-                    {/* First Column Header (Row letter/number: default A to J) */}
+                    {/* First Column Header (Row letter/number: default A to J - R1-10 labels removed) */}
                     <th
                       onClick={() => openHeaderEdit("left", rIdx)}
-                      className="p-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group w-20"
+                      className="p-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group w-16 sm:w-20"
                       title="Click to edit row letter/number"
                     >
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-sky-500 transition">
+                      <div className="flex items-center justify-center">
+                        <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-sky-500 transition">
                           {rowLetter}
-                        </span>
-                        <span className="text-[9px] font-semibold text-slate-400 hidden sm:inline">
-                          R{rIdx + 1}
                         </span>
                       </div>
                     </th>
@@ -729,22 +892,38 @@ export default function SquaresPage() {
                           }`}
                         >
                           {isSelected ? (
-                            <input
-                              ref={cellInputRef}
-                              type="text"
-                              value={name}
-                              onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
-                              onBlur={() => setSelectedCell(null)}
-                              onKeyDown={(e) => handleCellKeyDown(e, rIdx, cIdx)}
-                              placeholder="Name..."
-                              className="w-full h-full text-center text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded-lg border border-emerald-500 shadow-inner px-1 focus:outline-hidden"
-                            />
+                            <div className="flex items-center justify-center w-full h-full">
+                              <input
+                                ref={cellInputRef}
+                                type="text"
+                                value={name}
+                                onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
+                                onBlur={() => setSelectedCell(null)}
+                                onKeyDown={(e) => handleCellKeyDown(e, rIdx, cIdx)}
+                                placeholder="Name..."
+                                className="w-[90%] max-w-[110px] py-1 px-1.5 text-center text-xs sm:text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded-md border-2 border-emerald-500 shadow-sm focus:outline-hidden"
+                              />
+                            </div>
                           ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center px-1">
                               {name ? (
-                                <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-tight break-words">
-                                  {name}
-                                </span>
+                                /* If name contains spaces (first & last name), split into two rows to prevent wide stretching */
+                                name.includes(" ") ? (
+                                  <div className="flex flex-col items-center justify-center leading-tight">
+                                    {name.split(" ").filter(Boolean).map((part, pIdx) => (
+                                      <span
+                                        key={pIdx}
+                                        className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full"
+                                      >
+                                        {part}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
+                                    {name}
+                                  </span>
+                                )
                               ) : (
                                 <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium select-none no-print">
                                   {board.leftNumbers[rIdx]},{board.topNumbers[cIdx]}
@@ -788,12 +967,12 @@ export default function SquaresPage() {
           </div>
 
           {/* Table Footer Instructions */}
-          <div className="bg-slate-50 dark:bg-slate-800/40 px-4 py-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <div className="bg-slate-50 dark:bg-slate-800/40 px-4 py-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 no-print">
             <span className="text-[11px]">
               Click any square or header number to edit. Press <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Tab</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Enter</kbd> to move to the next square.
             </span>
             <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
-              Auto-saved to device
+              {poolId ? "Online Synced" : "Auto-saved to device"}
             </span>
           </div>
         </div>
@@ -1041,5 +1220,20 @@ export default function SquaresPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SquaresPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+          <span className="text-xs font-bold text-slate-500">Loading squares board...</span>
+        </div>
+      }
+    >
+      <SquaresPoolApp />
+    </Suspense>
   );
 }
