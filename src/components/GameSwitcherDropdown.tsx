@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Trophy, ChevronDown, Check } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
 
 export type GameKey = "pickem" | "bracket" | "squares";
 
@@ -52,10 +53,29 @@ const GAMES: GameOption[] = [
 ];
 
 export function GameSwitcherDropdown({ currentGame, className = "" }: GameSwitcherDropdownProps) {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentGameConfig = GAMES.find((g) => g.key === currentGame) || GAMES[0];
+
+  // If user is not signed in, render simple home logo without dropdown
+  if (!user) {
+    return (
+      <Link
+        href="/"
+        className={`group flex items-center p-1 sm:p-1.5 -ml-1 sm:-ml-1.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all cursor-pointer select-none shrink-0 ${className}`}
+        title="PocketPicks"
+        aria-label="PocketPicks Home"
+      >
+        <div
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${currentGameConfig.badgeBg} flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform shrink-0`}
+        >
+          <Trophy className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+        </div>
+      </Link>
+    );
+  }
 
   // Close dropdown on click outside
   useEffect(() => {
