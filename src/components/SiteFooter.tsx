@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 export function SiteFooter() {
   const pathname = usePathname();
@@ -24,6 +25,13 @@ export function SiteFooter() {
           <span>&copy; {new Date().getFullYear()} PocketPicks&trade;. All rights reserved.</span>
           <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
           <span className="text-[11px] sm:text-xs">NFL Pick&apos;em &amp; Survivor Pool Platform</span>
+          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+          <Link
+            href="/squares"
+            className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
+          >
+            Super Bowl Squares
+          </Link>
         </div>
 
         {/* Social Media Links - Icon only on mobile, text on desktop */}
