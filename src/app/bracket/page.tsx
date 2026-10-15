@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Sparkles,
   CheckCircle2,
+  XCircle,
   LogIn,
   UserPlus,
   HelpCircle,
@@ -19,7 +20,6 @@ import {
   Unlock,
   Users,
   Flame,
-  UserCheck,
   Trash2,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
@@ -33,6 +33,8 @@ import {
   TiebreakerPrediction,
   resolveBracketMatchups,
   calculateBracketScore,
+  extractActualWinners,
+  TEAM_BY_ABBR,
   PlayoffTeam,
 } from "@/lib/playoff-bracket";
 
@@ -49,6 +51,7 @@ export default function BracketPage() {
 
   const [activeTab, setActiveTab] = useState<"bracket" | "leaderboard" | "rules">("bracket");
   const [mobileRoundTab, setMobileRoundTab] = useState<"wc" | "div" | "conf" | "sb">("wc");
+  const [bracketViewMode, setBracketViewMode] = useState<"actual" | "projected">("actual");
 
   const [picks, setPicks] = useState<BracketPicks>({});
   const [tiebreaker, setTiebreaker] = useState<TiebreakerPrediction>({
@@ -378,18 +381,34 @@ export default function BracketPage() {
     }
   };
 
-  const matchups = useMemo(() => resolveBracketMatchups(picks), [picks]);
+  // Matchup resolvers: User Projected Picks vs Actual Tournament Field
+  const actualWinners = useMemo(() => extractActualWinners(results), [results]);
+  const actualTournamentMatchups = useMemo(() => resolveBracketMatchups(actualWinners), [actualWinners]);
+  const userProjectedMatchups = useMemo(() => resolveBracketMatchups(picks), [picks]);
+
+  // When simulated or tournament active, default to showing the actual teams advancing in the tournament
+  const isDisplayingActual = isSimulated && bracketViewMode === "actual";
+  const activeMatchups = isDisplayingActual ? actualTournamentMatchups : userProjectedMatchups;
+
   const scoreDetails = useMemo(() => calculateBracketScore(picks, results, tiebreaker), [picks, results, tiebreaker]);
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
 
   // Component to render an individual matchup card
   const renderMatchupCard = (slotKey: BracketGameId) => {
-    const slot = matchups[slotKey];
-    const userPick = picks[slotKey];
+    const slot = activeMatchups[slotKey];
+    const userPickAbbr = picks[slotKey];
     const gameResult = results[slotKey];
     const isGameDone = isSimulated && gameResult?.isCompleted;
-    const isCorrect = isGameDone && userPick && userPick === gameResult.winner;
-    const isWrong = isGameDone && userPick && userPick !== gameResult.winner;
+
+    // Check if the user's pick for this round matches either team in the actual matchup
+    const homeAbbr = slot.homeTeam?.abbr;
+    const awayAbbr = slot.awayTeam?.abbr;
+    const hasPickedInMatchup = userPickAbbr && (userPickAbbr === homeAbbr || userPickAbbr === awayAbbr);
+    const isPickEliminated = isDisplayingActual && userPickAbbr && !hasPickedInMatchup;
+    const eliminatedTeam = isPickEliminated ? TEAM_BY_ABBR[userPickAbbr] : null;
+
+    const isCorrect = isGameDone && userPickAbbr && userPickAbbr === gameResult?.winner;
+    const isWrong = isGameDone && userPickAbbr && (userPickAbbr !== gameResult?.winner || isPickEliminated);
 
     return (
       <div
@@ -402,11 +421,11 @@ export default function BracketPage() {
             : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
         }`}
       >
-        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
-          <span className="truncate">{slot.title}</span>
+        <div className="flex items-center justify-between gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
+          <span className="truncate min-w-0 flex-1">{slot.title}</span>
           {isGameDone && (
             <span
-              className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
+              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap inline-flex items-center gap-0.5 ${
                 isCorrect
                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : isWrong
@@ -424,6 +443,19 @@ export default function BracketPage() {
 
         {/* Home Team Option */}
         {renderTeamRow(slotKey, slot.homeTeam, gameResult?.homeScore, isGameDone, gameResult?.winner)}
+
+        {/* Display eliminated pick if user's pick was knocked out in an earlier round */}
+        {isPickEliminated && eliminatedTeam && (
+          <div className="mt-0.5 flex items-center justify-between gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-[10px] font-bold text-rose-700 dark:text-rose-400 animate-fade-in">
+            <span className="flex items-center gap-1 min-w-0">
+              <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span className="truncate">Your pick:</span>
+            </span>
+            <span className="font-black shrink-0 text-rose-800 dark:text-rose-300">
+              {eliminatedTeam.name} ❌ (Out)
+            </span>
+          </div>
+        )}
       </div>
     );
   };
@@ -447,6 +479,8 @@ export default function BracketPage() {
 
     const isSelected = picks[gameId] === team.abbr;
     const isWinnerOfGame = isGameDone && winnerAbbr === team.abbr;
+    const isPickCorrect = isGameDone && isSelected && isWinnerOfGame;
+    const isPickWrong = isGameDone && isSelected && !isWinnerOfGame;
 
     return (
       <button
@@ -454,7 +488,11 @@ export default function BracketPage() {
         disabled={isLocked}
         onClick={() => handleSelectTeam(gameId, team.abbr)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left font-bold text-xs transition-all ${
-          isSelected
+          isPickCorrect
+            ? "bg-emerald-600 text-white shadow-xs"
+            : isPickWrong
+            ? "bg-rose-600 text-white shadow-xs dark:bg-rose-600 dark:text-white"
+            : isSelected
             ? "bg-emerald-600 text-white shadow-xs"
             : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/70 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200"
         } ${isLocked ? "cursor-default opacity-90" : "cursor-pointer"}`}
@@ -462,7 +500,7 @@ export default function BracketPage() {
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 ${
-              isSelected
+              isPickCorrect || isPickWrong || isSelected
                 ? "bg-white/20 text-white"
                 : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
             }`}
@@ -477,19 +515,39 @@ export default function BracketPage() {
           {score !== undefined && (
             <span
               className={`font-mono text-xs font-extrabold ${
-                isSelected ? "text-emerald-100" : isWinnerOfGame ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"
+                isPickCorrect || (isSelected && !isPickWrong)
+                  ? "text-emerald-100"
+                  : isPickWrong
+                  ? "text-rose-100"
+                  : isWinnerOfGame
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-slate-500"
               }`}
             >
               {score}
             </span>
           )}
+
+          {/* Show checkmark for correct pick, RED X for incorrect pick, or green check for unpicked winner */}
           {isSelected && (
-            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+            isPickWrong ? (
+              <XCircle className="w-4 h-4 text-white shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+            )
+          )}
+
+          {!isSelected && isWinnerOfGame && (
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           )}
         </div>
       </button>
     );
   };
+
+  // Resolve teams for Super Bowl tiebreaker labels
+  const sbHomeName = activeMatchups.super_bowl.homeTeam?.name || "Home Team";
+  const sbAwayName = activeMatchups.super_bowl.awayTeam?.name || "Away Team";
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans">
@@ -660,8 +718,35 @@ export default function BracketPage() {
               </button>
             </div>
 
-            {/* Score Pill / Progress */}
-            <div className="flex items-center gap-2 shrink-0 py-2.5">
+            {/* Score Pill & View Mode Switch */}
+            <div className="flex items-center gap-2.5 shrink-0 py-2.5">
+              {isSimulated && (
+                <div className="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setBracketViewMode("actual")}
+                    className={`px-2 py-1 rounded-lg transition-all ${
+                      bracketViewMode === "actual"
+                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    Actual Field
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBracketViewMode("projected")}
+                    className={`px-2 py-1 rounded-lg transition-all ${
+                      bracketViewMode === "projected"
+                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    My Picks Tree
+                  </button>
+                </div>
+              )}
+
               {isLocked && (
                 <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs font-bold">
                   <Lock className="w-3 h-3 text-rose-600" />
@@ -801,14 +886,13 @@ export default function BracketPage() {
 
                 {/* Lombardi Trophy & Super Bowl Card */}
                 <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
-                  {/* Clean static trophy */}
                   <Trophy className="w-8 h-8 text-amber-500" />
                   <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
                     Super Bowl Champion
                   </div>
                   {renderMatchupCard("super_bowl")}
 
-                  {/* Super Bowl Tiebreaker Prediction Input */}
+                  {/* Super Bowl Tiebreaker Prediction Input (arrow-free) */}
                   <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
@@ -821,31 +905,37 @@ export default function BracketPage() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
-                          {matchups.super_bowl.homeTeam?.name || "Home Team"}
+                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbHomeName}>
+                          {sbHomeName}
                         </label>
                         <input
-                          type="number"
-                          min="0"
-                          max="99"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           disabled={isLocked}
                           value={tiebreaker.homeScore}
-                          onChange={(e) => handleTiebreakerChange("home", parseInt(e.target.value, 10))}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, "");
+                            handleTiebreakerChange("home", raw === "" ? 0 : parseInt(raw, 10));
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
-                          {matchups.super_bowl.awayTeam?.name || "Away Team"}
+                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbAwayName}>
+                          {sbAwayName}
                         </label>
                         <input
-                          type="number"
-                          min="0"
-                          max="99"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           disabled={isLocked}
                           value={tiebreaker.awayScore}
-                          onChange={(e) => handleTiebreakerChange("away", parseInt(e.target.value, 10))}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, "");
+                            handleTiebreakerChange("away", raw === "" ? 0 : parseInt(raw, 10));
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     </div>
@@ -957,7 +1047,7 @@ export default function BracketPage() {
                     </div>
                     {renderMatchupCard("super_bowl")}
 
-                    {/* Tiebreaker Input on Mobile */}
+                    {/* Tiebreaker Input on Mobile (arrow-free) */}
                     <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
@@ -970,31 +1060,37 @@ export default function BracketPage() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
-                            {matchups.super_bowl.homeTeam?.name || "Home Team"}
+                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbHomeName}>
+                            {sbHomeName}
                           </label>
                           <input
-                            type="number"
-                            min="0"
-                            max="99"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             disabled={isLocked}
                             value={tiebreaker.homeScore}
-                            onChange={(e) => handleTiebreakerChange("home", parseInt(e.target.value, 10))}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, "");
+                              handleTiebreakerChange("home", raw === "" ? 0 : parseInt(raw, 10));
+                            }}
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
-                            {matchups.super_bowl.awayTeam?.name || "Away Team"}
+                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbAwayName}>
+                            {sbAwayName}
                           </label>
                           <input
-                            type="number"
-                            min="0"
-                            max="99"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             disabled={isLocked}
                             value={tiebreaker.awayScore}
-                            onChange={(e) => handleTiebreakerChange("away", parseInt(e.target.value, 10))}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, "");
+                              handleTiebreakerChange("away", raw === "" ? 0 : parseInt(raw, 10));
+                            }}
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>

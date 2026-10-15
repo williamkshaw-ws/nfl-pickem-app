@@ -320,6 +320,19 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
 }
 
 /**
+ * Extracts all completed game winners from simulation/game results.
+ */
+export function extractActualWinners(results: SimulationResults): BracketPicks {
+  const actual: BracketPicks = {};
+  for (const [gid, res] of Object.entries(results)) {
+    if (res?.isCompleted && res?.winner) {
+      actual[gid as BracketGameId] = res.winner;
+    }
+  }
+  return actual;
+}
+
+/**
  * Generates realistic NFL game scores.
  */
 function generateRealisticScores(): { homeScore: number; awayScore: number } {
