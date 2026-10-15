@@ -753,7 +753,7 @@ export default function BracketPage() {
                 <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
                   Playoff Bracket
                 </span>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800 shrink-0">
                   Challenge
                 </span>
               </div>
@@ -967,19 +967,19 @@ export default function BracketPage() {
         {/* Loading State when checking auth */}
         {authLoading ? (
           <div className="flex flex-col items-center justify-center py-28 text-slate-400 dark:text-slate-500">
-            <Loader2 className="w-9 h-9 animate-spin text-emerald-500 mb-3" />
+            <Loader2 className="w-9 h-9 animate-spin text-purple-500 mb-3" />
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Checking bracket access...</p>
           </div>
         ) : !user ? (
           /* Dedicated Bracket Lock / Landing Screen when unauthenticated */
           <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
             <div className="flex flex-col items-center justify-center mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner flex items-center justify-center mb-4">
-                <Trophy className="w-8 h-8 sm:w-10 sm:h-10" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 flex items-center justify-center mb-4">
+                <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/80 shadow-2xs">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-xs font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/80 shadow-2xs">
+                <Trophy className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                 <span>Account Required</span>
               </div>
             </div>
@@ -994,7 +994,7 @@ export default function BracketPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto mb-6">
               <Link
                 href="/auth/login?redirect=/bracket"
-                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Log In to Make Picks</span>

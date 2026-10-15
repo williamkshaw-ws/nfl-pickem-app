@@ -1355,8 +1355,8 @@ function SquaresPoolApp() {
           /* Dedicated Commissioner Lock Screen when visiting /squares without an id and unauthenticated */
           <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
             <div className="flex flex-col items-center justify-center mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner flex items-center justify-center mb-4">
-                <Grid className="w-8 h-8 sm:w-10 sm:h-10" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25 flex items-center justify-center mb-4">
+                <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
 
               <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider border border-amber-200 dark:border-amber-800/80 shadow-2xs">
