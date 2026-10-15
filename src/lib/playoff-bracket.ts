@@ -22,6 +22,24 @@ export type BracketGameId =
 
 export type BracketPicks = Partial<Record<BracketGameId, string>>;
 
+export interface TiebreakerPrediction {
+  homeScore: number;
+  awayScore: number;
+  totalScore?: number;
+}
+
+export interface TiebreakerStats {
+  predictedHome: number;
+  predictedAway: number;
+  predictedTotal: number;
+  actualHome?: number;
+  actualAway?: number;
+  actualTotal?: number;
+  tier1TotalDiff?: number;
+  tier2HomeDiff?: number;
+  tier3AwayDiff?: number;
+}
+
 export interface GameResult {
   winner: string;
   homeTeam: string;
@@ -39,9 +57,14 @@ export interface BracketParticipant {
   userName: string;
   userAvatar?: string;
   picks: BracketPicks;
+  tiebreaker?: TiebreakerPrediction;
   score: number;
   superBowlWinner?: string;
   updatedAt: string;
+  rank?: number;
+  tiebreakerStats?: TiebreakerStats;
+  tiebreakerExplanation?: string;
+  isSample?: boolean;
 }
 
 export const AFC_SEEDS: PlayoffTeam[] = [
@@ -398,17 +421,23 @@ export function simulatePlayoffOutcomes(): SimulationResults {
 }
 
 /**
- * Calculates a participant's score (1 point per correct game pick, max 13 points).
+ * Calculates a participant's score (1 point per correct game pick, max 13 points)
+ * and resolves the 3-tier Super Bowl tiebreaker:
+ * - Tier 1: Total combined score difference (closest wins)
+ * - Tier 2: Home team score difference (closest wins)
+ * - Tier 3: Away team score difference (closest wins)
  */
 export function calculateBracketScore(
   picks: BracketPicks,
-  results: SimulationResults
+  results: SimulationResults,
+  tiebreaker?: TiebreakerPrediction
 ): {
   score: number;
   maxPossible: number;
   correctGameIds: BracketGameId[];
   wrongGameIds: BracketGameId[];
   pendingGameIds: BracketGameId[];
+  tiebreakerStats?: TiebreakerStats;
 } {
   let score = 0;
   const correctGameIds: BracketGameId[] = [];
@@ -440,11 +469,315 @@ export function calculateBracketScore(
 
   const maxPossible = score + pendingGameIds.length;
 
+  // Compute 3-Tier Tiebreaker Stats if Super Bowl completed and user entered tiebreaker
+  let tiebreakerStats: TiebreakerStats | undefined = undefined;
+  if (tiebreaker && typeof tiebreaker.homeScore === "number" && typeof tiebreaker.awayScore === "number") {
+    const predTotal = tiebreaker.totalScore ?? (tiebreaker.homeScore + tiebreaker.awayScore);
+    const sbResult = results.super_bowl;
+
+    tiebreakerStats = {
+      predictedHome: tiebreaker.homeScore,
+      predictedAway: tiebreaker.awayScore,
+      predictedTotal: predTotal,
+    };
+
+    if (sbResult && sbResult.isCompleted && typeof sbResult.homeScore === "number" && typeof sbResult.awayScore === "number") {
+      const actualHome = sbResult.homeScore;
+      const actualAway = sbResult.awayScore;
+      const actualTotal = actualHome + actualAway;
+
+      tiebreakerStats.actualHome = actualHome;
+      tiebreakerStats.actualAway = actualAway;
+      tiebreakerStats.actualTotal = actualTotal;
+      tiebreakerStats.tier1TotalDiff = Math.abs(predTotal - actualTotal);
+      tiebreakerStats.tier2HomeDiff = Math.abs(tiebreaker.homeScore - actualHome);
+      tiebreakerStats.tier3AwayDiff = Math.abs(tiebreaker.awayScore - actualAway);
+    }
+  }
+
   return {
     score,
     maxPossible,
     correctGameIds,
     wrongGameIds,
     pendingGameIds,
+    tiebreakerStats,
   };
+}
+
+/**
+ * Sorts participants and assigns ranks using the official 3-tier tiebreaker:
+ * 1. Score descending (max 13 pts)
+ * 2. If tied and Super Bowl finished:
+ *    - Tier 1: Total points diff (closest wins)
+ *    - Tier 2: Home team score diff (closest wins)
+ *    - Tier 3: Away team score diff (closest wins)
+ */
+export function rankBracketParticipants(
+  participants: BracketParticipant[],
+  results: SimulationResults
+): BracketParticipant[] {
+  // 1. Calculate each participant's score & tiebreaker stats
+  const scored: BracketParticipant[] = participants.map((p) => {
+    const { score, tiebreakerStats } = calculateBracketScore(p.picks, results, p.tiebreaker);
+    return {
+      ...p,
+      score,
+      tiebreakerStats,
+      rank: 1,
+      tiebreakerExplanation: undefined,
+    };
+  });
+
+  // 2. Sort by score then 3-tier tiebreaker
+  scored.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+
+    // Tier 1: Total points diff
+    const aT1 = a.tiebreakerStats?.tier1TotalDiff;
+    const bT1 = b.tiebreakerStats?.tier1TotalDiff;
+    if (aT1 !== undefined && bT1 !== undefined && aT1 !== bT1) {
+      return aT1 - bT1;
+    }
+
+    // Tier 2: Home team score diff
+    const aT2 = a.tiebreakerStats?.tier2HomeDiff;
+    const bT2 = b.tiebreakerStats?.tier2HomeDiff;
+    if (aT2 !== undefined && bT2 !== undefined && aT2 !== bT2) {
+      return aT2 - bT2;
+    }
+
+    // Tier 3: Away team score diff
+    const aT3 = a.tiebreakerStats?.tier3AwayDiff;
+    const bT3 = b.tiebreakerStats?.tier3AwayDiff;
+    if (aT3 !== undefined && bT3 !== undefined && aT3 !== bT3) {
+      return aT3 - bT3;
+    }
+
+    return a.userName.localeCompare(b.userName);
+  });
+
+  // 3. Assign ranks and tiebreaker explanations
+  for (let i = 0; i < scored.length; i++) {
+    if (i === 0) {
+      scored[i].rank = 1;
+    } else {
+      const prev = scored[i - 1];
+      const curr = scored[i];
+
+      const sameScore = curr.score === prev.score;
+      const sameT1 = curr.tiebreakerStats?.tier1TotalDiff !== undefined &&
+        curr.tiebreakerStats?.tier1TotalDiff === prev.tiebreakerStats?.tier1TotalDiff;
+      const sameT2 = curr.tiebreakerStats?.tier2HomeDiff !== undefined &&
+        curr.tiebreakerStats?.tier2HomeDiff === prev.tiebreakerStats?.tier2HomeDiff;
+      const sameT3 = curr.tiebreakerStats?.tier3AwayDiff !== undefined &&
+        curr.tiebreakerStats?.tier3AwayDiff === prev.tiebreakerStats?.tier3AwayDiff;
+
+      const isExactTie = sameScore && (
+        (!curr.tiebreakerStats && !prev.tiebreakerStats) ||
+        (curr.tiebreakerStats?.tier1TotalDiff === undefined && prev.tiebreakerStats?.tier1TotalDiff === undefined) ||
+        (sameT1 && sameT2 && sameT3)
+      );
+
+      if (isExactTie) {
+        curr.rank = prev.rank;
+      } else {
+        curr.rank = i + 1;
+      }
+    }
+  }
+
+  // Set explanation for winner vs runners-up if decided on tiebreaker
+  if (scored.length >= 2 && scored[0].score === scored[1].score) {
+    const winner = scored[0];
+    const second = scored[1];
+    if (
+      winner.tiebreakerStats?.tier1TotalDiff !== undefined &&
+      second.tiebreakerStats?.tier1TotalDiff !== undefined &&
+      winner.tiebreakerStats.tier1TotalDiff < second.tiebreakerStats.tier1TotalDiff
+    ) {
+      winner.tiebreakerExplanation = `Won on Tier 1 (Total Points diff: ±${winner.tiebreakerStats.tier1TotalDiff} vs ±${second.tiebreakerStats.tier1TotalDiff})`;
+    } else if (
+      winner.tiebreakerStats?.tier2HomeDiff !== undefined &&
+      second.tiebreakerStats?.tier2HomeDiff !== undefined &&
+      winner.tiebreakerStats.tier2HomeDiff < second.tiebreakerStats.tier2HomeDiff
+    ) {
+      winner.tiebreakerExplanation = `Tied on Total Points! Won on Tier 2 (Home score diff: ±${winner.tiebreakerStats.tier2HomeDiff} vs ±${second.tiebreakerStats.tier2HomeDiff})`;
+    } else if (
+      winner.tiebreakerStats?.tier3AwayDiff !== undefined &&
+      second.tiebreakerStats?.tier3AwayDiff !== undefined &&
+      winner.tiebreakerStats.tier3AwayDiff < second.tiebreakerStats.tier3AwayDiff
+    ) {
+      winner.tiebreakerExplanation = `Tied on Total & Home score! Won on Tier 3 (Away score diff: ±${winner.tiebreakerStats.tier3AwayDiff} vs ±${second.tiebreakerStats.tier3AwayDiff})`;
+    }
+  }
+
+  return scored;
+}
+
+/**
+ * Generates sample competitors to populate the leaderboard.
+ */
+export function generateSampleParticipants(): BracketParticipant[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: "sample_bills_mafia",
+      userId: "sample_bills_mafia",
+      userName: "BillsMafia_716",
+      userAvatar: "bg-blue-600",
+      picks: {
+        afc_wc_1: "BUF",
+        afc_wc_2: "BAL",
+        afc_wc_3: "HOU",
+        nfc_wc_1: "PHI",
+        nfc_wc_2: "LAR",
+        nfc_wc_3: "SF",
+        afc_div_1: "KC",
+        afc_div_2: "BUF",
+        nfc_div_1: "DET",
+        nfc_div_2: "SF",
+        afc_champ: "BUF",
+        nfc_champ: "DET",
+        super_bowl: "BUF",
+      },
+      tiebreaker: { homeScore: 28, awayScore: 24, totalScore: 52 },
+      score: 0,
+      superBowlWinner: "BUF",
+      updatedAt: now,
+      isSample: true,
+    },
+    {
+      id: "sample_niners_faithful",
+      userId: "sample_niners_faithful",
+      userName: "BayAreaNiner",
+      userAvatar: "bg-rose-600",
+      picks: {
+        afc_wc_1: "BUF",
+        afc_wc_2: "BAL",
+        afc_wc_3: "LAC",
+        nfc_wc_1: "PHI",
+        nfc_wc_2: "GB",
+        nfc_wc_3: "SF",
+        afc_div_1: "KC",
+        afc_div_2: "BUF",
+        nfc_div_1: "SF",
+        nfc_div_2: "PHI",
+        afc_champ: "KC",
+        nfc_champ: "SF",
+        super_bowl: "SF",
+      },
+      tiebreaker: { homeScore: 27, awayScore: 20, totalScore: 47 },
+      score: 0,
+      superBowlWinner: "SF",
+      updatedAt: now,
+      isSample: true,
+    },
+    {
+      id: "sample_chiefs_kingdom",
+      userId: "sample_chiefs_kingdom",
+      userName: "ChiefsKingdom15",
+      userAvatar: "bg-amber-600",
+      picks: {
+        afc_wc_1: "BUF",
+        afc_wc_2: "BAL",
+        afc_wc_3: "HOU",
+        nfc_wc_1: "PHI",
+        nfc_wc_2: "LAR",
+        nfc_wc_3: "TB",
+        afc_div_1: "KC",
+        afc_div_2: "BUF",
+        nfc_div_1: "DET",
+        nfc_div_2: "PHI",
+        afc_champ: "KC",
+        nfc_champ: "DET",
+        super_bowl: "KC",
+      },
+      tiebreaker: { homeScore: 31, awayScore: 27, totalScore: 58 },
+      score: 0,
+      superBowlWinner: "KC",
+      updatedAt: now,
+      isSample: true,
+    },
+    {
+      id: "sample_detroit_pride",
+      userId: "sample_detroit_pride",
+      userName: "MotorCityDan",
+      userAvatar: "bg-sky-600",
+      picks: {
+        afc_wc_1: "DEN",
+        afc_wc_2: "BAL",
+        afc_wc_3: "LAC",
+        nfc_wc_1: "PHI",
+        nfc_wc_2: "LAR",
+        nfc_wc_3: "SF",
+        afc_div_1: "KC",
+        afc_div_2: "BAL",
+        nfc_div_1: "DET",
+        nfc_div_2: "PHI",
+        afc_champ: "BAL",
+        nfc_champ: "DET",
+        super_bowl: "DET",
+      },
+      tiebreaker: { homeScore: 34, awayScore: 28, totalScore: 62 },
+      score: 0,
+      superBowlWinner: "DET",
+      updatedAt: now,
+      isSample: true,
+    },
+    {
+      id: "sample_philly_fan",
+      userId: "sample_philly_fan",
+      userName: "PhillyPhanatic",
+      userAvatar: "bg-teal-600",
+      picks: {
+        afc_wc_1: "BUF",
+        afc_wc_2: "PIT",
+        afc_wc_3: "HOU",
+        nfc_wc_1: "PHI",
+        nfc_wc_2: "GB",
+        nfc_wc_3: "SF",
+        afc_div_1: "KC",
+        afc_div_2: "BUF",
+        nfc_div_1: "PHI",
+        nfc_div_2: "DET",
+        afc_champ: "BUF",
+        nfc_champ: "PHI",
+        super_bowl: "PHI",
+      },
+      tiebreaker: { homeScore: 24, awayScore: 21, totalScore: 45 },
+      score: 0,
+      superBowlWinner: "PHI",
+      updatedAt: now,
+      isSample: true,
+    },
+    {
+      id: "sample_ravens_flock",
+      userId: "sample_ravens_flock",
+      userName: "RavensFlock8",
+      userAvatar: "bg-purple-600",
+      picks: {
+        afc_wc_1: "BUF",
+        afc_wc_2: "BAL",
+        afc_wc_3: "LAC",
+        nfc_wc_1: "PHI",
+        nfc_wc_2: "LAR",
+        nfc_wc_3: "SF",
+        afc_div_1: "KC",
+        afc_div_2: "BAL",
+        nfc_div_1: "DET",
+        nfc_div_2: "SF",
+        afc_champ: "BAL",
+        nfc_champ: "SF",
+        super_bowl: "BAL",
+      },
+      tiebreaker: { homeScore: 26, awayScore: 23, totalScore: 49 },
+      score: 0,
+      superBowlWinner: "BAL",
+      updatedAt: now,
+      isSample: true,
+    },
+  ];
 }

@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/server-auth";
 import {
   simulatePlayoffOutcomes,
-  calculateBracketScore,
+  rankBracketParticipants,
   SimulationResults,
-  BracketPicks,
   BracketParticipant,
 } from "@/lib/playoff-bracket";
 
@@ -37,36 +36,40 @@ export async function POST(request: Request) {
       { merge: true }
     );
 
-    // Recompute scores for all participant entries
+    // Fetch all participant entries
     const entriesSnapshot = await db.collection("bracket_entries").get();
-    const batch = db.batch();
-    const updatedLeaderboard: BracketParticipant[] = [];
+    const rawParticipants: BracketParticipant[] = [];
 
     entriesSnapshot.forEach((doc) => {
       const data = doc.data();
-      const picks: BracketPicks = data.picks || {};
-      const { score } = calculateBracketScore(picks, results);
-
-      batch.update(doc.ref, { score });
-
-      updatedLeaderboard.push({
+      rawParticipants.push({
         id: doc.id,
         userId: data.userId || doc.id,
         userName: data.userName || "Anonymous",
         userAvatar: data.userAvatar || "bg-emerald-600",
-        picks,
-        score,
-        superBowlWinner: picks.super_bowl || "",
+        picks: data.picks || {},
+        tiebreaker: data.tiebreaker,
+        score: 0,
+        superBowlWinner: data.picks?.super_bowl || "",
         updatedAt: data.updatedAt || "",
+        isSample: !!data.isSample,
       });
     });
+
+    // Rank participants with 3-tier tiebreaker
+    const rankedLeaderboard = rankBracketParticipants(rawParticipants, results);
+
+    // Update scores in database batch
+    const batch = db.batch();
+    for (const p of rankedLeaderboard) {
+      batch.update(db.collection("bracket_entries").doc(p.id), {
+        score: p.score,
+      });
+    }
 
     if (!entriesSnapshot.empty) {
       await batch.commit();
     }
-
-    // Sort leaderboard by score descending
-    updatedLeaderboard.sort((a, b) => b.score - a.score);
 
     return NextResponse.json({
       success: true,
@@ -74,7 +77,7 @@ export async function POST(request: Request) {
       results,
       isSimulated,
       simulatedAt,
-      leaderboard: updatedLeaderboard,
+      leaderboard: rankedLeaderboard,
     });
   } catch (err: unknown) {
     console.error("Error running bracket simulation:", err);

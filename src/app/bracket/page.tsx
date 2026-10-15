@@ -8,36 +8,36 @@ import {
   RotateCcw,
   Sparkles,
   CheckCircle2,
-  XCircle,
   LogIn,
   UserPlus,
   HelpCircle,
-  Share2,
-  Copy,
-  Check,
-  Flame,
   Medal,
-  ChevronRight,
   RefreshCw,
   Sun,
   Moon,
+  Lock,
+  Unlock,
+  Users,
+  Flame,
+  UserCheck,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
 import {
-  AFC_SEEDS,
-  NFC_SEEDS,
   BracketGameId,
   BracketPicks,
   BracketParticipant,
   SimulationResults,
+  TiebreakerPrediction,
   resolveBracketMatchups,
   calculateBracketScore,
   PlayoffTeam,
 } from "@/lib/playoff-bracket";
 
 const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v1";
+const STORAGE_TIEBREAKER_KEY = "pocketpicks_bracket_tb_v1";
 
 export default function BracketPage() {
   const { user, loading: authLoading } = useAuth();
@@ -51,14 +51,22 @@ export default function BracketPage() {
   const [mobileRoundTab, setMobileRoundTab] = useState<"wc" | "div" | "conf" | "sb">("wc");
 
   const [picks, setPicks] = useState<BracketPicks>({});
+  const [tiebreaker, setTiebreaker] = useState<TiebreakerPrediction>({
+    homeScore: 24,
+    awayScore: 21,
+    totalScore: 45,
+  });
+
   const [results, setResults] = useState<SimulationResults>({});
   const [isSimulated, setIsSimulated] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockTime, setLockTime] = useState<string>("2026-01-10T21:30:00.000Z");
   const [leaderboard, setLeaderboard] = useState<BracketParticipant[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [savingPicks, setSavingPicks] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   // Load initial bracket state from API / localStorage
   const loadData = useCallback(async () => {
@@ -73,25 +81,38 @@ export default function BracketPage() {
         const data = await res.json();
         setResults(data.results || {});
         setIsSimulated(!!data.isSimulated);
+        setIsLocked(!!data.isLocked);
+        if (data.lockTime) setLockTime(data.lockTime);
         setLeaderboard(data.leaderboard || []);
 
         if (data.currentUserEntry?.picks) {
           setPicks(data.currentUserEntry.picks);
         } else {
-          // Fallback to localStorage if guest or no saved remote picks
           const cached = localStorage.getItem(STORAGE_PICKS_KEY);
           if (cached) {
             try {
               setPicks(JSON.parse(cached));
             } catch {
-              // Ignore corrupt local cache
+              // Ignore corrupt cache
+            }
+          }
+        }
+
+        if (data.currentUserEntry?.tiebreaker) {
+          setTiebreaker(data.currentUserEntry.tiebreaker);
+        } else {
+          const cachedTb = localStorage.getItem(STORAGE_TIEBREAKER_KEY);
+          if (cachedTb) {
+            try {
+              setTiebreaker(JSON.parse(cachedTb));
+            } catch {
+              // Ignore
             }
           }
         }
       }
     } catch (err) {
       console.error("Failed to fetch bracket data:", err);
-      // Fallback local picks
       const cached = localStorage.getItem(STORAGE_PICKS_KEY);
       if (cached) {
         try {
@@ -109,16 +130,19 @@ export default function BracketPage() {
     loadData();
   }, [loadData]);
 
-  // Persist picks to localStorage on changes
+  // Persist picks and tiebreaker to localStorage
   useEffect(() => {
     if (Object.keys(picks).length > 0) {
       localStorage.setItem(STORAGE_PICKS_KEY, JSON.stringify(picks));
     }
-  }, [picks]);
+    if (tiebreaker) {
+      localStorage.setItem(STORAGE_TIEBREAKER_KEY, JSON.stringify(tiebreaker));
+    }
+  }, [picks, tiebreaker]);
 
-  // Save picks to Firestore backend if user is authenticated
-  const savePicksToBackend = async (newPicks: BracketPicks) => {
-    if (!user) return;
+  // Save picks and tiebreaker to Firestore backend
+  const savePicksToBackend = async (newPicks: BracketPicks, newTb: TiebreakerPrediction) => {
+    if (!user || isLocked) return;
     setSavingPicks(true);
     try {
       const { auth } = await import("@/lib/firebase");
@@ -133,6 +157,7 @@ export default function BracketPage() {
         },
         body: JSON.stringify({
           picks: newPicks,
+          tiebreaker: newTb,
           userName: user.name || user.username || "PocketPicks Fan",
           userAvatar: user.avatarColor || "bg-emerald-600",
         }),
@@ -141,11 +166,9 @@ export default function BracketPage() {
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2500);
-        // Refresh leaderboard quietly
-        const dataRes = await fetch("/api/bracket");
-        if (dataRes.ok) {
-          const d = await dataRes.json();
-          setLeaderboard(d.leaderboard || []);
+        const data = await res.json();
+        if (data.leaderboard) {
+          setLeaderboard(data.leaderboard);
         }
       }
     } catch (err) {
@@ -157,13 +180,16 @@ export default function BracketPage() {
 
   // Handle pick selection and cascade clearing of invalid downstream picks
   const handleSelectTeam = (gameId: BracketGameId, teamAbbr: string) => {
+    if (isLocked) {
+      alert("Brackets are locked. Picks cannot be modified.");
+      return;
+    }
+
     setPicks((prev) => {
       const updated = { ...prev, [gameId]: teamAbbr };
-
-      // Re-resolve matchups to check if downstream picks became invalid
       const newMatchups = resolveBracketMatchups(updated);
 
-      // Verify Divisional
+      // Verify Divisional picks
       if (
         updated.afc_div_1 &&
         newMatchups.afc_div_1.homeTeam?.abbr !== updated.afc_div_1 &&
@@ -193,7 +219,7 @@ export default function BracketPage() {
         delete updated.nfc_div_2;
       }
 
-      // Verify Conference
+      // Verify Conference picks
       const updatedMatchups2 = resolveBracketMatchups(updated);
       if (
         updated.afc_champ &&
@@ -210,7 +236,7 @@ export default function BracketPage() {
         delete updated.nfc_champ;
       }
 
-      // Verify Super Bowl
+      // Verify Super Bowl pick
       const updatedMatchups3 = resolveBracketMatchups(updated);
       if (
         updated.super_bowl &&
@@ -220,9 +246,22 @@ export default function BracketPage() {
         delete updated.super_bowl;
       }
 
-      savePicksToBackend(updated);
+      savePicksToBackend(updated, tiebreaker);
       return updated;
     });
+  };
+
+  // Tiebreaker inputs change handler
+  const handleTiebreakerChange = (field: "home" | "away", val: number) => {
+    if (isLocked) return;
+    const clamped = Math.max(0, Math.min(99, isNaN(val) ? 0 : val));
+    const nextTb: TiebreakerPrediction = {
+      homeScore: field === "home" ? clamped : tiebreaker.homeScore,
+      awayScore: field === "away" ? clamped : tiebreaker.awayScore,
+      totalScore: (field === "home" ? clamped : tiebreaker.homeScore) + (field === "away" ? clamped : tiebreaker.awayScore),
+    };
+    setTiebreaker(nextTb);
+    savePicksToBackend(picks, nextTb);
   };
 
   // Simulate outcomes button handler
@@ -269,26 +308,78 @@ export default function BracketPage() {
     }
   };
 
-  // Clear all picks
-  const handleClearPicks = () => {
-    if (confirm("Are you sure you want to clear all your bracket picks?")) {
-      setPicks({});
-      localStorage.removeItem(STORAGE_PICKS_KEY);
-      savePicksToBackend({});
+  // Toggle lock status (open/locked)
+  const handleToggleLock = async () => {
+    try {
+      const next = !isLocked;
+      const res = await fetch("/api/bracket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle_lock", isLocked: next }),
+      });
+      if (res.ok) {
+        setIsLocked(next);
+      }
+    } catch (err) {
+      console.error("Failed to toggle lock:", err);
     }
   };
 
-  // Share bracket link
-  const handleShare = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+  // Seed sample competitors
+  const handleSeedParticipants = async () => {
+    try {
+      setSeeding(true);
+      const res = await fetch("/api/bracket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "seed" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLeaderboard(data.leaderboard || []);
+      }
+    } catch (err) {
+      console.error("Failed to seed participants:", err);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  // Clear sample competitors
+  const handleClearSampleParticipants = async () => {
+    try {
+      setSeeding(true);
+      const res = await fetch("/api/bracket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear_samples" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLeaderboard(data.leaderboard || []);
+      }
+    } catch (err) {
+      console.error("Failed to clear sample participants:", err);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  // Clear all user picks
+  const handleClearPicks = () => {
+    if (isLocked) {
+      alert("Brackets are locked. Picks cannot be cleared.");
+      return;
+    }
+    if (confirm("Are you sure you want to clear all your bracket picks?")) {
+      setPicks({});
+      localStorage.removeItem(STORAGE_PICKS_KEY);
+      savePicksToBackend({}, tiebreaker);
     }
   };
 
   const matchups = useMemo(() => resolveBracketMatchups(picks), [picks]);
-  const scoreDetails = useMemo(() => calculateBracketScore(picks, results), [picks, results]);
+  const scoreDetails = useMemo(() => calculateBracketScore(picks, results, tiebreaker), [picks, results, tiebreaker]);
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
 
   // Component to render an individual matchup card
@@ -329,10 +420,10 @@ export default function BracketPage() {
         </div>
 
         {/* Away Team Option */}
-        {renderTeamRow(slotKey, slot.awayTeam, slot.homeTeam, gameResult?.awayScore, isGameDone, gameResult?.winner)}
+        {renderTeamRow(slotKey, slot.awayTeam, gameResult?.awayScore, isGameDone, gameResult?.winner)}
 
         {/* Home Team Option */}
-        {renderTeamRow(slotKey, slot.homeTeam, slot.awayTeam, gameResult?.homeScore, isGameDone, gameResult?.winner)}
+        {renderTeamRow(slotKey, slot.homeTeam, gameResult?.homeScore, isGameDone, gameResult?.winner)}
       </div>
     );
   };
@@ -341,7 +432,6 @@ export default function BracketPage() {
   const renderTeamRow = (
     gameId: BracketGameId,
     team: PlayoffTeam | null,
-    opponent: PlayoffTeam | null,
     score: number | undefined,
     isGameDone: boolean | undefined,
     winnerAbbr: string | undefined
@@ -361,12 +451,13 @@ export default function BracketPage() {
     return (
       <button
         type="button"
+        disabled={isLocked}
         onClick={() => handleSelectTeam(gameId, team.abbr)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left font-bold text-xs transition-all ${
           isSelected
             ? "bg-emerald-600 text-white shadow-xs"
             : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/70 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200"
-        }`}
+        } ${isLocked ? "cursor-default opacity-90" : "cursor-pointer"}`}
       >
         <div className="flex items-center gap-2 min-w-0">
           <span
@@ -429,8 +520,23 @@ export default function BracketPage() {
             </div>
           </div>
 
-          {/* Right: Simulation Actions & User Info */}
+          {/* Right: Lock Indicator, Simulation Actions & User Info */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Lock Status / Toggle */}
+            <button
+              type="button"
+              onClick={handleToggleLock}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                isLocked
+                  ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800"
+                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              }`}
+              title={isLocked ? "Click to Unlock Brackets" : "Click to Lock Brackets"}
+            >
+              {isLocked ? <Lock className="w-3.5 h-3.5 text-rose-600" /> : <Unlock className="w-3.5 h-3.5 text-emerald-500" />}
+              <span className="hidden sm:inline">{isLocked ? "Locked" : "Open"}</span>
+            </button>
+
             {/* Simulation controls */}
             {isSimulated ? (
               <button
@@ -455,16 +561,6 @@ export default function BracketPage() {
                 <span>Simulate Outcomes</span>
               </button>
             )}
-
-            {/* Share Button */}
-            <button
-              type="button"
-              onClick={handleShare}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-              title="Share Bracket Link"
-            >
-              {copiedLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />}
-            </button>
 
             {/* Theme Toggle */}
             <button
@@ -566,6 +662,13 @@ export default function BracketPage() {
 
             {/* Score Pill / Progress */}
             <div className="flex items-center gap-2 shrink-0 py-2.5">
+              {isLocked && (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs font-bold">
+                  <Lock className="w-3 h-3 text-rose-600" />
+                  <span>Picks Locked</span>
+                </div>
+              )}
+
               {isSimulated && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black">
                   <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -577,7 +680,7 @@ export default function BracketPage() {
 
               {saveSuccess && (
                 <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Picks Saved
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Saved
                 </span>
               )}
             </div>
@@ -685,8 +788,8 @@ export default function BracketPage() {
                 </div>
               </div>
 
-              {/* Col 3: Conference Championships & Super Bowl */}
-              <div className="flex flex-col gap-6 items-center">
+              {/* Col 3: Conference Championships, Super Bowl & Tiebreaker */}
+              <div className="flex flex-col gap-5 items-center">
                 <div className="text-center font-black text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400">
                   Championship &amp; Super Bowl
                 </div>
@@ -698,11 +801,58 @@ export default function BracketPage() {
 
                 {/* Lombardi Trophy & Super Bowl Card */}
                 <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
-                  <Trophy className="w-8 h-8 text-amber-500 animate-bounce" />
+                  {/* Clean static trophy */}
+                  <Trophy className="w-8 h-8 text-amber-500" />
                   <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
                     Super Bowl Champion
                   </div>
                   {renderMatchupCard("super_bowl")}
+
+                  {/* Super Bowl Tiebreaker Prediction Input */}
+                  <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
+                        Tiebreaker Score
+                      </span>
+                      <span className="text-[11px] font-mono font-black text-purple-600 dark:text-purple-400">
+                        Total: {tiebreaker.homeScore + tiebreaker.awayScore}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
+                          {matchups.super_bowl.homeTeam?.name || "Home Team"}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="99"
+                          disabled={isLocked}
+                          value={tiebreaker.homeScore}
+                          onChange={(e) => handleTiebreakerChange("home", parseInt(e.target.value, 10))}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
+                          {matchups.super_bowl.awayTeam?.name || "Away Team"}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="99"
+                          disabled={isLocked}
+                          value={tiebreaker.awayScore}
+                          onChange={(e) => handleTiebreakerChange("away", parseInt(e.target.value, 10))}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
+                      Tier 1: Closest total &bull; Tier 2: Home diff &bull; Tier 3: Away diff
+                    </span>
+                  </div>
                 </div>
 
                 {/* NFC Championship */}
@@ -801,11 +951,57 @@ export default function BracketPage() {
               {mobileRoundTab === "sb" && (
                 <div className="w-full flex flex-col gap-4 items-center">
                   <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
-                    <Trophy className="w-8 h-8 text-amber-500 animate-bounce" />
+                    <Trophy className="w-8 h-8 text-amber-500" />
                     <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
                       Super Bowl Championship
                     </div>
                     {renderMatchupCard("super_bowl")}
+
+                    {/* Tiebreaker Input on Mobile */}
+                    <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
+                          Tiebreaker Score
+                        </span>
+                        <span className="text-[11px] font-mono font-black text-purple-600 dark:text-purple-400">
+                          Total: {tiebreaker.homeScore + tiebreaker.awayScore}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
+                            {matchups.super_bowl.homeTeam?.name || "Home Team"}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            disabled={isLocked}
+                            value={tiebreaker.homeScore}
+                            onChange={(e) => handleTiebreakerChange("home", parseInt(e.target.value, 10))}
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
+                            {matchups.super_bowl.awayTeam?.name || "Away Team"}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            disabled={isLocked}
+                            value={tiebreaker.awayScore}
+                            onChange={(e) => handleTiebreakerChange("away", parseInt(e.target.value, 10))}
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75"
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Tier 1: Closest total &bull; Tier 2: Home diff &bull; Tier 3: Away diff
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -820,8 +1016,9 @@ export default function BracketPage() {
                 <span className="text-slate-300 dark:text-slate-700">&bull;</span>
                 <button
                   type="button"
+                  disabled={isLocked}
                   onClick={handleClearPicks}
-                  className="text-xs text-rose-500 hover:text-rose-600 font-bold transition"
+                  className="text-xs text-rose-500 hover:text-rose-600 font-bold transition disabled:opacity-50"
                 >
                   Clear Picks
                 </button>
@@ -831,13 +1028,17 @@ export default function BracketPage() {
                 {user ? (
                   <button
                     type="button"
-                    onClick={() => savePicksToBackend(picks)}
-                    disabled={savingPicks}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                    onClick={() => savePicksToBackend(picks, tiebreaker)}
+                    disabled={savingPicks || isLocked}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 disabled:opacity-60"
                   >
                     {savingPicks ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving...
+                      </>
+                    ) : isLocked ? (
+                      <>
+                        <Lock className="w-3.5 h-3.5" /> Locked
                       </>
                     ) : (
                       <>
@@ -861,15 +1062,40 @@ export default function BracketPage() {
         {/* TAB 2: LEADERBOARD */}
         {activeTab === "leaderboard" && (
           <div className="flex-1 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900 dark:text-white">Tournament Leaderboard</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Rankings update dynamically as playoff games conclude or simulations run.
+                  Rankings update dynamically as games complete. Ties broken by Super Bowl score.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Populate / Clear competitors */}
+                {leaderboard.some((p) => p.isSample) ? (
+                  <button
+                    type="button"
+                    onClick={handleClearSampleParticipants}
+                    disabled={seeding}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                    title="Remove sample competitors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="hidden sm:inline">Clear Test Competitors</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSeedParticipants}
+                    disabled={seeding}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                    title="Populate leaderboard with sample competitors"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Add Sample Competitors</span>
+                  </button>
+                )}
+
                 {!isSimulated && (
                   <button
                     type="button"
@@ -888,15 +1114,24 @@ export default function BracketPage() {
                 <Trophy className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">No Brackets Submitted Yet</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                  Be the first to pick your playoff bracket and set the pace on the leaderboard!
+                  Click &ldquo;Add Sample Competitors&rdquo; above to fill the leaderboard, or make your own picks below!
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("bracket")}
-                  className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                >
-                  Make Your Picks
-                </button>
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleSeedParticipants}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <Users className="w-3.5 h-3.5" /> Add Competitors
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("bracket")}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    Make Your Picks
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
@@ -907,15 +1142,18 @@ export default function BracketPage() {
                         <th className="py-3.5 px-4 w-12 text-center">Rank</th>
                         <th className="py-3.5 px-4">Participant</th>
                         <th className="py-3.5 px-4 text-center">Super Bowl Pick</th>
+                        <th className="py-3.5 px-4 text-center">Tiebreaker Prediction</th>
                         <th className="py-3.5 px-4 text-center">Picks Made</th>
                         <th className="py-3.5 px-4 text-right">Points</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {leaderboard.map((entry, idx) => {
+                      {leaderboard.map((entry) => {
                         const isCurrentUser = user && entry.userId === user.id;
-                        const rank = idx + 1;
+                        const rank = entry.rank || 1;
                         const totalPicks = Object.keys(entry.picks || {}).length;
+                        const tb = entry.tiebreaker;
+                        const tbStats = entry.tiebreakerStats;
 
                         return (
                           <tr
@@ -954,14 +1192,26 @@ export default function BracketPage() {
                                   {entry.userName.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="truncate font-bold text-slate-900 dark:text-white">
-                                    {entry.userName}
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="truncate font-bold text-slate-900 dark:text-white">
+                                      {entry.userName}
+                                    </span>
                                     {isCurrentUser && (
-                                      <span className="ml-1.5 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">
+                                      <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">
                                         (You)
                                       </span>
                                     )}
-                                  </span>
+                                    {entry.isSample && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">
+                                        Test
+                                      </span>
+                                    )}
+                                  </div>
+                                  {entry.tiebreakerExplanation && (
+                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
+                                      {entry.tiebreakerExplanation}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -976,6 +1226,26 @@ export default function BracketPage() {
                                     className="w-4 h-4 object-contain"
                                   />
                                   <span>{entry.superBowlWinner}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              {tb ? (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                    {tb.homeScore} - {tb.awayScore}
+                                    <span className="text-[10px] text-slate-400 font-normal ml-1">
+                                      ({(tb.totalScore ?? (tb.homeScore + tb.awayScore))} pts)
+                                    </span>
+                                  </span>
+                                  {isSimulated && tbStats?.tier1TotalDiff !== undefined && (
+                                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono font-extrabold">
+                                      diff: &plusmn;{tbStats.tier1TotalDiff}
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-slate-400">-</span>
@@ -1023,31 +1293,33 @@ export default function BracketPage() {
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
                 <strong className="text-slate-900 dark:text-white font-bold">1. Simple 1-Point Scoring</strong>
                 <span>
-                  You receive <strong>1 point</strong> for every game picked correctly across all 4 playoff rounds. With 13 total games, the maximum possible score is <strong>13 points</strong>. No complicated point spreads or over/unders required.
+                  You receive <strong>1 point</strong> for every game picked correctly across all 4 playoff rounds. With 13 total games, the maximum possible score is <strong>13 points</strong>.
                 </span>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">2. NFL Dynamic Reseeding</strong>
+                <strong className="text-slate-900 dark:text-white font-bold">2. Official 3-Tier Super Bowl Tiebreaker</strong>
                 <span>
-                  Unlike college basketball brackets, the NFL re-seeds teams in the Divisional round. The <strong>#1 seed</strong> (Kansas City in AFC, Detroit in NFC) always plays the <strong>lowest remaining seed</strong> (highest seed number) that wins in the Wild Card round. When you pick your Wild Card winners, your Divisional matchups automatically populate!
+                  Just like the regular season, if two or more participants tie with the same point total, the winner is determined by:
                 </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">3. Rounds Breakdown (13 Games Total)</strong>
                 <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
-                  <li><strong>Wild Card Round:</strong> 6 Games (3 AFC, 3 NFC)</li>
-                  <li><strong>Divisional Round:</strong> 4 Games (2 AFC, 2 NFC)</li>
-                  <li><strong>Conference Championships:</strong> 2 Games (AFC &amp; NFC)</li>
-                  <li><strong>Super Bowl:</strong> 1 Championship Game</li>
+                  <li><strong>Tier 1:</strong> Closest predicted combined total Super Bowl score.</li>
+                  <li><strong>Tier 2:</strong> If tied on total points, closest predicted Home Team score.</li>
+                  <li><strong>Tier 3:</strong> If still tied, closest predicted Away Team score.</li>
                 </ul>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
-                <strong className="text-slate-900 dark:text-white font-bold">4. Simulation / Test Mode</strong>
+                <strong className="text-slate-900 dark:text-white font-bold">3. NFL Dynamic Reseeding</strong>
                 <span>
-                  Click the <strong>Simulate Outcomes</strong> button in the top bar anytime to test results! It simulates scores across all 13 games and immediately recalculates all participants&apos; points on the leaderboard. Click <strong>Reset Scores</strong> to return to an unplayed state.
+                  Unlike college basketball brackets, the NFL re-seeds teams in the Divisional round. The <strong>#1 seed</strong> always plays the <strong>lowest remaining seed</strong> (highest seed number) that wins in the Wild Card round. When you pick your Wild Card winners, your Divisional matchups automatically populate!
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
+                <strong className="text-slate-900 dark:text-white font-bold">4. Bracket Locking</strong>
+                <span>
+                  Brackets can be locked when the postseason kicks off. Once locked, picks cannot be altered.
                 </span>
               </div>
             </div>
