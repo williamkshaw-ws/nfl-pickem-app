@@ -446,13 +446,16 @@ export default function BracketPage() {
 
         {/* Display eliminated pick if user's pick was knocked out in an earlier round */}
         {isPickEliminated && eliminatedTeam && (
-          <div className="mt-0.5 flex items-center justify-between gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-[10px] font-bold text-rose-700 dark:text-rose-400 animate-fade-in">
-            <span className="flex items-center gap-1 min-w-0">
-              <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
-              <span className="truncate">Your pick:</span>
-            </span>
-            <span className="font-black shrink-0 text-rose-800 dark:text-rose-300">
-              {eliminatedTeam.name} ❌ (Out)
+          <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-bold text-rose-800 dark:text-rose-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-rose-200 dark:bg-rose-900/80 text-rose-800 dark:text-rose-200">
+                {eliminatedTeam.seed}
+              </span>
+              <TeamLogo alt={eliminatedTeam.abbr} width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
+              <span className="truncate">{eliminatedTeam.name}</span>
+            </div>
+            <span className="text-xs font-extrabold text-rose-600 dark:text-rose-400 shrink-0 ml-2">
+              ❌ (Out)
             </span>
           </div>
         )}
