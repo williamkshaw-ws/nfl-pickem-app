@@ -990,6 +990,26 @@ function SquaresPoolApp() {
                   <ChevronDown className={`w-3 h-3 transition-transform ${showGamePicker ? "rotate-180" : ""}`} />
                 </button>
               )}
+
+              {/* Update Board Teams to Match Game button */}
+              {liveGame && (board.topTeam !== liveGame.topTeam.name || board.leftTeam !== liveGame.leftTeam.name) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveState({
+                      ...board,
+                      topTeam: liveGame.topTeam.name,
+                      leftTeam: liveGame.leftTeam.name,
+                    });
+                    showToast(`Board updated to ${liveGame.topTeam.name} vs ${liveGame.leftTeam.name}`);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition"
+                  title="Update board teams at the top and on the grid to match this game"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Update Board to Game</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -998,19 +1018,39 @@ function SquaresPoolApp() {
             <div className="mt-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
                 <span>Select an active or upcoming game to track on this board:</span>
-                {selectedGameId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedGameId("");
-                      fetchLiveScore("");
-                      setShowGamePicker(false);
-                    }}
-                    className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline"
-                  >
-                    Reset to Board Teams ({board.topTeam} vs {board.leftTeam})
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {liveGame && (board.topTeam !== liveGame.topTeam.name || board.leftTeam !== liveGame.leftTeam.name) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        saveState({
+                          ...board,
+                          topTeam: liveGame.topTeam.name,
+                          leftTeam: liveGame.leftTeam.name,
+                        });
+                        setShowGamePicker(false);
+                        showToast(`Board updated to ${liveGame.topTeam.name} vs ${liveGame.leftTeam.name}`);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Update Board Teams</span>
+                    </button>
+                  )}
+                  {selectedGameId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedGameId("");
+                        fetchLiveScore("");
+                        setShowGamePicker(false);
+                      }}
+                      className="text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
+                    >
+                      Reset to Board Teams ({board.topTeam} vs {board.leftTeam})
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                 {availableGames.map((g) => {
@@ -1059,7 +1099,7 @@ function SquaresPoolApp() {
                 <div className="flex items-center gap-3.5 flex-1 justify-end min-w-0">
                   <div className="text-right min-w-0">
                     <div className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                      AFC (Columns)
+                      AFC
                     </div>
                     <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
                       {liveGame.topTeam.name}
@@ -1102,7 +1142,7 @@ function SquaresPoolApp() {
                   <TeamLogo alt={liveGame.leftTeam.name} className="w-10 h-10 object-contain shrink-0" />
                   <div className="text-left min-w-0">
                     <div className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-                      NFC (Rows)
+                      NFC
                     </div>
                     <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
                       {liveGame.leftTeam.name}
@@ -1112,22 +1152,11 @@ function SquaresPoolApp() {
               </div>
             </div>
           ) : (
-            <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-emerald-500" />
-                <span>
-                  Tracking matchup for <strong>{board.topTeam}</strong> vs <strong>{board.leftTeam}</strong>. When the game starts, live score and quarter totals will automatically populate.
-                </span>
-              </div>
-              {availableGames.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowGamePicker(true)}
-                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
-                >
-                  Link to an active game ({availableGames.length} available) &rarr;
-                </button>
-              )}
+            <div className="pt-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <Radio className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>
+                Tracking matchup for <strong>{board.topTeam}</strong> vs <strong>{board.leftTeam}</strong>. When the game starts, live score and quarter totals will automatically populate.
+              </span>
             </div>
           )}
         </div>
