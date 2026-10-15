@@ -904,17 +904,6 @@ function SquaresPoolApp() {
               )}
             </div>
 
-            {/* Rules Button */}
-            <button
-              type="button"
-              onClick={() => setShowRulesModal(true)}
-              className="inline-flex items-center justify-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
-              title="How to Play / Pool Rules"
-            >
-              <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span className="hidden sm:inline">Rules</span>
-            </button>
-
             <button
               type="button"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
@@ -1673,19 +1662,19 @@ function SquaresPoolApp() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
           {/* Quarter Score & Winner Calculator with Payouts */}
           <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-500" />
-                <span>Quarter Winners &amp; Live Score Tracker</span>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="truncate">Quarter Winners &amp; Live Score Tracker</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowRulesModal(true)}
-                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                title="Click to view scoring rules"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0 cursor-pointer p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                title="How scoring works / Rules"
               >
-                <HelpCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>How scoring works</span>
+                <HelpCircle className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">How scoring works</span>
               </button>
             </div>
 
