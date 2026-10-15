@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Trophy,
@@ -51,6 +51,22 @@ export default function BracketPage() {
   };
 
   const [activeTab, setActiveTab] = useState<"bracket" | "leaderboard">("bracket");
+  const tabScrollMap = useRef<Record<string, number>>({ bracket: 0, leaderboard: 0 });
+
+  const handleTabChange = useCallback((newTab: "bracket" | "leaderboard") => {
+    if (newTab === activeTab) return;
+    // Save current scroll position for active tab
+    tabScrollMap.current[activeTab] = window.scrollY;
+    setActiveTab(newTab);
+    // Restore target tab's scroll position
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        top: tabScrollMap.current[newTab] ?? 0,
+        behavior: "instant",
+      });
+    });
+  }, [activeTab]);
+
   const [mobileRoundTab, setMobileRoundTab] = useState<"wc" | "div" | "conf" | "sb">("wc");
   const [bracketViewMode, setBracketViewMode] = useState<"actual" | "projected">("actual");
 
@@ -58,6 +74,24 @@ export default function BracketPage() {
   const [showClearModal, setShowClearModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [viewingParticipant, setViewingParticipant] = useState<BracketParticipant | null>(null);
+
+  // Prevent background scrolling when any modal is open
+  const isAnyModalOpen = Boolean(showRulesModal || showClearModal || viewingParticipant);
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalPaddingRight = document.body.style.paddingRight;
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      if (scrollBarWidth > 0) {
+        document.body.style.paddingRight = `${scrollBarWidth}px`;
+      }
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.paddingRight = originalPaddingRight;
+      };
+    }
+  }, [isAnyModalOpen]);
 
   const [picks, setPicks] = useState<BracketPicks>({});
   const [tiebreaker, setTiebreaker] = useState<TiebreakerPrediction>({
@@ -663,7 +697,7 @@ export default function BracketPage() {
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setActiveTab("bracket")}
+                onClick={() => handleTabChange("bracket")}
                 className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === "bracket"
                     ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
@@ -679,7 +713,7 @@ export default function BracketPage() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab("leaderboard")}
+                onClick={() => handleTabChange("leaderboard")}
                 className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === "leaderboard"
                     ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
@@ -1190,7 +1224,7 @@ export default function BracketPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("bracket")}
+                    onClick={() => handleTabChange("bracket")}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition shadow-xs"
                   >
                     Make Your Picks
@@ -1660,11 +1694,11 @@ export default function BracketPage() {
       {showClearModal && (
         <div
           onClick={() => setShowClearModal(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overscroll-contain"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5"
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto overscroll-contain"
           >
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
@@ -1702,11 +1736,11 @@ export default function BracketPage() {
       {showRulesModal && (
         <div
           onClick={() => setShowRulesModal(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overscroll-contain"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5"
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto overscroll-contain"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
