@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -24,6 +24,11 @@ import {
   Copy,
   Grid,
   DollarSign,
+  Radio,
+  RefreshCw,
+  ChevronDown,
+  Check,
+  Tv,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -85,6 +90,15 @@ function SquaresPoolApp() {
   const [isLoadingOnline, setIsLoadingOnline] = useState(false);
   const [filterUser, setFilterUser] = useState<string>("");
   const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
+
+  // Live Score Tracker State
+  const [liveGame, setLiveGame] = useState<any | null>(null);
+  const [isFetchingScore, setIsFetchingScore] = useState(false);
+  const [lastScoreUpdate, setLastScoreUpdate] = useState<Date | null>(null);
+  const [autoSyncScores, setAutoSyncScores] = useState<boolean>(true);
+  const [availableGames, setAvailableGames] = useState<any[]>([]);
+  const [selectedGameId, setSelectedGameId] = useState<string>("");
+  const [showGamePicker, setShowGamePicker] = useState(false);
 
   // Modals & UI state
   const [editingHeader, setEditingHeader] = useState<{ type: "top" | "left"; index: number } | null>(null);
@@ -217,6 +231,122 @@ function SquaresPoolApp() {
       }
     }
   };
+
+  const boardRef = useRef(board);
+  useEffect(() => {
+    boardRef.current = board;
+  }, [board]);
+
+  const autoSyncScoresRef = useRef(autoSyncScores);
+  useEffect(() => {
+    autoSyncScoresRef.current = autoSyncScores;
+  }, [autoSyncScores]);
+
+  // Fetch live score from ESPN & auto-populate quarter scores
+  const fetchLiveScore = useCallback(async (forcedGameId?: string) => {
+    try {
+      setIsFetchingScore(true);
+      const params = new URLSearchParams();
+      const currentBoard = boardRef.current;
+      if (currentBoard.topTeam) params.set("top", currentBoard.topTeam);
+      if (currentBoard.leftTeam) params.set("left", currentBoard.leftTeam);
+      const gId = forcedGameId !== undefined ? forcedGameId : selectedGameId;
+      if (gId) params.set("gameId", gId);
+
+      const res = await fetch(`/api/squares/live-score?${params.toString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success) {
+        setLiveGame(data.matchedGame || null);
+        setAvailableGames(data.availableGames || []);
+        setLastScoreUpdate(new Date());
+
+        // Automatically populate quarter scores if autoSyncScores is enabled
+        if (autoSyncScoresRef.current && data.matchedGame?.quarters) {
+          const q = data.matchedGame.quarters;
+          let changed = false;
+          const nextBoard: SquaresBoardState = {
+            ...currentBoard,
+            q1Score: { ...currentBoard.q1Score },
+            q2Score: { ...currentBoard.q2Score },
+            q3Score: { ...currentBoard.q3Score },
+            finalScore: { ...currentBoard.finalScore },
+          };
+
+          if (q.q1?.completed && q.q1.top !== null && q.q1.left !== null) {
+            const topStr = String(q.q1.top);
+            const leftStr = String(q.q1.left);
+            if (nextBoard.q1Score.top !== topStr || nextBoard.q1Score.left !== leftStr) {
+              nextBoard.q1Score = { top: topStr, left: leftStr };
+              changed = true;
+            }
+          }
+
+          if (q.q2?.completed && q.q2.top !== null && q.q2.left !== null) {
+            const topStr = String(q.q2.top);
+            const leftStr = String(q.q2.left);
+            if (nextBoard.q2Score.top !== topStr || nextBoard.q2Score.left !== leftStr) {
+              nextBoard.q2Score = { top: topStr, left: leftStr };
+              changed = true;
+            }
+          }
+
+          if (q.q3?.completed && q.q3.top !== null && q.q3.left !== null) {
+            const topStr = String(q.q3.top);
+            const leftStr = String(q.q3.left);
+            if (nextBoard.q3Score.top !== topStr || nextBoard.q3Score.left !== leftStr) {
+              nextBoard.q3Score = { top: topStr, left: leftStr };
+              changed = true;
+            }
+          }
+
+          if (q.final?.completed && q.final.top !== null && q.final.left !== null) {
+            const topStr = String(q.final.top);
+            const leftStr = String(q.final.left);
+            if (nextBoard.finalScore.top !== topStr || nextBoard.finalScore.left !== leftStr) {
+              nextBoard.finalScore = { top: topStr, left: leftStr };
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            saveState(nextBoard);
+            showToast("⚡ Quarter scores auto-updated from live game!");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch live score:", err);
+    } finally {
+      setIsFetchingScore(false);
+    }
+  }, [selectedGameId]);
+
+  // Live score polling: 30s when live, 60s otherwise
+  useEffect(() => {
+    fetchLiveScore();
+
+    const isLive = liveGame?.status?.state === "in";
+    const intervalMs = isLive ? 30000 : 60000;
+
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchLiveScore();
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [board.topTeam, board.leftTeam, selectedGameId, liveGame?.status?.state, fetchLiveScore]);
+
+  // Refresh when user returns to tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        fetchLiveScore();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchLiveScore]);
 
   // 3. Share / Publish Online
   const handleShareOnline = async () => {
@@ -787,6 +917,221 @@ function SquaresPoolApp() {
           </div>
         </div>
 
+        {/* Live NFL Game Scoreboard Banner (no-print) */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-6 no-print">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            {/* Live Status Badge */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black shadow-2xs">
+                {liveGame?.status?.state === "in" ? (
+                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                    LIVE &bull; {liveGame.status.detail || "In Progress"}
+                  </span>
+                ) : liveGame?.status?.completed || liveGame?.status?.state === "post" ? (
+                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                    <Check className="w-3.5 h-3.5" />
+                    FINAL SCORE
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+                    <Radio className="w-3.5 h-3.5 text-slate-400" />
+                    {liveGame?.status?.detail || "Game Scheduled / Upcoming"}
+                  </span>
+                )}
+              </div>
+
+              {lastScoreUpdate && (
+                <span className="text-[11px] text-slate-400 hidden sm:inline">
+                  Updated {lastScoreUpdate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  {liveGame?.status?.state === "in" ? " (30s live poll)" : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Controls: Auto-sync toggle & Manual Refresh */}
+            <div className="flex items-center flex-wrap gap-2.5">
+              <label
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700/60 transition"
+                title="Automatically populate Q1, Halftime, Q3, and Final scores from ESPN when each quarter ends"
+              >
+                <input
+                  type="checkbox"
+                  checked={autoSyncScores}
+                  onChange={(e) => setAutoSyncScores(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                />
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Auto-Populate Quarter Scores
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => fetchLiveScore()}
+                disabled={isFetchingScore}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition disabled:opacity-50"
+                title="Fetch latest score from ESPN"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingScore ? "animate-spin text-emerald-500" : ""}`} />
+                <span>{isFetchingScore ? "Syncing..." : "Sync Score"}</span>
+              </button>
+
+              {availableGames.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowGamePicker(!showGamePicker)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition"
+                  title="Choose which game to track"
+                >
+                  <Tv className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Games</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showGamePicker ? "rotate-180" : ""}`} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Optional Game Selector dropdown */}
+          {showGamePicker && availableGames.length > 0 && (
+            <div className="mt-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
+                <span>Select an active or upcoming game to track on this board:</span>
+                {selectedGameId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedGameId("");
+                      fetchLiveScore("");
+                      setShowGamePicker(false);
+                    }}
+                    className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    Reset to Board Teams ({board.topTeam} vs {board.leftTeam})
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {availableGames.map((g) => {
+                  const isSelected = selectedGameId === g.id || (!selectedGameId && liveGame?.id === g.id);
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGameId(g.id);
+                        fetchLiveScore(g.id);
+                        setShowGamePicker(false);
+                      }}
+                      className={`p-2 rounded-xl text-left border text-xs transition flex flex-col justify-between gap-1 ${
+                        isSelected
+                          ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-100 font-bold"
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-extrabold truncate">{g.name}</span>
+                        {g.state === "in" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                        <span>{g.status}</span>
+                        {(g.state === "in" || g.state === "post") && (
+                          <span className="font-black text-slate-900 dark:text-white">
+                            {g.awayScore} - {g.homeScore}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Main Scoreboard Display */}
+          {liveGame ? (
+            <div className="pt-3">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                {/* AFC / Top Team */}
+                <div className="flex items-center gap-3.5 flex-1 justify-end min-w-0">
+                  <div className="text-right min-w-0">
+                    <div className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                      AFC (Columns)
+                    </div>
+                    <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                      {liveGame.topTeam.name}
+                    </div>
+                  </div>
+                  <TeamLogo alt={liveGame.topTeam.name} className="w-10 h-10 object-contain shrink-0" />
+                  <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums px-2">
+                    {liveGame.topTeam.score}
+                  </div>
+                </div>
+
+                {/* Score Divider & Quarter Pills */}
+                <div className="flex flex-col items-center justify-center shrink-0 px-2 py-1">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                    {liveGame.status.shortDetail || "VS"}
+                  </span>
+
+                  {/* Linescores breakdown (Q1, Q2, Q3, Q4) */}
+                  {liveGame.topTeam.linescores?.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-lg">
+                      {liveGame.topTeam.linescores.map((val: number, idx: number) => {
+                        const leftVal = liveGame.leftTeam.linescores?.[idx] ?? 0;
+                        const qLabel = idx < 4 ? `Q${idx + 1}` : "OT";
+                        return (
+                          <span key={idx} className="whitespace-nowrap">
+                            {qLabel}: {val}-{leftVal}
+                            {idx < liveGame.topTeam.linescores.length - 1 && <span className="mx-1 text-slate-300 dark:text-slate-600">&bull;</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* NFC / Left Team */}
+                <div className="flex items-center gap-3.5 flex-1 justify-start min-w-0">
+                  <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums px-2">
+                    {liveGame.leftTeam.score}
+                  </div>
+                  <TeamLogo alt={liveGame.leftTeam.name} className="w-10 h-10 object-contain shrink-0" />
+                  <div className="text-left min-w-0">
+                    <div className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
+                      NFC (Rows)
+                    </div>
+                    <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                      {liveGame.leftTeam.name}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-emerald-500" />
+                <span>
+                  Tracking matchup for <strong>{board.topTeam}</strong> vs <strong>{board.leftTeam}</strong>. When the game starts, live score and quarter totals will automatically populate.
+                </span>
+              </div>
+              {availableGames.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowGamePicker(true)}
+                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
+                >
+                  Link to an active game ({availableGames.length} available) &rarr;
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* PRINT HEADER (Visible only when printed) */}
         <div className="hidden print:block mb-2 text-center">
           <h1 className="text-lg font-black text-black leading-tight">{board.title}</h1>
@@ -1097,6 +1442,12 @@ function SquaresPoolApp() {
                         {tag}
                       </span>
                       <span className="text-xs font-black text-slate-900 dark:text-white">{label}</span>
+                      {liveGame?.quarters?.[key]?.completed && (
+                        <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/60 dark:border-emerald-800/60 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" />
+                          <span>ESPN Live</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Quarter Payout Input */}
