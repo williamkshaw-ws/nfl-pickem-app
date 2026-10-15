@@ -205,14 +205,12 @@ function SquaresPoolApp() {
   // 3. Share / Publish Online
   const handleShareOnline = async () => {
     if (poolId) {
-      // Copy existing online link
       const url = `${window.location.origin}/squares?id=${poolId}`;
       await navigator.clipboard.writeText(url);
       showToast("Online link copied! Anyone with this link can view this board.");
       return;
     }
 
-    // Create online pool in Firestore
     setSyncStatus("saving");
     try {
       const res = await fetch("/api/squares", {
@@ -389,7 +387,7 @@ function SquaresPoolApp() {
     };
   }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore, board.topNumbers, board.leftNumbers, board.grid]);
 
-  // Keyboard navigation
+  // Keyboard navigation across cells - smoothly moves without altering dimensions
   const handleCellKeyDown = (e: React.KeyboardEvent, r: number, c: number) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
@@ -402,18 +400,18 @@ function SquaresPoolApp() {
       }
     } else if (e.key === "Escape") {
       setSelectedCell(null);
-    } else if (e.key === "ArrowRight" && c < 9) {
+    } else if (e.key === "ArrowRight") {
       e.preventDefault();
-      setSelectedCell({ r, c: c + 1 });
-    } else if (e.key === "ArrowLeft" && c > 0) {
+      if (c < 9) setSelectedCell({ r, c: c + 1 });
+    } else if (e.key === "ArrowLeft") {
       e.preventDefault();
-      setSelectedCell({ r, c: c - 1 });
-    } else if (e.key === "ArrowDown" && r < 9) {
+      if (c > 0) setSelectedCell({ r, c: c - 1 });
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedCell({ r: r + 1, c });
-    } else if (e.key === "ArrowUp" && r > 0) {
+      if (r < 9) setSelectedCell({ r: r + 1, c });
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedCell({ r: r - 1, c });
+      if (r > 0) setSelectedCell({ r: r - 1, c });
     }
   };
 
@@ -434,7 +432,7 @@ function SquaresPoolApp() {
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen">
-      {/* Global & Print CSS: Perfect 1-Page Landscape Print without clipping */}
+      {/* Global & Print CSS: Strict Single-Page Landscape Print rules */}
       <style jsx global>{`
         /* Remove spinner arrows from number inputs across all browsers */
         input::-webkit-outer-spin-button,
@@ -449,15 +447,17 @@ function SquaresPoolApp() {
         @media print {
           @page {
             size: letter landscape !important;
-            margin: 0.3in !important;
+            margin: 0.25in !important;
           }
           html, body {
             background: white !important;
             color: black !important;
             margin: 0 !important;
             padding: 0 !important;
-            height: auto !important;
-            overflow: visible !important;
+            height: 100% !important;
+            overflow: hidden !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
           }
           nav, header, footer, .no-print, [class*="SiteFooter"] {
@@ -469,29 +469,38 @@ function SquaresPoolApp() {
             padding: 0 !important;
             margin: 0 !important;
           }
+          .squares-table-wrapper {
+            overflow: visible !important;
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+          .squares-table-wrapper > div {
+            min-width: 0 !important;
+            width: 100% !important;
+          }
           .squares-grid-table {
             page-break-inside: avoid !important;
             page-break-after: avoid !important;
+            page-break-before: avoid !important;
             width: 100% !important;
             table-layout: fixed !important;
             border-collapse: collapse !important;
           }
           .squares-grid-table th, .squares-grid-table td {
-            border: 1px solid #334155 !important;
+            border: 1px solid #1e293b !important;
             padding: 1px !important;
             color: black !important;
             background: white !important;
+            height: 30px !important;
+            max-height: 32px !important;
           }
           .squares-grid-table th {
             background: #f1f5f9 !important;
             font-weight: 900 !important;
-          }
-          .squares-grid-table td {
-            height: 38px !important;
-            max-height: 40px !important;
+            height: 26px !important;
           }
           .squares-grid-table td span {
-            font-size: 11px !important;
+            font-size: 10px !important;
             line-height: 1.1 !important;
             color: black !important;
             font-weight: 700 !important;
@@ -541,11 +550,7 @@ function SquaresPoolApp() {
             <button
               type="button"
               onClick={handleShareOnline}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs ${
-                poolId
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
-              }`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white"
               title="Share this board online with friends"
             >
               {poolId ? <Copy className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
@@ -557,7 +562,7 @@ function SquaresPoolApp() {
               type="button"
               onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs"
-              title="Print or Save PDF (Formatted for 1 Page Landscape)"
+              title="Print or Save PDF (Single Page Landscape)"
             >
               <Printer className="w-3.5 h-3.5 text-slate-500" />
               <span className="hidden sm:inline">Print / PDF</span>
@@ -767,19 +772,19 @@ function SquaresPoolApp() {
         </div>
 
         {/* PRINT HEADER (Visible only when printed) */}
-        <div className="hidden print:block mb-3 text-center">
-          <h1 className="text-xl font-black text-black leading-tight">{board.title}</h1>
+        <div className="hidden print:block mb-2 text-center">
+          <h1 className="text-lg font-black text-black leading-tight">{board.title}</h1>
           <p className="text-xs font-semibold text-gray-700">
             AFC: {board.topTeam || "AFC"} &bull; NFC: {board.leftTeam || "NFC"}
             {stats.cost > 0 && ` • $${stats.cost} per square`}
           </p>
         </div>
 
-        {/* 10x10 Super Bowl Squares Grid Table */}
+        {/* 10x10 Super Bowl Squares Grid Table Card */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
           {/* Top Team Banner (AFC) above grid */}
           <div className="bg-slate-100/90 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2.5 text-center">
-            <TeamLogo alt={board.topTeam} className="w-6 h-6 object-contain" />
+            <TeamLogo alt={board.topTeam} className="w-6 h-6 object-contain shrink-0" />
             <span className="text-xs uppercase font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">
               AFC &bull;
             </span>
@@ -788,188 +793,191 @@ function SquaresPoolApp() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] border-collapse squares-grid-table">
-              <thead>
-                <tr>
-                  {/* Empty spacer corner cell above the NFC vertical column */}
-                  <th className="w-14 sm:w-16 p-1 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle" />
+          {/* Grid Container with Separate NFC Column (No rowSpan, eliminating table height distortion) */}
+          <div className="overflow-x-auto squares-table-wrapper">
+            <div className="flex items-stretch min-w-[760px]">
+              {/* NFC Team Column on the Left - Flex sibling to table, perfectly matching height */}
+              <div className="w-12 sm:w-14 bg-slate-100/90 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center select-none py-4 shrink-0">
+                <div className="flex items-center justify-center gap-2.5 [writing-mode:vertical-lr] rotate-180 select-none">
+                  {/* Rotated logo sideways (-rotate-90) to flow along the text direction */}
+                  <div className="-rotate-90 shrink-0">
+                    <TeamLogo alt={board.leftTeam} className="w-6 h-6 object-contain" />
+                  </div>
+                  <span className="text-xs uppercase font-extrabold text-sky-600 dark:text-sky-400 tracking-wider">
+                    NFC &bull;
+                  </span>
+                  <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide truncate max-h-[380px]">
+                    {board.leftTeam || "NFC Team"}
+                  </span>
+                </div>
+              </div>
 
-                  {/* Junction Cell for Coordinates */}
-                  <th className="w-16 sm:w-20 p-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle">
-                    <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider leading-tight">
-                      <div className="text-emerald-600 dark:text-emerald-400">AFC &rarr;</div>
-                      <div className="border-t border-slate-300 dark:border-slate-600 my-1" />
-                      <div className="text-sky-600 dark:text-sky-400">NFC &darr;</div>
-                    </div>
-                  </th>
+              {/* Table: Standard 10 columns + Row letter column with table-fixed */}
+              <div className="flex-1 min-w-0">
+                <table className="w-full table-fixed border-collapse squares-grid-table">
+                  <colgroup>
+                    {/* Row Letter column: 6% */}
+                    <col className="w-[6%]" />
+                    {/* 10 Grid Square columns: 9.4% each */}
+                    {Array.from({ length: 10 }).map((_, i) => (
+                      <col key={i} className="w-[9.4%]" />
+                    ))}
+                  </colgroup>
 
-                  {/* Top Row Headers (10 columns: default 1 to 0 - COL 1-10 labels removed) */}
-                  {board.topNumbers.map((num, cIdx) => (
-                    <th
-                      key={cIdx}
-                      onClick={() => openHeaderEdit("top", cIdx)}
-                      className="p-2 sm:p-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group"
-                      title="Click to edit top number"
-                    >
-                      <div className="flex flex-col items-center justify-center">
-                        <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition">
-                          {num}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {board.leftNumbers.map((rowLetter, rIdx) => (
-                  <tr key={rIdx}>
-                    {/* NFC Team Column spanning all 10 rows on the actual left side - matching AFC size & inverted logo */}
-                    {rIdx === 0 && (
-                      <th
-                        rowSpan={10}
-                        className="w-14 sm:w-16 p-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-center align-middle"
-                      >
-                        <div className="flex flex-col items-center justify-center gap-3 h-full select-none py-4 [writing-mode:vertical-lr] rotate-180">
-                          {/* Rotated logo sideways so it flows along the text direction */}
-                          <div className="-rotate-90 shrink-0">
-                            <TeamLogo alt={board.leftTeam} className="w-6 h-6 object-contain" />
-                          </div>
-                          <span className="text-xs uppercase font-extrabold text-sky-600 dark:text-sky-400 tracking-wider">
-                            NFC &bull;
-                          </span>
-                          <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide truncate max-h-[380px]">
-                            {board.leftTeam || "NFC Team"}
-                          </span>
+                  <thead>
+                    <tr className="h-11">
+                      {/* Junction Cell for Coordinates */}
+                      <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                        <div className="text-[10px] font-extrabold leading-tight">
+                          <div className="text-emerald-600 dark:text-emerald-400">AFC &rarr;</div>
+                          <div className="border-t border-slate-300 dark:border-slate-600 my-0.5" />
+                          <div className="text-sky-600 dark:text-sky-400">NFC &darr;</div>
                         </div>
                       </th>
-                    )}
 
-                    {/* First Column Header (Row letter/number: default A to J - R1-10 labels removed) */}
-                    <th
-                      onClick={() => openHeaderEdit("left", rIdx)}
-                      className="p-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group w-16 sm:w-20"
-                      title="Click to edit row letter/number"
-                    >
-                      <div className="flex items-center justify-center">
-                        <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-sky-500 transition">
-                          {rowLetter}
-                        </span>
-                      </div>
-                    </th>
-
-                    {/* 10 Grid Squares for this Row */}
-                    {Array.from({ length: 10 }).map((_, cIdx) => {
-                      const key = `${rIdx}_${cIdx}`;
-                      const name = board.grid[key] || "";
-                      const isSelected = selectedCell?.r === rIdx && selectedCell?.c === cIdx;
-                      const isFilterMatch =
-                        filterUser.trim() &&
-                        name.toLowerCase().includes(filterUser.trim().toLowerCase());
-
-                      // Check if this square won any quarter
-                      const isQ1Winner = quarterWinners.q1?.rIndex === rIdx && quarterWinners.q1?.cIndex === cIdx;
-                      const isQ2Winner = quarterWinners.q2?.rIndex === rIdx && quarterWinners.q2?.cIndex === cIdx;
-                      const isQ3Winner = quarterWinners.q3?.rIndex === rIdx && quarterWinners.q3?.cIndex === cIdx;
-                      const isFinalWinner = quarterWinners.final?.rIndex === rIdx && quarterWinners.final?.cIndex === cIdx;
-                      const isAnyWinner = isQ1Winner || isQ2Winner || isQ3Winner || isFinalWinner;
-
-                      return (
-                        <td
+                      {/* Top Row Headers (10 columns: default 1 to 0 - COL 1-10 labels removed) */}
+                      {board.topNumbers.map((num, cIdx) => (
+                        <th
                           key={cIdx}
-                          onClick={() => setSelectedCell({ r: rIdx, c: cIdx })}
-                          className={`h-14 sm:h-16 p-1 border border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition cursor-pointer select-none ${
-                            isSelected
-                              ? "bg-emerald-50 dark:bg-emerald-950/60 ring-2 ring-emerald-500 z-10"
-                              : isFilterMatch
-                              ? "bg-amber-100/90 dark:bg-amber-950/60 ring-2 ring-amber-400"
-                              : isAnyWinner
-                              ? "bg-gradient-to-br from-amber-50 to-emerald-50 dark:from-amber-950/40 dark:to-emerald-950/40 ring-2 ring-amber-500"
-                              : name
-                              ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
-                              : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
-                          }`}
+                          onClick={() => openHeaderEdit("top", cIdx)}
+                          className="p-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border-b border-r border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group last:border-r-0"
+                          title="Click to edit top number"
                         >
-                          {isSelected ? (
-                            <div className="flex items-center justify-center w-full h-full">
-                              <input
-                                ref={cellInputRef}
-                                type="text"
-                                value={name}
-                                onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
-                                onBlur={() => setSelectedCell(null)}
-                                onKeyDown={(e) => handleCellKeyDown(e, rIdx, cIdx)}
-                                placeholder="Name..."
-                                className="w-[90%] max-w-[110px] py-1 px-1.5 text-center text-xs sm:text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded-md border-2 border-emerald-500 shadow-sm focus:outline-hidden"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center px-1">
-                              {name ? (
-                                /* If name contains spaces (first & last name), split into two rows to prevent wide stretching */
-                                name.includes(" ") ? (
-                                  <div className="flex flex-col items-center justify-center leading-tight">
-                                    {name.split(" ").filter(Boolean).map((part, pIdx) => (
-                                      <span
-                                        key={pIdx}
-                                        className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full"
-                                      >
-                                        {part}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
-                                    {name}
-                                  </span>
-                                )
-                              ) : (
-                                <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium select-none no-print">
-                                  {board.leftNumbers[rIdx]},{board.topNumbers[cIdx]}
-                                </span>
-                              )}
+                          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition">
+                            {num}
+                          </span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
 
-                              {/* Winner Badge on square */}
-                              {isAnyWinner && (
-                                <div className="absolute top-1 right-1 flex gap-0.5 no-print">
-                                  {isQ1Winner && (
-                                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-500 text-white shadow-2xs">
-                                      Q1
+                  <tbody>
+                    {board.leftNumbers.map((rowLetter, rIdx) => (
+                      <tr key={rIdx} className="h-12 sm:h-14">
+                        {/* First Column Header (Row letter: default A to J - R1-10 labels removed) */}
+                        <th
+                          onClick={() => openHeaderEdit("left", rIdx)}
+                          className="p-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border-b border-r border-slate-200 dark:border-slate-700/80 text-center cursor-pointer transition select-none group"
+                          title="Click to edit row letter/number"
+                        >
+                          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-sky-500 transition">
+                            {rowLetter}
+                          </span>
+                        </th>
+
+                        {/* 10 Grid Squares for this Row (all uniform size, no expansion jumps) */}
+                        {Array.from({ length: 10 }).map((_, cIdx) => {
+                          const key = `${rIdx}_${cIdx}`;
+                          const name = board.grid[key] || "";
+                          const isSelected = selectedCell?.r === rIdx && selectedCell?.c === cIdx;
+                          const isFilterMatch =
+                            filterUser.trim() &&
+                            name.toLowerCase().includes(filterUser.trim().toLowerCase());
+
+                          // Check if this square won any quarter
+                          const isQ1Winner = quarterWinners.q1?.rIndex === rIdx && quarterWinners.q1?.cIndex === cIdx;
+                          const isQ2Winner = quarterWinners.q2?.rIndex === rIdx && quarterWinners.q2?.cIndex === cIdx;
+                          const isQ3Winner = quarterWinners.q3?.rIndex === rIdx && quarterWinners.q3?.cIndex === cIdx;
+                          const isFinalWinner = quarterWinners.final?.rIndex === rIdx && quarterWinners.final?.cIndex === cIdx;
+                          const isAnyWinner = isQ1Winner || isQ2Winner || isQ3Winner || isFinalWinner;
+
+                          return (
+                            <td
+                              key={cIdx}
+                              onClick={() => setSelectedCell({ r: rIdx, c: cIdx })}
+                              className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition cursor-pointer select-none overflow-hidden last:border-r-0 ${
+                                isSelected
+                                  ? "bg-emerald-50/90 dark:bg-emerald-950/60 ring-2 ring-inset ring-emerald-500 z-10"
+                                  : isFilterMatch
+                                  ? "bg-amber-100/90 dark:bg-amber-950/60 ring-2 ring-inset ring-amber-400"
+                                  : isAnyWinner
+                                  ? "bg-gradient-to-br from-amber-50 to-emerald-50 dark:from-amber-950/40 dark:to-emerald-950/40 ring-2 ring-inset ring-amber-500"
+                                  : name
+                                  ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
+                              }`}
+                            >
+                              {isSelected ? (
+                                <div className="w-full h-full flex items-center justify-center p-0.5">
+                                  <input
+                                    ref={cellInputRef}
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
+                                    onBlur={() => setSelectedCell(null)}
+                                    onKeyDown={(e) => handleCellKeyDown(e, rIdx, cIdx)}
+                                    placeholder="Name"
+                                    className="w-full h-7 text-center text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded border border-emerald-500 shadow-2xs px-1 focus:outline-hidden"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center px-0.5">
+                                  {name ? (
+                                    /* If name contains spaces (first & last name), split into two rows to prevent wide stretching */
+                                    name.includes(" ") ? (
+                                      <div className="flex flex-col items-center justify-center leading-tight max-w-full">
+                                        {name.split(" ").filter(Boolean).map((part, pIdx) => (
+                                          <span
+                                            key={pIdx}
+                                            className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full"
+                                          >
+                                            {part}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
+                                        {name}
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium select-none no-print">
+                                      {board.leftNumbers[rIdx]},{board.topNumbers[cIdx]}
                                     </span>
                                   )}
-                                  {isQ2Winner && (
-                                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-sky-500 text-white shadow-2xs">
-                                      Q2
-                                    </span>
-                                  )}
-                                  {isQ3Winner && (
-                                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-purple-500 text-white shadow-2xs">
-                                      Q3
-                                    </span>
-                                  )}
-                                  {isFinalWinner && (
-                                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-emerald-600 text-white shadow-2xs">
-                                      FINAL
-                                    </span>
+
+                                  {/* Winner Badge on square */}
+                                  {isAnyWinner && (
+                                    <div className="absolute top-0.5 right-0.5 flex gap-0.5 no-print">
+                                      {isQ1Winner && (
+                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-amber-500 text-white shadow-2xs">
+                                          Q1
+                                        </span>
+                                      )}
+                                      {isQ2Winner && (
+                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-sky-500 text-white shadow-2xs">
+                                          Q2
+                                        </span>
+                                      )}
+                                      {isQ3Winner && (
+                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-purple-500 text-white shadow-2xs">
+                                          Q3
+                                        </span>
+                                      )}
+                                      {isFinalWinner && (
+                                        <span className="text-[7px] font-black px-1 py-0.2 rounded bg-emerald-600 text-white shadow-2xs">
+                                          FINAL
+                                        </span>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               )}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           {/* Table Footer Instructions */}
           <div className="bg-slate-50 dark:bg-slate-800/40 px-4 py-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 no-print">
             <span className="text-[11px]">
-              Click any square or header number to edit. Press <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Tab</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Enter</kbd> to move to the next square.
+              Click any square or header number to edit. Use <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Arrow Keys</kbd>, <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Tab</kbd>, or <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold">Enter</kbd> to move between squares.
             </span>
             <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
               {poolId ? "Online Synced" : "Auto-saved to device"}
