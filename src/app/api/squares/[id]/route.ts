@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb, requireUser } from "@/lib/server-auth";
+import { adminDb, requireUser, HttpError } from "@/lib/server-auth";
 import { validateAndSanitizeBoard, generateOwnerKey } from "@/lib/squares-validation";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -8,6 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`squares_get:${ip}`, 120, 60_000);
+
     const { id } = await params;
     const poolId = (id || "").toLowerCase().trim();
     if (!poolId) {
@@ -41,6 +44,9 @@ export async function GET(
       updatedAt: data?.updatedAt,
     });
   } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error fetching squares pool:", err);
     const msg = err instanceof Error ? err.message : "Failed to load pool";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -168,6 +174,9 @@ export async function POST(
 
     return NextResponse.json({ success: true, id: poolId });
   } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error updating squares pool:", err);
     const msg = err instanceof Error ? err.message : "Failed to update pool";
     return NextResponse.json({ error: msg }, { status: 500 });

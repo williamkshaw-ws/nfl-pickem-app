@@ -11,11 +11,15 @@ import {
   LogOut,
   PlusCircle,
   LogIn,
+  UserPlus,
   Loader2,
   Settings,
   AlertCircle,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useTheme } from "@/components/ThemeProvider";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -60,6 +64,7 @@ export function Header({
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
+  const { setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
   
   const [memberships, setMemberships] = useState<LeagueMembership[]>([]);
@@ -157,7 +162,11 @@ export function Header({
 
       if (leagueToLeave.leagueId === currentLeagueId) {
         if (typeof window !== "undefined") {
-          localStorage.removeItem("last_active_league");
+          try {
+            localStorage.removeItem("last_active_league");
+          } catch {
+            // Ignore storage errors
+          }
         }
         window.location.href = "/";
       } else {
@@ -195,7 +204,11 @@ export function Header({
         return;
       }
       if (typeof window !== "undefined") {
-        localStorage.setItem("last_active_league", data.leagueId);
+        try {
+          localStorage.setItem("last_active_league", data.leagueId);
+        } catch {
+          // Ignore storage errors
+        }
       }
       router.push(`/league/${data.leagueId}`);
       window.location.href = `/league/${data.leagueId}`;
@@ -228,7 +241,11 @@ export function Header({
         return;
       }
       if (typeof window !== "undefined") {
-        localStorage.setItem("last_active_league", data.leagueId);
+        try {
+          localStorage.setItem("last_active_league", data.leagueId);
+        } catch {
+          // Ignore storage errors
+        }
       }
       router.push(`/league/${data.leagueId}`);
       window.location.href = `/league/${data.leagueId}`;
@@ -242,14 +259,14 @@ export function Header({
 
   return (
     <>
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <GameSwitcherDropdown currentGame="pickem" />
             <div className="flex items-center min-w-0 gap-2">
-              <h1 className="font-extrabold text-sm sm:text-lg tracking-tight text-slate-900 dark:text-white truncate flex items-center gap-1 sm:gap-1.5">
+              <h1 className="font-black text-sm sm:text-lg tracking-tight text-slate-900 dark:text-white truncate flex items-center gap-1 sm:gap-1.5">
                 {settings.leagueName} <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>
               </h1>
               
@@ -289,39 +306,50 @@ export function Header({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 cursor-pointer"
+              title="Toggle Theme"
+            >
+              {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
             {!user ? (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800">
                 <Link
                   href="/auth/login"
-                  className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 font-bold text-xs sm:text-sm transition-colors flex items-center gap-1.5"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
                 </Link>
                 <Link
                   href="/auth/register"
-                  className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-1.5"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
                 >
+                  <UserPlus className="w-3.5 h-3.5" />
                   <span>Sign Up</span>
                 </Link>
               </div>
             ) : (
-              <div ref={dropdownRef} className="relative ml-0 sm:ml-2">
+              <div ref={dropdownRef} className="relative pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
               <button
+                type="button"
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 text-left transition-opacity hover:opacity-80"
+                className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} flex items-center justify-center text-white font-bold text-xs flex-shrink-0 shadow-xs transition-colors`}
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} flex items-center justify-center text-white font-black text-xs sm:text-sm flex-shrink-0 shadow-xs transition-colors`}
                 >
-                  {activeUser?.name?.charAt(0) || user?.name?.charAt(0) || "U"}
+                  {((activeUser?.name || user?.name || user?.username || user?.email || "U").charAt(0) || "U").toUpperCase()}
                 </div>
-                <div className="hidden sm:flex flex-col">
-                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[100px]">{activeUser?.name || user?.name}</span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Account</span>
+                <div className="hidden md:flex flex-col items-start leading-none">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px]">{activeUser?.name || user?.name || user?.username}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Account</span>
                 </div>
-                <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-slate-400 ml-1" />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${userDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {userDropdownOpen && (
@@ -330,7 +358,7 @@ export function Header({
                     {/* User Profile Header */}
                     <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
                       <div className={`w-10 h-10 ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} text-white rounded-xl flex items-center justify-center text-lg font-black flex-shrink-0 shadow-xs transition-colors`}>
-                        {user?.name?.charAt(0).toUpperCase() || activeUser?.name?.charAt(0).toUpperCase() || "U"}
+                        {((user?.name || activeUser?.name || user?.username || user?.email || "U").charAt(0) || "U").toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">{user?.name || activeUser?.name}</h4>
@@ -385,7 +413,11 @@ export function Header({
                               href={`/league/${m.leagueId}`}
                               onClick={() => {
                                 if (typeof window !== "undefined") {
-                                  localStorage.setItem("last_active_league", m.leagueId);
+                                  try {
+                                    localStorage.setItem("last_active_league", m.leagueId);
+                                  } catch {
+                                    // Ignore storage errors
+                                  }
                                 }
                                 setUserDropdownOpen(false);
                               }}

@@ -1,11 +1,18 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/components/AuthProvider";
 
 export function SiteFooter() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // On active league pages, mobile navigation tabs sit fixed at the bottom.
   // Add extra bottom padding so the footer content is never hidden behind navigation or the save bar.
@@ -25,20 +32,24 @@ export function SiteFooter() {
           <span>&copy; {new Date().getFullYear()} PocketPicks&trade;. All rights reserved.</span>
           <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
           <span className="text-[11px] sm:text-xs">NFL Pick&apos;em &amp; Survivor Pool Platform</span>
-          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-          <Link
-            href="/squares"
-            className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
-          >
-            Squares
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-          <Link
-            href="/bracket"
-            className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
-          >
-            Playoff Bracket
-          </Link>
+          {mounted && user && (
+            <>
+              <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+              <Link
+                href="/squares"
+                className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
+              >
+                Squares
+              </Link>
+              <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+              <Link
+                href="/bracket"
+                className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition"
+              >
+                Playoff Bracket
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Social Media Links - Icon only on mobile, text on desktop */}

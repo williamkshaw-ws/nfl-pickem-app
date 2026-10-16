@@ -136,6 +136,9 @@ export async function POST(request: Request) {
       board,
     });
   } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error creating/saving squares pool:", err);
     const msg = err instanceof Error ? err.message : "Failed to save pool";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -144,12 +147,9 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    let caller;
-    try {
-      caller = await requireUser(request);
-    } catch {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const ip = getClientIp(request);
+    enforceRateLimit(`squares_list:${ip}`, 60, 60_000);
+    const caller = await requireUser(request);
 
     const db = adminDb();
     const snap = await db
@@ -176,6 +176,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, pools });
   } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error fetching user squares pools:", err);
     const msg = err instanceof Error ? err.message : "Failed to load pools";
     return NextResponse.json({ error: msg }, { status: 500 });

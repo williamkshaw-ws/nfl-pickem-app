@@ -21,11 +21,18 @@ import {
   Eye,
   ArrowLeftRight,
   Loader2,
+  ChevronDown,
+  ChevronRight,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
+import { auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+import { UserSettingsModal } from "@/components/UserSettingsModal";
 import {
   BracketGameId,
   BracketPicks,
@@ -50,6 +57,45 @@ function BracketApp() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [userDropdownOpen]);
+
+  const handleLogout = async () => {
+    try {
+      setUserDropdownOpen(false);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("last_active_league");
+          localStorage.removeItem("pending_join_code");
+        } catch {
+          // Ignore storage errors
+        }
+      }
+      await signOut(auth);
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
+    } catch (err) {
+      console.error("Failed to log out:", err);
+    }
+  };
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -127,7 +173,6 @@ function BracketApp() {
 
   const getAuthToken = useCallback(async () => {
     try {
-      const { auth } = await import("@/lib/firebase");
       return (await auth.currentUser?.getIdToken()) || null;
     } catch {
       return null;
@@ -140,7 +185,7 @@ function BracketApp() {
     let active = true;
     const fetchBracketData = async () => {
       try {
-        const token = user ? await (await import("@/lib/firebase")).auth.currentUser?.getIdToken() : null;
+        const token = user ? await getAuthToken() : null;
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -194,15 +239,19 @@ function BracketApp() {
     return () => {
       active = false;
     };
-  }, [authLoading, user]);
+  }, [authLoading, user, getAuthToken]);
 
   // Persist picks and tiebreaker to localStorage
   useEffect(() => {
-    if (Object.keys(picks).length > 0) {
-      localStorage.setItem(STORAGE_PICKS_KEY, JSON.stringify(picks));
-    }
-    if (tiebreaker) {
-      localStorage.setItem(STORAGE_TIEBREAKER_KEY, JSON.stringify(tiebreaker));
+    try {
+      if (Object.keys(picks).length > 0) {
+        localStorage.setItem(STORAGE_PICKS_KEY, JSON.stringify(picks));
+      }
+      if (tiebreaker) {
+        localStorage.setItem(STORAGE_TIEBREAKER_KEY, JSON.stringify(tiebreaker));
+      }
+    } catch {
+      // Ignore storage errors
     }
   }, [picks, tiebreaker]);
 
@@ -219,8 +268,7 @@ function BracketApp() {
       if (!user || isLocked) return;
       setSavingPicks(true);
       try {
-        const { auth } = await import("@/lib/firebase");
-        const token = await auth.currentUser?.getIdToken();
+        const token = await getAuthToken();
         if (!token) return;
 
         const res = await fetch("/api/bracket", {
@@ -251,7 +299,7 @@ function BracketApp() {
         setSavingPicks(false);
       }
     },
-    [user, isLocked]
+    [user, isLocked, getAuthToken]
   );
 
   const debouncedSavePicksToBackend = useCallback(
@@ -507,7 +555,11 @@ function BracketApp() {
   // Confirm clear user picks via modal
   const handleConfirmClearPicks = () => {
     setPicks({});
-    localStorage.removeItem(STORAGE_PICKS_KEY);
+    try {
+      localStorage.removeItem(STORAGE_PICKS_KEY);
+    } catch {
+      // Ignore storage errors
+    }
     savePicksToBackend({}, tiebreaker);
     setShowClearModal(false);
   };
@@ -759,27 +811,25 @@ function BracketApp() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Branding & Game Switcher */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown currentGame="bracket" />
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
-                  Playoff Bracket
-                </span>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
+                <span className="truncate">Playoff Bracket</span>
                 <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800 shrink-0">
                   Challenge
                 </span>
-              </div>
-              <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-0.5 hidden sm:block truncate">
                 Picks lock at start of 1st game &bull; 1 pt / win
-              </span>
+              </p>
             </div>
           </div>
 
           {/* Right: Simulation Controls & User Info */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Simulation controls (authenticated only) */}
             {user && (
               <>
@@ -788,7 +838,7 @@ function BracketApp() {
                     type="button"
                     onClick={handleResetSimulation}
                     disabled={simulating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                     title="Reset simulation to unplayed state"
                   >
                     <RotateCcw className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
@@ -799,7 +849,7 @@ function BracketApp() {
                     type="button"
                     onClick={handleSimulate}
                     disabled={simulating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors cursor-pointer"
                     title="Generate realistic playoff outcomes to test scoring"
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
@@ -812,7 +862,7 @@ function BracketApp() {
                   <button
                     type="button"
                     onClick={() => setShowClearModal(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
                     title="Clear all picks"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -826,7 +876,7 @@ function BracketApp() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 cursor-pointer"
               title="Toggle theme"
             >
               {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -834,36 +884,105 @@ function BracketApp() {
 
             {/* User Auth Info / Login */}
             {authLoading ? (
-              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
             ) : user ? (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-xs ${
-                    user.avatarColor || "bg-emerald-600"
-                  }`}
-                  title={user.name || user.email}
+              <div ref={userDropdownRef} className="relative pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen((prev) => !prev)}
+                  className="flex items-center gap-2 text-left transition-opacity hover:opacity-80 cursor-pointer"
                 >
-                  {(user.name || user.username || user.email || "U").charAt(0).toUpperCase()}
-                </div>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 max-w-[100px] truncate hidden md:inline">
-                  {user.name || user.username}
-                </span>
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${
+                      user.avatarColor || "bg-emerald-600"
+                    } flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs transition-colors`}
+                    title={user.name || user.email}
+                  >
+                    {((user.name || user.username || user.email || "U").charAt(0) || "U").toUpperCase()}
+                  </div>
+                  <div className="hidden sm:flex flex-col">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[100px]">
+                      {user.name || user.username || (user.email ? user.email.split("@")[0] : "User")}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">
+                      Account
+                    </span>
+                  </div>
+                  <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-slate-400 ml-0.5" />
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
+                      <div
+                        className={`w-10 h-10 ${
+                          user.avatarColor || "bg-emerald-600"
+                        } text-white rounded-xl flex items-center justify-center text-lg font-black shrink-0 shadow-xs transition-colors`}
+                      >
+                        {((user.name || user.username || user.email || "U").charAt(0) || "U").toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+                          {user.name || user.username || "User"}
+                        </h4>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
+                          @{user.username || (user.name || "user").toLowerCase().replace(/\s+/g, "")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setShowSettings(true);
+                        }}
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                            <Settings className="w-4 h-4" />
+                          </div>
+                          <div className="text-left">
+                            <span className="text-xs font-bold block text-slate-900 dark:text-white">Settings</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                              Name, username, password, theme &amp; account
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors font-bold text-xs cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                          <LogOut className="w-4 h-4" />
+                        </div>
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
                 <Link
                   href="/auth/login?redirect=/bracket"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
                 </Link>
                 <Link
                   href="/auth/register?redirect=/bracket"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>Register</span>
+                  <span>Sign Up</span>
                 </Link>
               </div>
             )}
@@ -1893,6 +2012,12 @@ function BracketApp() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </div>
   );
 }

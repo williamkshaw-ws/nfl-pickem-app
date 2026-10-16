@@ -31,11 +31,17 @@ import {
   HelpCircle,
   LogIn,
   UserPlus,
+  ChevronRight,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+import { UserSettingsModal } from "@/components/UserSettingsModal";
+import { auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { SquaresBoardState } from "@/lib/squares-validation";
 
 const DEFAULT_TOP_NUMBERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -390,6 +396,30 @@ function SquaresPoolApp() {
   const { user, loading: authLoading } = useAuth();
   const [poolCreatorId, setPoolCreatorId] = useState<string | null>(null);
   const [poolCreatorName, setPoolCreatorName] = useState<string | null>(null);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      setUserDropdownOpen(false);
+      await signOut(auth);
+      router.push("/squares");
+      router.refresh();
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
+  };
 
   // User's existing created pools
   const [userPools, setUserPools] = useState<
@@ -406,7 +436,6 @@ function SquaresPoolApp() {
 
   const getAuthToken = useCallback(async () => {
     try {
-      const { auth } = await import("@/lib/firebase");
       return (await auth.currentUser?.getIdToken()) || null;
     } catch {
       return null;
@@ -423,11 +452,15 @@ function SquaresPoolApp() {
     if (publishedPoolId && publishedPoolId === poolId) return true;
     if (user && poolCreatorId && user.id === poolCreatorId) return true;
     if (typeof window !== "undefined") {
-      const storedKey = localStorage.getItem(`squares_owner_key_${poolId}`);
-      const legacyOwner = localStorage.getItem(`squares_owner_${poolId}`) === "true";
-      const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
-      if (storedKey || legacyOwner || editParam) {
-        return true;
+      try {
+        const storedKey = localStorage.getItem(`squares_owner_key_${poolId}`);
+        const legacyOwner = localStorage.getItem(`squares_owner_${poolId}`) === "true";
+        const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
+        if (storedKey || legacyOwner || editParam) {
+          return true;
+        }
+      } catch {
+        // Ignore storage errors
       }
     }
     if (poolCreatorId && (!user || user.id !== poolCreatorId)) {
@@ -451,10 +484,14 @@ function SquaresPoolApp() {
       return;
     }
     if (typeof window !== "undefined") {
-      const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
-      const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
-      const hasOwnership = Boolean(storedKey || legacyOwner);
-      setIsViewerPreview(hasOwnership ? viewParam : true);
+      try {
+        const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
+        const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
+        const hasOwnership = Boolean(storedKey || legacyOwner);
+        setIsViewerPreview(hasOwnership ? viewParam : true);
+      } catch {
+        setIsViewerPreview(true);
+      }
     }
   }, [searchParams]);
 
@@ -479,7 +516,11 @@ function SquaresPoolApp() {
 
     if (idParam) {
       if (editParam && typeof window !== "undefined") {
-        localStorage.setItem(`squares_owner_${idParam}`, "true");
+        try {
+          localStorage.setItem(`squares_owner_${idParam}`, "true");
+        } catch {
+          // Ignore storage errors
+        }
       }
 
       fetch(`/api/squares/${encodeURIComponent(idParam)}`)
@@ -568,7 +609,14 @@ function SquaresPoolApp() {
       const doSync = async () => {
         try {
           const token = await getAuthToken();
-          const ownerKey = typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${poolId}`) || "" : "";
+          let ownerKey = "";
+          if (typeof window !== "undefined") {
+            try {
+              ownerKey = localStorage.getItem(`squares_owner_key_${poolId}`) || "";
+            } catch {
+              ownerKey = "";
+            }
+          }
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
           };
@@ -738,7 +786,11 @@ function SquaresPoolApp() {
   // 3. Share / Publish Online
   const handleShareOnline = async () => {
     if (poolId) {
-      localStorage.setItem(`squares_owner_${poolId}`, "true");
+      try {
+        localStorage.setItem(`squares_owner_${poolId}`, "true");
+      } catch {
+        // Ignore storage errors
+      }
       setIsAuthDenied(false);
       const url = `${window.location.origin}/squares?id=${poolId}&view=1`;
       await navigator.clipboard.writeText(url);
@@ -770,7 +822,14 @@ function SquaresPoolApp() {
         return;
       }
 
-      const existingKey = poolId && typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${poolId}`) || "" : "";
+      let existingKey = "";
+      if (poolId && typeof window !== "undefined") {
+        try {
+          existingKey = localStorage.getItem(`squares_owner_key_${poolId}`) || "";
+        } catch {
+          existingKey = "";
+        }
+      }
       const res = await fetch("/api/squares", {
         method: "POST",
         headers: {
@@ -793,10 +852,14 @@ function SquaresPoolApp() {
           setPoolCreatorName(data.creatorName);
         }
         setSyncStatus("synced");
-        if (data.ownerKey) {
-          localStorage.setItem(`squares_owner_key_${data.id}`, data.ownerKey);
+        try {
+          if (data.ownerKey) {
+            localStorage.setItem(`squares_owner_key_${data.id}`, data.ownerKey);
+          }
+          localStorage.setItem(`squares_owner_${data.id}`, "true");
+        } catch {
+          // Ignore storage errors
         }
-        localStorage.setItem(`squares_owner_${data.id}`, "true");
         setIsAuthDenied(false);
         window.history.replaceState({}, "", `/squares?id=${data.id}`);
         const shareUrl = `${window.location.origin}/squares?id=${data.id}&view=1`;
@@ -1088,9 +1151,9 @@ function SquaresPoolApp() {
       `}</style>
 
       {/* Top Header & Navigation */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 transition-colors no-print">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 transition-colors no-print">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown currentGame="squares" />
             <div className="min-w-0">
                 <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
@@ -1312,7 +1375,7 @@ function SquaresPoolApp() {
             <button
               type="button"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 cursor-pointer"
               title="Toggle Theme"
             >
               {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -1320,34 +1383,75 @@ function SquaresPoolApp() {
 
             {/* User Profile / Auth Button */}
             {user ? (
-              <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 ${
-                    user.avatarColor || "bg-emerald-600"
-                  }`}
+              <div className="relative pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0" ref={userDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  {(user.name || user.username || user.email || "U").charAt(0).toUpperCase()}
-                </div>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 max-w-[100px] truncate hidden md:inline">
-                  {user.name || user.username || (user.email ? user.email.split("@")[0] : "User")}
-                </span>
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-black text-white shadow-xs shrink-0 ${
+                      user.avatarColor || "bg-emerald-600"
+                    }`}
+                  >
+                    {((user.name || user.username || user.email || "U").charAt(0) || "U").toUpperCase()}
+                  </div>
+                  <div className="hidden md:flex flex-col items-start leading-none">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[100px] truncate">
+                      {user.name || user.username || (user.email ? user.email.split("@")[0] : "User")}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400">Account</span>
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${userDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name || user.username}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        setShowSettings(true);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-slate-400" />
+                        Settings
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
                 <Link
                   href={`/auth/login?redirect=${encodeURIComponent(poolId ? `/squares?id=${poolId}` : "/squares")}`}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Sign In</span>
-                  <span className="sm:hidden">Login</span>
+                  <span>Sign In</span>
                 </Link>
                 <Link
                   href={`/auth/register?redirect=${encodeURIComponent(poolId ? `/squares?id=${poolId}` : "/squares")}`}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors shrink-0"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>Register</span>
+                  <span>Sign Up</span>
                 </Link>
               </div>
             )}
@@ -2506,6 +2610,8 @@ function SquaresPoolApp() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }
