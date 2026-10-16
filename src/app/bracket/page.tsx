@@ -27,6 +27,8 @@ import {
   Settings,
   LogOut,
   Check,
+  Copy,
+  Share2,
   Plus,
   Shield,
   ExternalLink,
@@ -182,6 +184,9 @@ function BracketApp() {
   const [poolToLeave, setPoolToLeave] = useState<string | null>(null);
   const [leavingPool, setLeavingPool] = useState(false);
 
+  // Share pool modal
+  const [showShareModal, setShowShareModal] = useState(false);
+
   // Prevent background scrolling when any modal is open
   const isAnyModalOpen = Boolean(
     showRulesModal ||
@@ -190,7 +195,8 @@ function BracketApp() {
     showCreatePoolModal ||
     showJoinPoolModal ||
     showDeleteModal ||
-    showLeaveModal
+    showLeaveModal ||
+    showShareModal
   );
 
   useEffect(() => {
@@ -275,6 +281,29 @@ function BracketApp() {
             setLeaderboard(data.leaderboard || []);
             setIsOwner(!!data.isOwner);
             setUserRole(data.role || "viewer");
+
+            // Auto-join pool if authenticated user opened via direct link and is not yet a member
+            if (user && token && data.role === "viewer" && !data.isOwner) {
+              fetch("/api/bracket/join", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ code: data.pool.joinCode || poolId }),
+              })
+                .then(async (joinRes) => {
+                  if (joinRes.ok) {
+                    setUserRole("member");
+                    const poolsRes = await fetch("/api/bracket", { headers: { Authorization: `Bearer ${token}` } });
+                    if (poolsRes.ok) {
+                      const poolsData = await poolsRes.json();
+                      if (poolsData.userPools) setUserPools(poolsData.userPools);
+                    }
+                  }
+                })
+                .catch(() => null);
+            }
 
             if (data.currentUserEntry?.picks) {
               setPicks(data.currentUserEntry.picks);
@@ -989,11 +1018,11 @@ function BracketApp() {
                 {cleanDisplayCode && (
                   <button
                     type="button"
-                    onClick={handleCopyCode}
+                    onClick={() => setShowShareModal(true)}
                     className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-500/30 transition cursor-pointer shrink-0"
-                    title="Click to copy bracket code"
+                    title="Click to view share code and link"
                   >
-                    <span>{copiedCode ? "COPIED!" : cleanDisplayCode}</span>
+                    <span>{cleanDisplayCode}</span>
                   </button>
                 )}
               </div>
@@ -2442,7 +2471,126 @@ function BracketApp() {
         </div>
       )}
 
-      {/* MODAL 7: RULES & SCORING */}
+      {/* MODAL 7: SHARE / INVITE MODAL */}
+      {showShareModal && poolId && (
+        <div
+          onClick={() => setShowShareModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Share Bracket Pool
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Invite friends to join this playoff bracket challenge.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 5-Digit Bracket Code Box */}
+            <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-800 dark:text-purple-300">
+                  5-Character Bracket Code
+                </span>
+                <span className="text-[10px] text-purple-700/80 dark:text-purple-400/80 font-medium">
+                  For PocketPicks users
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-xl px-4 py-2.5 border border-purple-300 dark:border-purple-800/80">
+                <span className="font-mono text-xl font-black tracking-widest text-slate-900 dark:text-white">
+                  {cleanDisplayCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(cleanDisplayCode);
+                      showToast(`Code ${cleanDisplayCode} copied!`);
+                    } catch {
+                      showToast("Could not copy code");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Code</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Friends with an account can click <strong>Join With Code</strong> in the brackets menu and enter this code.
+              </p>
+            </div>
+
+            {/* Direct Web Link Box */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                  Direct Invite Link
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  One-click join link
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+                  {typeof window !== "undefined" ? `${window.location.origin}/bracket?id=${cleanDisplayCode}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = typeof window !== "undefined"
+                      ? `${window.location.origin}/bracket?id=${cleanDisplayCode}`
+                      : `https://pocketpicks.app/bracket?id=${cleanDisplayCode}`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      showToast("Invite link copied to clipboard!");
+                    } catch {
+                      showToast("Could not copy link");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Send this link directly to friends. When they open it, they will be taken straight to this bracket.
+              </p>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: RULES & SCORING */}
       {showRulesModal && (
         <div
           onClick={() => setShowRulesModal(false)}
