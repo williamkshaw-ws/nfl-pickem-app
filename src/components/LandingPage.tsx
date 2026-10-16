@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Trophy,
@@ -678,94 +679,148 @@ export function LandingPage() {
                     </span>
                   </div>
 
-                  {/* Bracket Preview Body */}
+                  {/* Bracket Preview Body — Mirrors /bracket UI */}
                   <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
-                      {/* AFC Championship */}
-                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                            AFC Championship
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-center">
+                      {/* AFC Championship Matchup Card */}
+                      <div className="w-full bg-white dark:bg-slate-900 border border-emerald-500/80 dark:border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-950/20 rounded-2xl p-2.5 shadow-xs flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
+                          <span className="truncate">AFC Championship</span>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0">
+                            +1 Pt
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400">Final</span>
                         </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-2xs">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] opacity-80">#1</span>
-                              <span className="truncate">Buffalo Bills</span>
+                        {/* Away Team (#2 Chiefs - 24) */}
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-xs bg-slate-50 dark:bg-slate-800/70 text-slate-800 dark:text-slate-200">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                              2
                             </span>
-                            <span className="flex items-center gap-1.5 shrink-0">
-                              <span className="font-black">27</span>
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </span>
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png" alt="KC" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
+                            <span className="truncate">Kansas City Chiefs</span>
                           </div>
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] text-slate-400">#2</span>
-                              <span className="truncate">Kansas City Chiefs</span>
+                          <span className="font-mono text-xs font-extrabold text-slate-500 ml-2">24</span>
+                        </div>
+                        {/* Home Team (#1 Bills - 27, Picked Winner) */}
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-xs bg-emerald-600 text-white shadow-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-white/20 text-white">
+                              1
                             </span>
-                            <span className="font-bold text-slate-400">24</span>
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
+                            <span className="truncate">Buffalo Bills</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className="font-mono text-xs font-extrabold text-emerald-100">27</span>
+                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
                           </div>
                         </div>
                       </div>
 
-                      {/* Super Bowl Matchup & Champion Centerpiece */}
-                      <div className="bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-3 text-center flex flex-col justify-between space-y-2">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
-                            Super Bowl Matchup
-                          </span>
+                      {/* Super Bowl Champion Center Card — Mirrors renderSuperBowlCenterCard() */}
+                      <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-3.5 flex flex-col items-center gap-2.5 text-center shadow-md">
+                        <Trophy className="w-6 h-6 text-amber-500" />
+                        <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                          Super Bowl Champion
                         </div>
-                        <div className="space-y-1.5 text-left">
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] opacity-80">NFC</span>
-                              <span className="truncate">San Francisco 49ers</span>
-                            </span>
-                            <span className="flex items-center gap-1 shrink-0">
-                              <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">Champ</span>
-                              <CheckCircle2 className="w-3.5 h-3.5" />
+
+                        {/* Inner Super Bowl Matchup Card */}
+                        <div className="w-full bg-white dark:bg-slate-900 border border-emerald-500/80 dark:border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-950/20 rounded-2xl p-2.5 shadow-xs flex flex-col gap-1.5 text-left">
+                          <div className="flex items-center justify-between gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
+                            <span className="truncate">Super Bowl Championship</span>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0">
+                              +1 Pt
                             </span>
                           </div>
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-purple-200/60 dark:border-purple-800/50 text-slate-700 dark:text-slate-300 text-xs font-bold">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] text-slate-400">AFC</span>
+                          {/* AFC #1 Buffalo Bills - 27 */}
+                          <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-xs bg-slate-50 dark:bg-slate-800/70 text-slate-800 dark:text-slate-200">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                1
+                              </span>
+                              <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
                               <span className="truncate">Buffalo Bills</span>
-                            </span>
+                            </div>
+                            <span className="font-mono text-xs font-extrabold text-slate-500 ml-2">27</span>
+                          </div>
+                          {/* NFC #1 San Francisco 49ers - 34 (Picked Super Bowl Winner) */}
+                          <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-xs bg-emerald-600 text-white shadow-xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-white/20 text-white">
+                                1
+                              </span>
+                              <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" alt="SF" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
+                              <span className="truncate">San Francisco 49ers</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <span className="font-mono text-xs font-extrabold text-emerald-100">34</span>
+                              <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                            </div>
                           </div>
                         </div>
-                        <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                          Tiebreaker: SF 34 – BUF 27
+
+                        {/* Tiebreaker Score Section */}
+                        <div className="w-full pt-2 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-1.5 text-left">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                              Tiebreaker Score
+                            </span>
+                            <span className="text-[10px] font-mono font-black text-purple-600 dark:text-purple-400">
+                              Total: 61
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
+                                San Francisco 49ers
+                              </div>
+                              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1 text-center font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                34
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate">
+                                Buffalo Bills
+                              </div>
+                              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1 text-center font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                27
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      {/* NFC Championship */}
-                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                            NFC Championship
+                      {/* NFC Championship Matchup Card */}
+                      <div className="w-full bg-white dark:bg-slate-900 border border-emerald-500/80 dark:border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-950/20 rounded-2xl p-2.5 shadow-xs flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
+                          <span className="truncate">NFC Championship</span>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0">
+                            +1 Pt
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400">Final</span>
                         </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-2xs">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] opacity-80">#1</span>
-                              <span className="truncate">San Francisco 49ers</span>
+                        {/* Away Team (#2 Lions - 28) */}
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-xs bg-slate-50 dark:bg-slate-800/70 text-slate-800 dark:text-slate-200">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                              2
                             </span>
-                            <span className="flex items-center gap-1.5 shrink-0">
-                              <span className="font-black">31</span>
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </span>
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/det.png" alt="DET" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
+                            <span className="truncate">Detroit Lions</span>
                           </div>
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] text-slate-400">#2</span>
-                              <span className="truncate">Detroit Lions</span>
+                          <span className="font-mono text-xs font-extrabold text-slate-500 ml-2">28</span>
+                        </div>
+                        {/* Home Team (#1 49ers - 31, Picked Winner) */}
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-xs bg-emerald-600 text-white shadow-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-black shrink-0 bg-white/20 text-white">
+                              1
                             </span>
-                            <span className="font-bold text-slate-400">28</span>
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" alt="SF" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" />
+                            <span className="truncate">San Francisco 49ers</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className="font-mono text-xs font-extrabold text-emerald-100">31</span>
+                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
                           </div>
                         </div>
                       </div>
@@ -796,84 +851,159 @@ export function LandingPage() {
                     </span>
                   </div>
 
-                  {/* Squares Preview Body: Grid Slice + Quarter Winners */}
+                  {/* Squares Preview Body: Exact 3x3 Site Grid + Quarter Winners */}
                   <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-center">
-                      {/* Visual Chunk of Squares Grid (SF 49ers vs BUF Bills) */}
-                      <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-2.5 sm:p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                        {/* Top Team Banner (NFC: San Francisco 49ers) */}
-                        <div className="flex items-center justify-center gap-1.5 pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
-                          <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" alt="SF" width={18} height={18} className="w-4.5 h-4.5 object-contain" />
-                          <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                            San Francisco 49ers (34)
+                      {/* 3x3 Squares Grid Card Mirroring /squares UI */}
+                      <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+                        {/* Top Team Banner (AFC: Bills) */}
+                        <div className="bg-slate-100/90 dark:bg-slate-800/80 px-3 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-center">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 px-2 py-0.5 rounded-md tracking-wider">
+                            <Image
+                              src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/AFC.svg"
+                              alt="AFC"
+                              width={12}
+                              height={12}
+                              className="w-3 h-3 object-contain"
+                              unoptimized
+                            />
+                            AFC
+                          </span>
+                          <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={20} height={20} className="w-5 h-5 object-contain shrink-0" />
+                          <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                            Bills
                           </span>
                         </div>
 
-                        <div className="flex items-stretch gap-1.5">
-                          {/* Left Team Vertical Label (AFC: Buffalo Bills) */}
-                          <div className="flex flex-col items-center justify-center px-1 py-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 shrink-0">
-                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={16} height={16} className="w-4 h-4 object-contain mb-1" />
-                            <span className="text-[9px] font-black uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
-                              Bills (27)
-                            </span>
+                        <div className="flex items-stretch">
+                          {/* Left Team Vertical Column (NFC: 49ers) */}
+                          <div className="w-10 sm:w-12 bg-slate-100/90 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center select-none py-2 shrink-0">
+                            <div className="flex items-center justify-center gap-1.5 [writing-mode:vertical-lr] rotate-180 select-none">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-900/60 px-1.5 py-0.5 rounded-md tracking-wider">
+                                <Image
+                                  src="https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/NFC.svg"
+                                  alt="NFC"
+                                  width={12}
+                                  height={12}
+                                  className="w-3 h-3 object-contain rotate-90"
+                                  unoptimized
+                                />
+                                NFC
+                              </span>
+                              <div className="rotate-90 shrink-0">
+                                <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" alt="SF" width={20} height={20} className="w-5 h-5 object-contain" />
+                              </div>
+                              <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                                49ers
+                              </span>
+                            </div>
                           </div>
 
-                          {/* 4x3 Grid Slice */}
-                          <div className="flex-1 grid grid-cols-5 gap-1 text-center">
-                            {/* Corner + Column Digit Headers (SF last digit: 4, 7, 0, 3) */}
-                            <div className="rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[9px] font-black text-slate-400 p-1">
-                              BUF\SF
-                            </div>
-                            <div className="rounded-lg bg-rose-600 text-white font-black text-xs py-1 flex items-center justify-center shadow-2xs">
-                              4
-                            </div>
-                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-1 flex items-center justify-center">
-                              7
-                            </div>
-                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-1 flex items-center justify-center">
-                              0
-                            </div>
-                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-1 flex items-center justify-center">
-                              3
-                            </div>
+                          {/* 3x3 Table with Junction Cell + Column/Row Numbers */}
+                          <div className="flex-1 min-w-0">
+                            <table className="w-full table-fixed border-collapse">
+                              <colgroup>
+                                <col className="w-[22%]" />
+                                <col className="w-[26%]" />
+                                <col className="w-[26%]" />
+                                <col className="w-[26%]" />
+                              </colgroup>
+                              <thead>
+                                <tr className="h-10">
+                                  {/* Junction Cell */}
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                                    <div className="text-[9px] font-extrabold leading-tight">
+                                      <div className="text-red-600 dark:text-red-400">AFC &rarr;</div>
+                                      <div className="border-t border-slate-300 dark:border-slate-600 my-0.5" />
+                                      <div className="text-sky-600 dark:text-sky-400">NFC &darr;</div>
+                                    </div>
+                                  </th>
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center">
+                                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">7</span>
+                                  </th>
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center">
+                                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">0</span>
+                                  </th>
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700/80 text-center">
+                                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">4</span>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {/* Row 1: NFC 7 */}
+                                <tr className="h-11 sm:h-12">
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center">
+                                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">7</span>
+                                  </th>
+                                  {/* (7,7) — Q1 Winner: Sarah J. */}
+                                  <td className="p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative bg-amber-50/80 dark:bg-amber-950/40">
+                                    <div className="absolute inset-0 border-2 border-amber-500 pointer-events-none" />
+                                    <span className="absolute top-0.5 right-0.5 text-[7px] font-black px-1 py-0.2 rounded bg-amber-500 text-white">
+                                      Q1
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-white">Sarah J.</span>
+                                  </td>
+                                  {/* (7,0) — Unclaimed coordinate display */}
+                                  <td className="p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                                    <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium">7,0</span>
+                                  </td>
+                                  {/* (7,4) — Claimed square */}
+                                  <td className="p-0.5 border-b border-slate-200 dark:border-slate-700/80 text-center align-middle bg-slate-50/70 dark:bg-slate-800/40">
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-white">Alex M.</span>
+                                  </td>
+                                </tr>
 
-                            {/* Row 1 (BUF 7) — Contains Final Winner at SF 4, BUF 7 */}
-                            <div className="rounded-lg bg-sky-600 text-white font-black text-xs py-2 flex items-center justify-center shadow-2xs">
-                              7
-                            </div>
-                            <div className="rounded-lg bg-emerald-500/15 dark:bg-emerald-500/25 border-2 border-emerald-500 p-1 flex flex-col items-center justify-center relative">
-                              <span className="text-[8px] font-black uppercase text-emerald-700 dark:text-emerald-300 leading-none">Final</span>
-                              <span className="text-[10px] font-black text-slate-900 dark:text-white truncate max-w-full">Coach Tom</span>
-                            </div>
-                            <div className="rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-400/80 p-1 flex flex-col items-center justify-center">
-                              <span className="text-[8px] font-black uppercase text-amber-700 dark:text-amber-300 leading-none">Q1</span>
-                              <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">Sarah J.</span>
-                            </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
-                              Alex M.
-                            </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
-                              Dave K.
-                            </div>
+                                {/* Row 2: NFC 4 */}
+                                <tr className="h-11 sm:h-12">
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-b border-r border-slate-200 dark:border-slate-700/80 text-center">
+                                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">4</span>
+                                  </th>
+                                  {/* (4,7) — FINAL Winner: Coach Tom (SF 34, BUF 27) */}
+                                  <td className="p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative bg-emerald-50/80 dark:bg-emerald-950/40">
+                                    <div className="absolute inset-0 border-2 border-emerald-600 pointer-events-none" />
+                                    <span className="absolute top-0.5 right-0.5 text-[7px] font-black px-1 py-0.2 rounded bg-emerald-600 text-white">
+                                      FINAL
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-white">Coach Tom</span>
+                                  </td>
+                                  {/* (4,0) — Q2 / Halftime Winner: Jimmy (SF 14, BUF 10) */}
+                                  <td className="p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative bg-sky-50/80 dark:bg-sky-950/40">
+                                    <div className="absolute inset-0 border-2 border-sky-500 pointer-events-none" />
+                                    <span className="absolute top-0.5 right-0.5 text-[7px] font-black px-1 py-0.2 rounded bg-sky-500 text-white">
+                                      Q2
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-white">Jimmy</span>
+                                  </td>
+                                  {/* (4,4) — Unclaimed coordinate display */}
+                                  <td className="p-0.5 border-b border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                                    <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium">4,4</span>
+                                  </td>
+                                </tr>
 
-                            {/* Row 2 (BUF 0) — Contains Halftime Winner at SF 4, BUF 0 */}
-                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-2 flex items-center justify-center">
-                              0
-                            </div>
-                            <div className="rounded-lg bg-sky-500/15 dark:bg-sky-500/20 border border-sky-400/80 p-1 flex flex-col items-center justify-center">
-                              <span className="text-[8px] font-black uppercase text-sky-700 dark:text-sky-300 leading-none">Half</span>
-                              <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">Jimmy</span>
-                            </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
-                              Chris P.
-                            </div>
-                            <div className="rounded-lg bg-purple-500/15 dark:bg-purple-500/20 border border-purple-400/80 p-1 flex flex-col items-center justify-center">
-                              <span className="text-[8px] font-black uppercase text-purple-700 dark:text-purple-300 leading-none">Q3</span>
-                              <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">Marcus</span>
-                            </div>
-                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
-                               Nina R.
-                            </div>
+                                {/* Row 3: NFC 0 */}
+                                <tr className="h-11 sm:h-12">
+                                  <th className="p-1 bg-slate-100 dark:bg-slate-800/90 border-r border-slate-200 dark:border-slate-700/80 text-center">
+                                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">0</span>
+                                  </th>
+                                  {/* (0,7) — Unclaimed coordinate display */}
+                                  <td className="p-0.5 border-r border-slate-200 dark:border-slate-700/80 text-center align-middle">
+                                    <span className="text-[10px] text-slate-300 dark:text-slate-700 font-medium">0,7</span>
+                                  </td>
+                                  {/* (0,0) — Q3 Winner: Marcus (SF 20, BUF 20) */}
+                                  <td className="p-0.5 border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative bg-purple-50/80 dark:bg-purple-950/40">
+                                    <div className="absolute inset-0 border-2 border-purple-500 pointer-events-none" />
+                                    <span className="absolute top-0.5 right-0.5 text-[7px] font-black px-1 py-0.2 rounded bg-purple-500 text-white">
+                                      Q3
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-white">Marcus</span>
+                                  </td>
+                                  {/* (0,4) — Claimed square */}
+                                  <td className="p-0.5 text-center align-middle bg-slate-50/70 dark:bg-slate-800/40">
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-white">Nina R.</span>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                       </div>
