@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser, adminDb, HttpError } from "@/lib/server-auth";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { extractSquaresCode } from "@/lib/squares-validation";
 
 export async function POST(request: Request) {
   try {
@@ -18,15 +19,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Please enter a valid Squares code or link" }, { status: 400 });
     }
 
-    // Parse code if user pasted a URL like .../squares?id=sb-xxx or .../squares/sb-xxx
-    let cleanCode = rawCode;
-    try {
-      if (cleanCode.includes("http://") || cleanCode.includes("https://")) {
-        const url = new URL(cleanCode);
-        cleanCode = url.searchParams.get("id") || url.pathname.split("/").pop() || cleanCode;
-      }
-    } catch {
-      // Not a valid URL, use as raw string
+    const cleanCode = extractSquaresCode(rawCode);
+
+    if (!cleanCode || cleanCode.includes("/") || !/^[A-Za-z0-9_-]{3,32}$/.test(cleanCode)) {
+      return NextResponse.json(
+        { error: "Invalid board code or link. Please enter a 5-digit code or valid link." },
+        { status: 400 }
+      );
     }
 
     const upperCode = cleanCode.toUpperCase();

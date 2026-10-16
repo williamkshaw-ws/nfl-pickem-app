@@ -43,7 +43,7 @@ import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-import { SquaresBoardState } from "@/lib/squares-validation";
+import { SquaresBoardState, extractSquaresCode } from "@/lib/squares-validation";
 
 const DEFAULT_TOP_NUMBERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const DEFAULT_LEFT_NUMBERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -333,6 +333,7 @@ function SquaresPoolApp() {
   const [newBoardTitle, setNewBoardTitle] = useState("Super Bowl LIX Squares");
   const [newBoardTopTeam, setNewBoardTopTeam] = useState("Buffalo Bills");
   const [newBoardLeftTeam, setNewBoardLeftTeam] = useState("San Francisco 49ers");
+  const [createSelectedGameId, setCreateSelectedGameId] = useState("");
   const [newBoardCost, setNewBoardCost] = useState(10);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [createBoardError, setCreateBoardError] = useState("");
@@ -761,10 +762,34 @@ function SquaresPoolApp() {
     }
   };
 
+  const openCreateModal = useCallback(() => {
+    const firstGame = availableGames[0];
+    if (firstGame) {
+      setNewBoardTitle(`${firstGame.awayTeam} vs ${firstGame.homeTeam} Squares`);
+      setNewBoardTopTeam(firstGame.awayTeam);
+      setNewBoardLeftTeam(firstGame.homeTeam);
+      setCreateSelectedGameId(firstGame.id);
+    } else {
+      setNewBoardTitle("Super Bowl LIX Squares");
+      setNewBoardTopTeam("Buffalo Bills");
+      setNewBoardLeftTeam("San Francisco 49ers");
+      setCreateSelectedGameId("");
+    }
+    setNewBoardCost(10);
+    setCreateBoardError("");
+    setShowCreateBoardModal(true);
+  }, [availableGames]);
+
   const handleJoinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const raw = joinInput.trim();
     if (!raw) return;
+
+    const parsedCode = extractSquaresCode(raw);
+    if (!parsedCode) {
+      setJoinError("Please enter a valid 5-character code or share link");
+      return;
+    }
 
     setIsJoining(true);
     setJoinError("");
@@ -772,20 +797,9 @@ function SquaresPoolApp() {
     try {
       const token = await getAuthToken();
       if (!token) {
-        // If guest, parse code and redirect directly to board as viewer
-        let code = raw;
-        if (code.includes("id=")) {
-          try {
-            const u = new URL(code, window.location.origin);
-            code = u.searchParams.get("id") || code;
-          } catch {
-            // keep raw
-          }
-        }
-        code = code.replace(/^sb-/, "").toUpperCase().trim();
-        const poolIdToOpen = code;
+        // If guest, redirect directly to board as viewer
         setShowJoinModal(false);
-        router.push(`/squares?id=${poolIdToOpen}`);
+        router.push(`/squares?id=${parsedCode}`);
         return;
       }
 
@@ -795,7 +809,7 @@ function SquaresPoolApp() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ code: raw }),
+        body: JSON.stringify({ code: parsedCode }),
       });
 
       const data = await res.json();
@@ -1669,12 +1683,7 @@ function SquaresPoolApp() {
                           type="button"
                           onClick={() => {
                             setShowUserPoolsMenu(false);
-                            setNewBoardTitle("Super Bowl LIX Squares");
-                            setNewBoardTopTeam("Buffalo Bills");
-                            setNewBoardLeftTeam("San Francisco 49ers");
-                            setNewBoardCost(10);
-                            setCreateBoardError("");
-                            setShowCreateBoardModal(true);
+                            openCreateModal();
                           }}
                           className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold transition cursor-pointer"
                         >
@@ -1896,14 +1905,7 @@ function SquaresPoolApp() {
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setNewBoardTitle("Super Bowl LIX Squares");
-                    setNewBoardTopTeam("Buffalo Bills");
-                    setNewBoardLeftTeam("San Francisco 49ers");
-                    setNewBoardCost(10);
-                    setCreateBoardError("");
-                    setShowCreateBoardModal(true);
-                  }}
+                  onClick={openCreateModal}
                   className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
                   <Grid className="w-3.5 h-3.5" />
@@ -3177,34 +3179,41 @@ function SquaresPoolApp() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Game selection dropdown defaulting to first game of the week */}
+              {availableGames.length > 0 ? (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Top Team (Columns)
+                    NFL Game
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Buffalo Bills"
-                    value={newBoardTopTeam}
-                    onChange={(e) => setNewBoardTopTeam(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
-                  />
+                  <select
+                    value={createSelectedGameId || availableGames[0]?.id || ""}
+                    onChange={(e) => {
+                      const game = availableGames.find((g) => g.id === e.target.value);
+                      if (game) {
+                        setCreateSelectedGameId(game.id);
+                        setNewBoardTopTeam(game.awayTeam);
+                        setNewBoardLeftTeam(game.homeTeam);
+                        setNewBoardTitle(`${game.awayTeam} vs ${game.homeTeam} Squares`);
+                      }
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
+                  >
+                    {availableGames.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.awayTeam} at {g.homeTeam} {g.status ? `(${g.status})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                    Columns: {newBoardTopTeam} &bull; Rows: {newBoardLeftTeam}
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Left Team (Rows)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. San Francisco 49ers"
-                    value={newBoardLeftTeam}
-                    onChange={(e) => setNewBoardLeftTeam(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
-                  />
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Default Matchup:</span>
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">{newBoardTopTeam} vs {newBoardLeftTeam}</span>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">

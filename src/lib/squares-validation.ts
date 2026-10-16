@@ -110,3 +110,47 @@ export function generateOwnerKey(): string {
   }
   return "ok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
+
+/**
+ * Safely extracts a clean squares board join code or pool ID from:
+ * - A 5-letter join code (e.g. "U7VUF", "sb-u7vuf")
+ * - A full URL (e.g. "https://pocketpicks.app/squares?id=U7VUF", "HTTPS://POCKETPICKS.APP/SQUARES?ID=U7VUF")
+ * - A relative URL (e.g. "/squares?id=U7VUF", "?id=U7VUF")
+ * - A bare domain URL (e.g. "pocketpicks.app/squares?id=U7VUF")
+ */
+export function extractSquaresCode(input: string): string {
+  if (!input || typeof input !== "string") return "";
+  let clean = input.trim();
+
+  // 1. Check for ?id= or &id= anywhere (case-insensitive)
+  const idMatch = clean.match(/[?&]id=([A-Za-z0-9_-]+)/i);
+  if (idMatch && idMatch[1]) {
+    return idMatch[1].replace(/^sb-/i, "").toUpperCase().trim();
+  }
+
+  // 2. Try URL parsing
+  try {
+    const hasProtocol = /^[a-zA-Z]+:\/\//.test(clean);
+    const url = new URL(hasProtocol ? clean : `https://${clean}`);
+    const idFromQuery = url.searchParams.get("id");
+    if (idFromQuery) {
+      return idFromQuery.replace(/^sb-/i, "").toUpperCase().trim();
+    }
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts.pop();
+    if (lastPart && lastPart.toLowerCase() !== "squares") {
+      return lastPart.replace(/^sb-/i, "").toUpperCase().trim();
+    }
+  } catch {
+    // Ignore URL parse failure
+  }
+
+  // 3. Strip any URL/path or query artifacts if slashes or ? remain
+  if (clean.includes("/")) {
+    clean = clean.split("/").filter(Boolean).pop() || clean;
+  }
+  clean = clean.split("?")[0].split("&")[0];
+
+  // 4. Return clean uppercase code without sb- prefix
+  return clean.replace(/^sb-/i, "").toUpperCase().trim();
+}
