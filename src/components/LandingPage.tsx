@@ -1066,7 +1066,7 @@ export function LandingPage() {
                               billsScore: "10",
                               ninersScore: "14",
                               winner: "Jimmy",
-                              coord: "[4, 0]",
+                              coord: "[0, 4]",
                               payout: "$250",
                             },
                             {
@@ -1090,7 +1090,7 @@ export function LandingPage() {
                               billsScore: "27",
                               ninersScore: "34",
                               winner: "Coach Tom",
-                              coord: "[4, 7]",
+                              coord: "[7, 4]",
                               payout: "$450",
                             },
                           ].map((q) => (
