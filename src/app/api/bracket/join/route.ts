@@ -54,7 +54,20 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const joinCode = poolData.joinCode || poolId;
     const poolName = poolData.name || "Playoff Bracket Challenge";
-    const userName = caller.email?.split("@")[0] || "Participant";
+
+    let userName = "";
+    let userAvatar = "bg-emerald-600";
+    try {
+      const userDoc = await db.collection("users").doc(caller.uid).get();
+      if (userDoc.exists) {
+        const u = userDoc.data();
+        userName = u?.name || u?.username || "";
+        userAvatar = u?.avatarColor || userAvatar;
+      }
+    } catch {}
+    if (!userName) {
+      userName = caller.email?.split("@")[0] || "Participant";
+    }
 
     // Create or update membership
     const membershipId = `${caller.uid}_${poolId}`;
@@ -66,6 +79,7 @@ export async function POST(request: Request) {
         userId: caller.uid,
         userEmail: caller.email || "",
         userName,
+        userAvatar,
         poolId,
         joinCode,
         poolName,

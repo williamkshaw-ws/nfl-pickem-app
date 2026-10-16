@@ -113,17 +113,55 @@ export default function Login() {
               localStorage.removeItem("pending_squares_code");
               localStorage.removeItem("pending_redirect_after_auth");
               localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_bracket_code");
             } catch {}
           }
           router.replace(`/squares?id=${encodeURIComponent(data.code || cleanCode)}`);
+          return;
+        }
+
+        if (data.found && data.type === "bracket") {
+          // Join bracket pool for authenticated user
+          const token = await auth.currentUser?.getIdToken();
+          if (token) {
+            await fetch("/api/bracket/join", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ code: data.code || cleanCode }),
+            }).catch(() => null);
+          }
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.removeItem("pending_bracket_code");
+              localStorage.removeItem("pending_redirect_after_auth");
+              localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_squares_code");
+            } catch {}
+          }
+          router.replace(`/bracket?id=${encodeURIComponent(data.code || cleanCode)}`);
+          return;
+        }
+
+        if (data.found && data.type === "league") {
+          router.replace(`/?join=${encodeURIComponent(data.code || cleanCode)}`);
           return;
         }
       } catch (err) {
         console.error("Resolve code error:", err);
       }
 
-      router.replace(`/?join=${encodeURIComponent(cleanCode)}`);
-      return;
+      // If code was not found or invalid, clear keys and continue to normal dashboard/league
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("pending_redirect_after_auth");
+          localStorage.removeItem("pending_join_code");
+          localStorage.removeItem("pending_squares_code");
+          localStorage.removeItem("pending_bracket_code");
+        } catch {}
+      }
     }
 
     const create = params?.get("create");
@@ -202,17 +240,40 @@ export default function Login() {
               localStorage.setItem("pending_redirect_after_auth", `/squares?id=${encodeURIComponent(resolvedSquaresCode)}`);
               localStorage.setItem("pending_squares_code", resolvedSquaresCode);
               localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_bracket_code");
             } catch {}
-          } else {
+          } else if (data.found && data.type === "bracket") {
+            const resolvedBracketCode = String(data.code || cleanCode);
+            try {
+              localStorage.setItem("pending_redirect_after_auth", `/bracket?id=${encodeURIComponent(resolvedBracketCode)}`);
+              localStorage.setItem("pending_bracket_code", resolvedBracketCode);
+              localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_squares_code");
+            } catch {}
+          } else if (data.found && data.type === "league") {
             const resolvedLeagueCode = String(data.code || cleanCode);
             try {
               localStorage.setItem("pending_redirect_after_auth", `/?join=${encodeURIComponent(resolvedLeagueCode)}`);
               localStorage.setItem("pending_join_code", resolvedLeagueCode);
               localStorage.removeItem("pending_squares_code");
+              localStorage.removeItem("pending_bracket_code");
+            } catch {}
+          } else {
+            try {
+              localStorage.removeItem("pending_redirect_after_auth");
+              localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_squares_code");
+              localStorage.removeItem("pending_bracket_code");
             } catch {}
           }
         } catch (err) {
           console.error("Resolve code error:", err);
+          try {
+            localStorage.removeItem("pending_redirect_after_auth");
+            localStorage.removeItem("pending_join_code");
+            localStorage.removeItem("pending_squares_code");
+            localStorage.removeItem("pending_bracket_code");
+          } catch {}
         }
       }
 

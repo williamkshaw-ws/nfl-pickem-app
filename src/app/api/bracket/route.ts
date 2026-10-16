@@ -59,17 +59,41 @@ export async function GET(request: Request) {
         .where("poolId", "==", poolId)
         .get();
 
+      // Batch fetch user profiles for real name and avatar
+      const userIds = Array.from(
+        new Set(membersSnap.docs.map((d) => d.data().userId).filter(Boolean))
+      );
+      const userMap = new Map<string, { name?: string; username?: string; avatarColor?: string }>();
+      if (userIds.length > 0) {
+        const userDocs = await Promise.all(
+          userIds.map((uid) => db.collection("users").doc(uid).get().catch(() => null))
+        );
+        userDocs.forEach((uDoc) => {
+          if (uDoc && uDoc.exists) {
+            const u = uDoc.data();
+            userMap.set(uDoc.id, {
+              name: u?.name,
+              username: u?.username,
+              avatarColor: u?.avatarColor,
+            });
+          }
+        });
+      }
+
       const rawParticipants: BracketParticipant[] = [];
       let currentUserEntry: BracketParticipant | null = null;
       let userRole: "commissioner" | "member" | "viewer" = "viewer";
 
       membersSnap.forEach((doc) => {
         const d = doc.data();
+        const uProfile = userMap.get(d.userId);
+        const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
+        const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
         const p: BracketParticipant = {
           id: d.userId || doc.id,
           userId: d.userId || doc.id,
-          userName: d.userName || "Participant",
-          userAvatar: d.userAvatar || "bg-emerald-600",
+          userName: resolvedName,
+          userAvatar: resolvedAvatar,
           picks: d.picks || {},
           tiebreaker: d.tiebreaker || undefined,
           score: d.score || 0,
@@ -192,7 +216,19 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const creatorName = caller.email?.split("@")[0] || "Commissioner";
+    let creatorName = "";
+    let userAvatar = "bg-emerald-600";
+    try {
+      const userDoc = await db.collection("users").doc(caller.uid).get();
+      if (userDoc.exists) {
+        const u = userDoc.data();
+        creatorName = u?.name || u?.username || "";
+        userAvatar = u?.avatarColor || userAvatar;
+      }
+    } catch {}
+    if (!creatorName) {
+      creatorName = caller.email?.split("@")[0] || "Commissioner";
+    }
 
     const newPool: BracketPool = {
       id: poolId,
@@ -219,6 +255,7 @@ export async function POST(request: Request) {
       userId: caller.uid,
       userEmail: caller.email || "",
       userName: creatorName,
+      userAvatar,
       poolId,
       joinCode: poolId,
       poolName,

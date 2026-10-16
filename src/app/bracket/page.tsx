@@ -27,7 +27,6 @@ import {
   Settings,
   LogOut,
   Check,
-  Copy,
   Plus,
   Shield,
   ExternalLink,
@@ -708,18 +707,15 @@ function BracketApp() {
     }
   };
 
-  // Copy code or invite link to clipboard
+  // Copy bracket code to clipboard
   const handleCopyCode = useCallback(() => {
     if (!poolId) return;
     const cleanCode = (poolData?.joinCode || poolId).toUpperCase();
-    const url = typeof window !== "undefined"
-      ? `${window.location.origin}/bracket?id=${cleanCode}`
-      : `https://pocketpicks.app/bracket?id=${cleanCode}`;
 
     if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(url);
+      navigator.clipboard.writeText(cleanCode);
       setCopiedCode(true);
-      showToast(`Copied invite link: ${url}`);
+      showToast(`Copied bracket code: ${cleanCode}`);
       setTimeout(() => setCopiedCode(false), 2000);
     }
   }, [poolId, poolData, showToast]);
@@ -980,9 +976,73 @@ function BracketApp() {
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Branding & Game Switcher & Bracket Dropdown */}
+          {/* Left: Branding & Game Switcher & Bracket Title */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown currentGame="bracket" />
+
+            {/* Bracket Title & 5-Character Code Pill */}
+            {poolData ? (
+              <div className="min-w-0 flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-black tracking-tight leading-none text-slate-900 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">
+                  {poolData.name}
+                </h1>
+                {cleanDisplayCode && (
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-500/30 transition cursor-pointer shrink-0"
+                    title="Click to copy bracket code"
+                  >
+                    <span>{copiedCode ? "COPIED!" : cleanDisplayCode}</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Right: Simulation Controls & Brackets Dropdown & Theme & User Info */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Simulation controls (commissioner only) */}
+            {user && isOwner && poolData && (
+              <>
+                {isSimulated ? (
+                  <button
+                    type="button"
+                    onClick={handleResetSimulation}
+                    disabled={simulating}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                    title="Reset simulation to unplayed state"
+                  >
+                    <RotateCcw className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">Reset Scores</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSimulate}
+                    disabled={simulating}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors cursor-pointer"
+                    title="Generate realistic playoff outcomes to test scoring"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
+                    <span>Simulate Scores</span>
+                  </button>
+                )}
+
+                {/* Clear Picks Button */}
+                {!isLocked && completedPicksCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearModal(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    title="Clear your picks"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">Clear</span>
+                  </button>
+                )}
+              </>
+            )}
 
             {/* Brackets Dropdown (Created vs Joined) */}
             {user ? (
@@ -1005,7 +1065,7 @@ function BracketApp() {
                 {showUserPoolsMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
-                    <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
+                    <div className="absolute right-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
                       {userPools.length === 0 ? (
                         <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
                           You haven&apos;t created or joined any bracket pools yet.
@@ -1163,80 +1223,6 @@ function BracketApp() {
                 )}
               </div>
             ) : null}
-
-            {/* Bracket Title & 5-Character Code Pill */}
-            {poolData ? (
-              <div className="min-w-0 flex items-center gap-2">
-                <h1 className="text-sm sm:text-base font-black tracking-tight leading-none text-slate-900 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">
-                  {poolData.name}
-                </h1>
-                {cleanDisplayCode && (
-                  <button
-                    type="button"
-                    onClick={handleCopyCode}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-mono font-black bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition shadow-2xs shrink-0 cursor-pointer"
-                    title="Click to copy invite link"
-                  >
-                    {copiedCode ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        <span className="text-emerald-700 dark:text-emerald-300 font-bold">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{cleanDisplayCode}</span>
-                        <Copy className="w-2.5 h-2.5 opacity-60" />
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Right: Simulation Controls & User Info */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Simulation controls (commissioner only) */}
-            {user && isOwner && poolData && (
-              <>
-                {isSimulated ? (
-                  <button
-                    type="button"
-                    onClick={handleResetSimulation}
-                    disabled={simulating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                    title="Reset simulation to unplayed state"
-                  >
-                    <RotateCcw className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
-                    <span className="hidden sm:inline">Reset Scores</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSimulate}
-                    disabled={simulating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors cursor-pointer"
-                    title="Generate realistic playoff outcomes to test scoring"
-                  >
-                    <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
-                    <span>Simulate Scores</span>
-                  </button>
-                )}
-
-                {/* Clear Picks Button */}
-                {!isLocked && completedPicksCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowClearModal(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                    title="Clear your picks"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Clear</span>
-                  </button>
-                )}
-              </>
-            )}
 
             {/* Theme Toggle */}
             <button
@@ -1916,8 +1902,8 @@ function BracketApp() {
                                   )}
                                 </td>
 
-                                <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-600 dark:text-slate-400">
-                                  {totalPicks} / 13
+                                <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                  {totalPicks}/13
                                 </td>
 
                                 <td className="py-3.5 px-4 text-right">

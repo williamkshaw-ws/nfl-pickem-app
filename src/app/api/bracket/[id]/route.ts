@@ -59,17 +59,41 @@ export async function GET(
       .where("poolId", "==", poolId)
       .get();
 
+    // Batch fetch user profiles for real name and avatar
+    const userIds = Array.from(
+      new Set(membersSnap.docs.map((d) => d.data().userId).filter(Boolean))
+    );
+    const userMap = new Map<string, { name?: string; username?: string; avatarColor?: string }>();
+    if (userIds.length > 0) {
+      const userDocs = await Promise.all(
+        userIds.map((uid) => db.collection("users").doc(uid).get().catch(() => null))
+      );
+      userDocs.forEach((uDoc) => {
+        if (uDoc && uDoc.exists) {
+          const u = uDoc.data();
+          userMap.set(uDoc.id, {
+            name: u?.name,
+            username: u?.username,
+            avatarColor: u?.avatarColor,
+          });
+        }
+      });
+    }
+
     const rawParticipants: BracketParticipant[] = [];
     let currentUserEntry: BracketParticipant | null = null;
     let userRole: "commissioner" | "member" | "viewer" = "viewer";
 
     membersSnap.forEach((doc) => {
       const d = doc.data();
+      const uProfile = userMap.get(d.userId);
+      const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
+      const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
       const p: BracketParticipant = {
         id: d.userId || doc.id,
         userId: d.userId || doc.id,
-        userName: d.userName || "Participant",
-        userAvatar: d.userAvatar || "bg-emerald-600",
+        userName: resolvedName,
+        userAvatar: resolvedAvatar,
         picks: d.picks || {},
         tiebreaker: d.tiebreaker || undefined,
         score: d.score || 0,
@@ -217,7 +241,21 @@ export async function POST(
     // Calculate score
     const scoreResult = calculateBracketScore(picks as BracketPicks, results, cleanTiebreaker || undefined);
     const now = new Date().toISOString();
-    const finalUserName = userName?.trim() || caller.email?.split("@")[0] || "Participant";
+
+    let finalUserName = userName?.trim();
+    let finalUserAvatar = userAvatar;
+    if (!finalUserName || !finalUserAvatar) {
+      try {
+        const uDoc = await db.collection("users").doc(caller.uid).get();
+        if (uDoc.exists) {
+          const u = uDoc.data();
+          if (!finalUserName) finalUserName = u?.name || u?.username;
+          if (!finalUserAvatar) finalUserAvatar = u?.avatarColor;
+        }
+      } catch {}
+    }
+    if (!finalUserName) finalUserName = caller.email?.split("@")[0] || "Participant";
+    if (!finalUserAvatar) finalUserAvatar = "bg-emerald-600";
 
     const membershipId = `${caller.uid}_${poolId}`;
     const memRef = db.collection("bracket_memberships").doc(membershipId);
@@ -227,7 +265,7 @@ export async function POST(
         userId: caller.uid,
         userEmail: caller.email || "",
         userName: finalUserName,
-        userAvatar: userAvatar || "bg-emerald-600",
+        userAvatar: finalUserAvatar,
         poolId,
         joinCode: poolData.joinCode || poolId,
         poolName: poolData.name,
@@ -247,14 +285,37 @@ export async function POST(
       .where("poolId", "==", poolId)
       .get();
 
+    const userIds = Array.from(
+      new Set(membersSnap.docs.map((d) => d.data().userId).filter(Boolean))
+    );
+    const userMap = new Map<string, { name?: string; username?: string; avatarColor?: string }>();
+    if (userIds.length > 0) {
+      const userDocs = await Promise.all(
+        userIds.map((uid) => db.collection("users").doc(uid).get().catch(() => null))
+      );
+      userDocs.forEach((uDoc) => {
+        if (uDoc && uDoc.exists) {
+          const u = uDoc.data();
+          userMap.set(uDoc.id, {
+            name: u?.name,
+            username: u?.username,
+            avatarColor: u?.avatarColor,
+          });
+        }
+      });
+    }
+
     const rawParticipants: BracketParticipant[] = [];
     membersSnap.forEach((doc) => {
       const d = doc.data();
+      const uProfile = userMap.get(d.userId);
+      const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
+      const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
       rawParticipants.push({
         id: d.userId || doc.id,
         userId: d.userId || doc.id,
-        userName: d.userName || "Participant",
-        userAvatar: d.userAvatar || "bg-emerald-600",
+        userName: resolvedName,
+        userAvatar: resolvedAvatar,
         picks: d.picks || {},
         tiebreaker: d.tiebreaker || undefined,
         score: d.score || 0,

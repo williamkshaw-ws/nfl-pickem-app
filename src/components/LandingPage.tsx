@@ -247,7 +247,7 @@ export function LandingPage() {
               localStorage.removeItem("pending_join_code");
               localStorage.removeItem("pending_squares_code");
             } catch {}
-          } else {
+          } else if (data.found && data.type === "league") {
             const finalCode = String(data.code || cleanJoin);
             resolvedLeagueCode = finalCode;
             try {
@@ -256,12 +256,22 @@ export function LandingPage() {
               localStorage.removeItem("pending_squares_code");
               localStorage.removeItem("pending_bracket_code");
             } catch {}
+          } else {
+            // Unknown or invalid code - clear pending join keys to prevent auth hang
+            try {
+              localStorage.removeItem("pending_redirect_after_auth");
+              localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_squares_code");
+              localStorage.removeItem("pending_bracket_code");
+            } catch {}
           }
         } catch (err) {
           console.error("Resolve code error:", err);
           try {
-            localStorage.setItem("pending_redirect_after_auth", `/?join=${encodeURIComponent(cleanJoin)}`);
-            localStorage.setItem("pending_join_code", cleanJoin);
+            localStorage.removeItem("pending_redirect_after_auth");
+            localStorage.removeItem("pending_join_code");
+            localStorage.removeItem("pending_squares_code");
+            localStorage.removeItem("pending_bracket_code");
           } catch {}
         }
       }
