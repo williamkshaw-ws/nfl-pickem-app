@@ -108,10 +108,7 @@ interface AvailableGameOption {
   date: string;
 }
 
-const emptySubscribe = () => () => {};
-function useMounted() {
-  return useSyncExternalStore(emptySubscribe, () => true, () => false);
-}
+
 
 function getTeamNickname(fullName: string): string {
   if (!fullName) return "";
@@ -310,8 +307,11 @@ function SquaresPoolApp() {
   const router = useRouter();
 
   // Board State
-  const [board, setBoard] = useState<SquaresBoardState>(getInitialBoardState);
-  const mounted = useMounted();
+  const [board, setBoard] = useState<SquaresBoardState>(INITIAL_STATE);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [publishedPoolId, setPublishedPoolId] = useState<string | null>(null);
   const poolId = searchParams.get("id") || publishedPoolId;
   const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "local">("local");
@@ -436,18 +436,27 @@ function SquaresPoolApp() {
     return false;
   }, [isAuthDenied, poolId, publishedPoolId, user, poolCreatorId, searchParams]);
 
-  const [isViewerPreview, setIsViewerPreview] = useState<boolean>(() => {
+  const [isViewerPreview, setIsViewerPreview] = useState<boolean>(false);
+
+  useEffect(() => {
     const viewParam = searchParams.get("view") === "1" || searchParams.get("mode") === "view";
     const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
-    if (editParam) return false;
+    if (editParam) {
+      setIsViewerPreview(false);
+      return;
+    }
     const idParam = searchParams.get("id");
-    if (!idParam) return false;
-    if (typeof window === "undefined") return viewParam;
-    const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
-    const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
-    const hasOwnership = Boolean(storedKey || legacyOwner);
-    return hasOwnership ? viewParam : true;
-  });
+    if (!idParam) {
+      setIsViewerPreview(false);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
+      const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
+      const hasOwnership = Boolean(storedKey || legacyOwner);
+      setIsViewerPreview(hasOwnership ? viewParam : true);
+    }
+  }, [searchParams]);
 
   // Computed read-only status
   const isReadOnly = !isOwner || isViewerPreview;

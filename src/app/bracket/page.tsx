@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import {
   Trophy,
@@ -42,9 +42,14 @@ import {
 const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v2";
 const STORAGE_TIEBREAKER_KEY = "pocketpicks_bracket_tb_v2";
 
-export default function BracketPage() {
+function BracketApp() {
   const { user, loading: authLoading } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -739,6 +744,15 @@ export default function BracketPage() {
       </div>
     </div>
   );
+
+  if (!mounted) {
+    return (
+      <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
+        <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+        <span className="text-xs font-bold text-slate-500">Loading playoff bracket...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full overflow-x-hidden">
@@ -1885,5 +1899,20 @@ export default function BracketPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BracketPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
+          <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+          <span className="text-xs font-bold text-slate-500">Loading playoff bracket...</span>
+        </div>
+      }
+    >
+      <BracketApp />
+    </Suspense>
   );
 }

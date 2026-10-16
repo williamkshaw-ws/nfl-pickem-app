@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://pocketpicks.app"),
   title: "PocketPicks™ | Weekly Football Picks & Standings",
   description: "Make weekly football picks, compete with friends, track weekly winners, and battle for the season championship with PocketPicks!",
   applicationName: "PocketPicks™",
@@ -49,6 +50,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <script
           suppressHydrationWarning
           dangerouslySetInnerHTML={{

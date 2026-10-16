@@ -3,6 +3,7 @@
   "short_name": "PocketPicks",
   "description": "Weekly football picks, survivor pools, and league standings",
   "start_url": "/",
+  "scope": "/",
   "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
