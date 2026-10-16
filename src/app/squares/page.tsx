@@ -34,6 +34,7 @@ import {
   ChevronRight,
   Settings,
   LogOut,
+  Eraser,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -1229,6 +1230,89 @@ function SquaresPoolApp() {
     });
   };
 
+  // Delete board permanently (Owner only)
+  const handleDeleteBoard = () => {
+    if (!poolId || !isOwner) return;
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Squares Board?",
+      message: `Are you sure you want to permanently delete "${board.title || "this board"}"? All picks, scores, and board data will be deleted for everyone. This cannot be undone.`,
+      actionLabel: "Delete Board",
+      actionVariant: "danger",
+      onConfirm: async () => {
+        try {
+          const token = await getAuthToken();
+          const res = await fetch(`/api/squares/${encodeURIComponent(poolId)}`, {
+            method: "DELETE",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            showToast(data.error || "Failed to delete board");
+            return;
+          }
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(`pocketpicks_squares_board_${poolId}`);
+            localStorage.removeItem(`squares_owner_${poolId}`);
+            localStorage.removeItem(`squares_owner_key_${poolId}`);
+            localStorage.removeItem("last_active_squares_board");
+          }
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          showToast("Board permanently deleted");
+          setUserPools((prev) => prev.filter((p) => p.id !== poolId && p.joinCode !== poolId));
+          router.push("/squares");
+        } catch (err) {
+          console.error("Delete pool error:", err);
+          showToast("Failed to delete board");
+        }
+      },
+    });
+  };
+
+  // Leave board (Member only)
+  const handleLeaveBoard = (targetId?: string) => {
+    const idToLeave = targetId || poolId;
+    if (!idToLeave) return;
+    const targetPool = userPools.find((p) => p.id === idToLeave || p.joinCode === idToLeave);
+    const title = targetPool?.title || board.title || "this board";
+
+    setConfirmModal({
+      isOpen: true,
+      title: "Leave Squares Board?",
+      message: `Are you sure you want to leave "${title}"? It will be removed from your boards list.`,
+      actionLabel: "Leave Board",
+      actionVariant: "danger",
+      onConfirm: async () => {
+        try {
+          const token = await getAuthToken();
+          const res = await fetch(`/api/squares/${encodeURIComponent(idToLeave)}/leave`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            showToast(data.error || "Failed to leave board");
+            return;
+          }
+          if (typeof window !== "undefined") {
+            if (localStorage.getItem("last_active_squares_board") === idToLeave) {
+              localStorage.removeItem("last_active_squares_board");
+            }
+          }
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          showToast(`Left "${title}"`);
+          setUserPools((prev) => prev.filter((p) => p.id !== idToLeave && p.joinCode !== idToLeave));
+          if (!targetId || targetId === poolId) {
+            router.push("/squares");
+          }
+        } catch (err) {
+          console.error("Leave pool error:", err);
+          showToast("Failed to leave board");
+        }
+      },
+    });
+  };
+
   // Stats
   const stats = useMemo(() => {
     const claims = Object.values(board.grid).map((n) => n.trim()).filter(Boolean);
@@ -1526,15 +1610,17 @@ function SquaresPoolApp() {
                                   const currentNorm = (poolId || "").replace(/^sb-/, "").toUpperCase();
                                   const isCurrent = currentNorm === cleanCode;
                                   return (
-                                    <Link
+                                    <div
                                       key={p.id}
-                                      href={`/squares?id=${cleanCode}`}
-                                      onClick={() => setShowUserPoolsMenu(false)}
                                       className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
                                         isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
                                       }`}
                                     >
-                                      <div className="min-w-0 pr-2">
+                                      <Link
+                                        href={`/squares?id=${cleanCode}`}
+                                        onClick={() => setShowUserPoolsMenu(false)}
+                                        className="min-w-0 pr-2 flex-1"
+                                      >
                                         <div className="font-bold truncate flex items-center gap-1.5">
                                           <span className="truncate">{p.title}</span>
                                           {cleanCode && (
@@ -1546,9 +1632,22 @@ function SquaresPoolApp() {
                                         <div className="text-[10px] text-slate-400 truncate">
                                           {p.topTeam} vs {p.leftTeam}
                                         </div>
+                                      </Link>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleLeaveBoard(p.id);
+                                          }}
+                                          title="Leave this board"
+                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                        >
+                                          <LogOut className="w-3.5 h-3.5" />
+                                        </button>
                                       </div>
-                                      {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
-                                    </Link>
+                                    </div>
                                   );
                                 })}
                             </div>
@@ -1860,6 +1959,17 @@ function SquaresPoolApp() {
                         <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
                       </button>
                     )}
+                    {!isOwner && poolId && user && (
+                      <button
+                        type="button"
+                        onClick={() => handleLeaveBoard()}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition cursor-pointer shrink-0"
+                        title="Leave this board"
+                      >
+                        <LogOut className="w-3 h-3 text-rose-500" />
+                        <span>Leave Board</span>
+                      </button>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     100 Squares Pool &bull; {poolCreatorName ? `Commissioner: ${poolCreatorName}` : "View-only board"}
@@ -1867,27 +1977,28 @@ function SquaresPoolApp() {
                 </div>
 
                 {/* Quick stats pills */}
-                <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs shrink-0 overflow-x-auto pb-0.5 sm:pb-0">
-                  <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
-                    <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span className="font-extrabold text-slate-900 dark:text-white">{stats.totalClaimed}</span>
-                    <span className="text-slate-500 dark:text-slate-400">/100 Sq</span>
+                <div className="grid grid-cols-3 gap-1 sm:flex sm:items-center sm:gap-2.5 text-[10px] sm:text-xs w-full sm:w-auto shrink-0">
+                  <div className="bg-slate-50 dark:bg-slate-800/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
+                    <Grid className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
+                    <span className="font-extrabold text-slate-900 dark:text-white truncate">{stats.totalClaimed}</span>
+                    <span className="text-slate-500 dark:text-slate-400 truncate">/100<span className="hidden sm:inline"> Sq</span></span>
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
-                    <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                    <span className="font-extrabold text-slate-900 dark:text-white">{stats.userList.length}</span>
-                    <span className="text-slate-500 dark:text-slate-400"> Players</span>
+                  <div className="bg-slate-50 dark:bg-slate-800/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
+                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-500 shrink-0" />
+                    <span className="font-extrabold text-slate-900 dark:text-white truncate">{stats.userList.length}</span>
+                    <span className="text-slate-500 dark:text-slate-400 truncate"> Players</span>
                   </div>
 
-                  <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 shrink-0 whitespace-nowrap">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center gap-1 sm:gap-1.5 text-emerald-900 dark:text-emerald-300 min-w-0 whitespace-nowrap">
                     {stats.cost > 0 ? (
                       <>
-                        <span className="font-black">${stats.totalPot.toLocaleString()}</span>
-                        <span className="opacity-80"> Pot (${stats.cost}/sq)</span>
+                        <span className="font-black truncate">${stats.totalPot.toLocaleString()}</span>
+                        <span className="opacity-80 truncate hidden sm:inline"> Pot (${stats.cost}/sq)</span>
+                        <span className="opacity-80 truncate sm:hidden"> Pot</span>
                       </>
                     ) : (
-                      <span className="font-bold">Free Pool</span>
+                      <span className="font-bold truncate">Free</span>
                     )}
                   </div>
                 </div>
@@ -2016,6 +2127,17 @@ function SquaresPoolApp() {
                       <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
                     </button>
                   )}
+                  {poolId && isOwner && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteBoard}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition cursor-pointer shrink-0 ml-auto sm:ml-0"
+                      title="Permanently delete this board"
+                    >
+                      <Trash2 className="w-3 h-3 text-rose-500" />
+                      <span className="hidden sm:inline">Delete Board</span>
+                    </button>
+                  )}
                 </div>
                 <input
                   type="text"
@@ -2026,23 +2148,23 @@ function SquaresPoolApp() {
                 />
               </div>
 
-              {/* Quick Metrics & Price per square */}
-              <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs shrink-0 overflow-x-auto pb-0.5 sm:pb-0">
-                <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
-                  <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="font-extrabold text-slate-900 dark:text-white">{stats.totalClaimed}</span>
-                  <span className="text-slate-500 dark:text-slate-400">/100 Sq</span>
+              {/* Quick Metrics & Price per square - 4 cols on mobile without horizontal scroll */}
+              <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-2 text-[10px] sm:text-xs w-full lg:w-auto shrink-0">
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
+                  <Grid className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
+                  <span className="font-extrabold text-slate-900 dark:text-white truncate">{stats.totalClaimed}</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-[9px] sm:text-xs truncate">/100<span className="hidden sm:inline"> Sq</span></span>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1.5 shrink-0">
-                  <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                  <span className="font-extrabold text-slate-900 dark:text-white">{stats.userList.length}</span>
-                  <span className="text-slate-500 dark:text-slate-400"> Players</span>
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
+                  <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-500 shrink-0" />
+                  <span className="font-extrabold text-slate-900 dark:text-white truncate">{stats.userList.length}</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-[9px] sm:text-xs truncate hidden min-[370px]:inline"><span className="hidden sm:inline"> Players</span><span className="sm:hidden"> Plyr</span></span>
                 </div>
 
                 {/* Price / Square input */}
-                <div className="bg-slate-50 dark:bg-slate-800/80 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1 shrink-0" title="Set cost per square">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">$</span>
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-1 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-0.5 sm:gap-1 min-w-0" title="Set cost per square">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">$</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -2054,17 +2176,17 @@ function SquaresPoolApp() {
                       saveState({ ...board, costPerSquare: num });
                     }}
                     placeholder="0"
-                    className="w-9 sm:w-11 text-xs sm:text-sm font-black text-center text-slate-900 dark:text-white bg-transparent focus:outline-hidden"
+                    className="w-7 sm:w-11 text-[11px] sm:text-sm font-black text-center text-slate-900 dark:text-white bg-transparent focus:outline-hidden"
                   />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">/sq</span>
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">/sq</span>
                 </div>
 
                 {/* Pot */}
-                <div className="bg-emerald-50 dark:bg-emerald-950/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 shrink-0 whitespace-nowrap">
+                <div className="bg-emerald-50 dark:bg-emerald-950/40 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center gap-1 sm:gap-1.5 text-emerald-900 dark:text-emerald-300 min-w-0">
                   {stats.cost > 0 ? (
-                    <span className="font-black">${stats.totalPot.toLocaleString()} Pot</span>
+                    <span className="font-black text-[10px] sm:text-xs truncate">${stats.totalPot.toLocaleString()}<span className="hidden min-[370px]:inline"> Pot</span></span>
                   ) : (
-                    <span className="font-bold">Free Pool</span>
+                    <span className="font-bold text-[10px] sm:text-xs truncate">Free</span>
                   )}
                 </div>
               </div>
@@ -2309,8 +2431,8 @@ function SquaresPoolApp() {
                 )}
               </div>
 
-              {/* 3 buttons side-by-side */}
-              <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+              {/* Action buttons side-by-side */}
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => randomizeNumbers("both")}
@@ -2334,12 +2456,24 @@ function SquaresPoolApp() {
                 <button
                   type="button"
                   onClick={clearAllSquares}
-                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
                   title="Clear all names on the board"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <Eraser className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span>Clear<span className="hidden md:inline"> Names</span></span>
                 </button>
+
+                {poolId && isOwner && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteBoard}
+                    className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
+                    title="Permanently delete this board"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>Delete<span className="hidden md:inline"> Board</span></span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

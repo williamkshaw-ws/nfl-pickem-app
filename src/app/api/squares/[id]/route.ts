@@ -269,3 +269,88 @@ export async function POST(
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const caller = await requireUser(request);
+    const ip = getClientIp(request);
+    enforceRateLimit(`squares_delete:${caller.uid}`, 20, 60_000);
+
+    const { id } = await params;
+    let poolId = (id || "").trim();
+    if (!poolId) {
+      return NextResponse.json({ error: "Invalid pool ID" }, { status: 400 });
+    }
+
+    const db = adminDb();
+    let poolRef = db.collection("squares_pools").doc(poolId);
+    let docSnap = await poolRef.get();
+
+    if (!docSnap.exists) {
+      const altId = poolId === poolId.toUpperCase() ? poolId.toLowerCase() : poolId.toUpperCase();
+      const altSnap = await db.collection("squares_pools").doc(altId).get();
+      if (altSnap.exists) {
+        docSnap = altSnap;
+        poolId = altId;
+        poolRef = db.collection("squares_pools").doc(poolId);
+      } else if (!poolId.toLowerCase().startsWith("sb-")) {
+        const legacySnap = await db.collection("squares_pools").doc(`sb-${poolId.toLowerCase()}`).get();
+        if (legacySnap.exists) {
+          docSnap = legacySnap;
+          poolId = `sb-${poolId.toLowerCase()}`;
+          poolRef = db.collection("squares_pools").doc(poolId);
+        }
+      }
+    }
+
+    if (!docSnap.exists) {
+      return NextResponse.json({ error: "Pool not found" }, { status: 404 });
+    }
+
+    const docData = docSnap.data();
+
+    // Verify caller is the commissioner/owner
+    const isOwner = docData?.creatorUserId === caller.uid;
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Unauthorized: only the commissioner who created this board can delete it" },
+        { status: 403 }
+      );
+    }
+
+    // 1. Delete the squares pool document
+    await poolRef.delete();
+
+    // 2. Delete all memberships referencing this pool
+    const upperId = poolId.toUpperCase();
+    const lowerId = poolId.toLowerCase();
+    const joinCode = docData?.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+
+    const membershipsSnap = await db
+      .collection("squares_memberships")
+      .where("poolId", "in", [poolId, upperId, lowerId, joinCode, `sb-${lowerId}`])
+      .get();
+
+    const batch = db.batch();
+    for (const memDoc of membershipsSnap.docs) {
+      batch.delete(memDoc.ref);
+    }
+    batch.delete(db.collection("squares_memberships").doc(`${caller.uid}_${poolId}`));
+    batch.delete(db.collection("squares_memberships").doc(`${caller.uid}_${upperId}`));
+    batch.delete(db.collection("squares_memberships").doc(`${caller.uid}_${lowerId}`));
+    batch.delete(db.collection("squares_memberships").doc(`${caller.uid}_${joinCode}`));
+    await batch.commit();
+
+    return NextResponse.json({ success: true, message: "Board permanently deleted" });
+  } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error("Error deleting squares pool:", err);
+    const msg = err instanceof Error ? err.message : "Failed to delete pool";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
