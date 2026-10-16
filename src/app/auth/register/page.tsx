@@ -181,7 +181,7 @@ export default function Register() {
               const sep = base.includes("?") ? "&" : "?";
               router.push(redirectParam ? `${base}${sep}redirect=${encodeURIComponent(redirectParam)}` : base);
             }}
-            className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl font-black text-sm shadow-md shadow-amber-500/25 transition cursor-pointer"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition cursor-pointer"
           >
             Go to Login
           </button>
@@ -197,15 +197,15 @@ export default function Register() {
         <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Create your PocketPicks account.</p>
 
         {joinCode && (
-          <div className="mb-6 p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-300 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs">
+          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 truncate">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate">
                   Joining {joinDetails?.type || "pool"}: <strong className="font-mono font-black tracking-wider text-slate-900 dark:text-white">{joinCode}</strong>
                 </span>
               </div>
-              <div className="text-[11px] text-amber-700/90 dark:text-amber-400/90 font-normal truncate mt-0.5">
+              <div className="text-[11px] text-emerald-700/90 dark:text-emerald-400/90 font-normal truncate mt-0.5">
                 {joinDetails?.title ? `"${joinDetails.title}" • Sign up to enter` : "Your account will be linked upon sign in."}
               </div>
             </div>
@@ -213,7 +213,7 @@ export default function Register() {
               type="button"
               onClick={clearJoinCode}
               title="Remove code"
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-900/40 transition shrink-0 cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition shrink-0 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -234,7 +234,7 @@ export default function Register() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
               placeholder="John Doe"
             />
           </div>
@@ -245,7 +245,7 @@ export default function Register() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
               placeholder="johndoe99"
             />
           </div>
@@ -256,7 +256,7 @@ export default function Register() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
               placeholder="you@example.com"
             />
           </div>
@@ -268,7 +268,7 @@ export default function Register() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                 placeholder="••••••••"
               />
               <button
@@ -281,20 +281,20 @@ export default function Register() {
             </div>
             {password.length > 0 && (
               <div className="mt-3 space-y-1.5 px-1">
-                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${password.length >= 8 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${password.length >= 8 ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${password.length >= 8 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${password.length >= 8 ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                   At least 8 characters
                 </div>
-                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${/[A-Z]/.test(password) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(password) ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${/[A-Z]/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(password) ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                   At least one uppercase letter
                 </div>
-                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${/[0-9]/.test(password) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(password) ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${/[0-9]/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(password) ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                   At least one number
                 </div>
-                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                <div className={`text-[10px] font-bold flex items-center gap-1.5 ${/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                   At least one special character
                 </div>
               </div>
@@ -308,7 +308,7 @@ export default function Register() {
                 type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                 placeholder="••••••••"
               />
               <button
@@ -324,7 +324,7 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl font-black text-sm shadow-md shadow-amber-500/25 transition mt-4 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition mt-4 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
           >
             <span>{loading ? "Creating..." : "Create Account"}</span>
             {!loading && <ArrowRight className="w-4 h-4" />}
@@ -339,7 +339,7 @@ export default function Register() {
               const sep = base.includes("?") ? "&" : "?";
               return redirectParam ? `${base}${sep}redirect=${encodeURIComponent(redirectParam)}` : base;
             })()}
-            className="text-amber-600 dark:text-amber-400 font-bold hover:text-amber-700 dark:hover:text-amber-300 hover:underline transition-colors"
+            className="text-emerald-600 dark:text-emerald-400 font-bold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline transition-colors"
           >
             Log in
           </Link>

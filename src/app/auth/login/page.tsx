@@ -259,21 +259,21 @@ export default function Login() {
         )}
 
         {resetMessage && (
-          <div className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-sm p-3.5 rounded-xl mb-5 border border-amber-200 dark:border-amber-800/60">
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-sm p-3.5 rounded-xl mb-5 border border-emerald-200 dark:border-emerald-800/60">
             {resetMessage}
           </div>
         )}
 
         {joinCode && (
-          <div className="mb-6 p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-300 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs">
+          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 truncate">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate">
                   Joining {joinDetails?.type || "pool"}: <strong className="font-mono font-black tracking-wider text-slate-900 dark:text-white">{joinCode}</strong>
                 </span>
               </div>
-              <div className="text-[11px] text-amber-700/90 dark:text-amber-400/90 font-normal truncate mt-0.5">
+              <div className="text-[11px] text-emerald-700/90 dark:text-emerald-400/90 font-normal truncate mt-0.5">
                 {joinDetails?.title ? `"${joinDetails.title}" • Sign in to enter` : "Sign in to add this to your account."}
               </div>
             </div>
@@ -281,7 +281,7 @@ export default function Login() {
               type="button"
               onClick={clearJoinCode}
               title="Remove code"
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-900/40 transition shrink-0 cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition shrink-0 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -304,7 +304,7 @@ export default function Login() {
                 if (error) setError("");
                 if (resetMessage) setResetMessage("");
               }}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
               placeholder="you@example.com or username"
             />
           </div>
@@ -316,7 +316,7 @@ export default function Login() {
                 type="button"
                 disabled={resetSending}
                 onClick={handleForgotPassword}
-                className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:underline disabled:opacity-50 cursor-pointer transition-colors"
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:underline disabled:opacity-50 cursor-pointer transition-colors"
               >
                 {resetSending ? "Sending reset link..." : "Forgot password?"}
               </button>
@@ -327,7 +327,7 @@ export default function Login() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                 placeholder="••••••••"
               />
               <button
@@ -347,7 +347,7 @@ export default function Login() {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Have a Code? <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
                 </label>
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                   League or Squares Board
                 </span>
               </div>
@@ -359,7 +359,7 @@ export default function Login() {
                 spellCheck={false}
                 value={manualJoinCode}
                 onChange={(e) => setManualJoinCode(e.target.value.toUpperCase())}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all font-mono uppercase"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono uppercase"
                 placeholder="e.g. U7VUF or 84920"
               />
             </div>
@@ -368,7 +368,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl font-black text-sm shadow-md shadow-amber-500/25 transition mt-4 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition mt-4 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -396,7 +396,7 @@ export default function Login() {
                 ? `/auth/register${createParam}`
                 : "/auth/register"
             }
-            className="text-amber-600 dark:text-amber-400 font-bold hover:text-amber-700 dark:hover:text-amber-300 hover:underline transition-colors"
+            className="text-emerald-600 dark:text-emerald-400 font-bold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline transition-colors"
           >
             Create one
           </Link>
