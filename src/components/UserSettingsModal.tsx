@@ -6,9 +6,6 @@ import {
   User as UserIcon,
   Lock,
   Trash2,
-  Sun,
-  Moon,
-  Monitor,
   Check,
   AlertTriangle,
   Loader2,
@@ -19,7 +16,6 @@ import {
   Bell,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { useTheme } from "@/components/ThemeProvider";
 import { auth, db } from "@/lib/firebase";
 import { updatePassword, signOut, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -52,7 +48,6 @@ const AVATAR_COLORS = [
 
 export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSettingsModalProps) {
   const { user, refreshUser } = useAuth();
-  const { theme, setTheme, resolvedTheme } = useTheme();
 
   const wasOpenRef = useRef(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -326,7 +321,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                 User Settings
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                Manage your profile, theme, and security
+                Manage your profile and security
               </p>
             </div>
           </div>
@@ -494,68 +489,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           </section>
 
           {/* ─────────────────────────────────────────────────────────────
-              2. THEME SETTING
-          ───────────────────────────────────────────────────────────── */}
-          <section className="space-y-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-              {resolvedTheme === "dark" ? (
-                <Moon className="w-4 h-4 text-indigo-400" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-500" />
-              )}
-              <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                Theme Setting
-              </h4>
-            </div>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Choose your preferred visual theme across the application.
-            </p>
-
-            <div className="grid grid-cols-3 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setTheme("system")}
-                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border text-xs font-bold transition-all ${
-                  theme === "system"
-                    ? "border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-500 shadow-xs"
-                    : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <Monitor className="w-4 h-4" />
-                <span>System</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTheme("light")}
-                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border text-xs font-bold transition-all ${
-                  theme === "light"
-                    ? "border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-500 shadow-xs"
-                    : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <Sun className="w-4 h-4 text-amber-500" />
-                <span>Light</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTheme("dark")}
-                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border text-xs font-bold transition-all ${
-                  theme === "dark"
-                    ? "border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-500 shadow-xs"
-                    : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <Moon className="w-4 h-4 text-indigo-400" />
-                <span>Dark</span>
-              </button>
-            </div>
-          </section>
-
-          {/* ─────────────────────────────────────────────────────────────
-              3. PASSWORD UPDATE
+              2. PASSWORD UPDATE
           ───────────────────────────────────────────────────────────── */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -667,7 +601,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           </section>
 
           {/* ─────────────────────────────────────────────────────────────
-              4. DANGER ZONE (Delete User)
+              3. DANGER ZONE (Delete User)
           ───────────────────────────────────────────────────────────── */}
           <section className="pt-2">
             <div className="p-4 sm:p-5 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 space-y-3">

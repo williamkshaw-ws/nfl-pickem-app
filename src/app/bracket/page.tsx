@@ -947,7 +947,7 @@ function BracketApp() {
                           <div className="text-left">
                             <span className="text-xs font-bold block text-slate-900 dark:text-white">Settings</span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                              Name, username, password, theme &amp; account
+                              Name, username, password &amp; account
                             </span>
                           </div>
                         </div>

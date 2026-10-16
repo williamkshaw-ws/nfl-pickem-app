@@ -484,7 +484,7 @@ export function Header({
                           </div>
                           <div className="text-left">
                             <span className="text-xs font-bold block text-slate-900 dark:text-white">Settings</span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500">Name, username, password, theme & account</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">Name, username, password &amp; account</span>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
