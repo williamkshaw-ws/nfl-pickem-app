@@ -224,8 +224,8 @@ export async function GET(request: Request) {
       const board = data.board || {};
       const poolId = doc.id;
       const joinCode = data.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
-      poolsMap.set(poolId, {
-        id: poolId,
+      poolsMap.set(joinCode, {
+        id: joinCode,
         joinCode,
         title: board.title || "Super Bowl Squares",
         topTeam: board.topTeam || "Team 1",
@@ -275,8 +275,8 @@ export async function GET(request: Request) {
           const joinCode = data.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
           const isCreator = data.creatorUserId === caller.uid;
 
-          poolsMap.set(poolId, {
-            id: poolId,
+          poolsMap.set(joinCode, {
+            id: joinCode,
             joinCode,
             title: board.title || "Super Bowl Squares",
             topTeam: board.topTeam || "Team 1",
