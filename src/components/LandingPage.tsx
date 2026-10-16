@@ -217,6 +217,7 @@ export function LandingPage() {
       // with page.tsx immediately redirecting to existing Pick'em leagues
       const targetJoinCode = loginJoinCode.trim() || pendingJoin;
       let resolvedSquaresCode: string | null = null;
+      let resolvedBracketCode: string | null = null;
       let resolvedLeagueCode: string | null = null;
 
       if (targetJoinCode) {
@@ -235,6 +236,16 @@ export function LandingPage() {
               localStorage.setItem("pending_redirect_after_auth", `/squares?id=${encodeURIComponent(finalCode)}`);
               localStorage.setItem("pending_squares_code", finalCode);
               localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_bracket_code");
+            } catch {}
+          } else if (data.found && data.type === "bracket") {
+            const finalCode = String(data.code || cleanJoin);
+            resolvedBracketCode = finalCode;
+            try {
+              localStorage.setItem("pending_redirect_after_auth", `/bracket?id=${encodeURIComponent(finalCode)}`);
+              localStorage.setItem("pending_bracket_code", finalCode);
+              localStorage.removeItem("pending_join_code");
+              localStorage.removeItem("pending_squares_code");
             } catch {}
           } else {
             const finalCode = String(data.code || cleanJoin);
@@ -243,6 +254,7 @@ export function LandingPage() {
               localStorage.setItem("pending_redirect_after_auth", `/?join=${encodeURIComponent(finalCode)}`);
               localStorage.setItem("pending_join_code", finalCode);
               localStorage.removeItem("pending_squares_code");
+              localStorage.removeItem("pending_bracket_code");
             } catch {}
           }
         } catch (err) {
@@ -291,7 +303,33 @@ export function LandingPage() {
         return;
       }
 
-      // 2. If resolved as a Pick'em league code, redirect to join flow
+      // 2. If resolved as a Bracket pool, join it and direct the user straight to the bracket
+      if (resolvedBracketCode) {
+        try {
+          const token = await userCredential.user.getIdToken();
+          if (token) {
+            await fetch("/api/bracket/join", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ code: resolvedBracketCode }),
+            }).catch(() => null);
+          }
+        } catch (err) {
+          console.error("Error joining bracket pool:", err);
+        }
+        try {
+          localStorage.removeItem("pending_bracket_code");
+          localStorage.removeItem("pending_redirect_after_auth");
+          localStorage.removeItem("pending_join_code");
+        } catch {}
+        window.location.href = `/bracket?id=${encodeURIComponent(resolvedBracketCode)}`;
+        return;
+      }
+
+      // 3. If resolved as a Pick'em league code, redirect to join flow
       if (resolvedLeagueCode) {
         window.location.href = `/?join=${encodeURIComponent(resolvedLeagueCode)}`;
         return;

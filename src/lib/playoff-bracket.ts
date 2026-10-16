@@ -794,3 +794,73 @@ export function generateSampleParticipants(): BracketParticipant[] {
     },
   ];
 }
+
+export interface BracketPool {
+  id: string;
+  joinCode: string;
+  name: string;
+  creatorUserId: string;
+  creatorName: string;
+  creatorEmail: string;
+  isLocked: boolean;
+  lockTime: string;
+  results: SimulationResults;
+  isSimulated: boolean;
+  simulatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserBracketPool {
+  id: string;
+  joinCode: string;
+  name: string;
+  role: "commissioner" | "member";
+  isLocked?: boolean;
+}
+
+export function generateBracketPoolId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 5; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export function extractBracketCode(input: string): string {
+  if (!input || typeof input !== "string") return "";
+  let clean = input.trim();
+
+  // 1. Check for ?id= or &id= anywhere
+  const idMatch = clean.match(/[?&]id=([A-Za-z0-9_-]+)/i);
+  if (idMatch && idMatch[1]) {
+    return idMatch[1].replace(/^bracket-/i, "").toUpperCase().trim();
+  }
+
+  // 2. Try URL parsing
+  try {
+    const hasProtocol = /^[a-zA-Z]+:\/\//.test(clean);
+    const url = new URL(hasProtocol ? clean : `https://${clean}`);
+    const idFromQuery = url.searchParams.get("id");
+    if (idFromQuery) {
+      return idFromQuery.replace(/^bracket-/i, "").toUpperCase().trim();
+    }
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts.pop();
+    if (lastPart && lastPart.toLowerCase() !== "bracket") {
+      return lastPart.replace(/^bracket-/i, "").toUpperCase().trim();
+    }
+  } catch {
+    // Ignore URL parse failure
+  }
+
+  // 3. Strip any URL/path or query artifacts
+  if (clean.includes("/")) {
+    clean = clean.split("/").filter(Boolean).pop() || clean;
+  }
+  clean = clean.split("?")[0].split("&")[0];
+
+  return clean.replace(/^bracket-/i, "").toUpperCase().trim();
+}
+

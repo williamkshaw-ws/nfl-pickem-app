@@ -136,6 +136,14 @@ export default function Home() {
       return;
     }
 
+    const pendingBracketCode = typeof window !== "undefined" ? localStorage.getItem("pending_bracket_code") : null;
+    if (pendingBracketCode) {
+      localStorage.removeItem("pending_bracket_code");
+      setIsRedirecting(true);
+      router.replace(`/bracket?id=${encodeURIComponent(pendingBracketCode)}`);
+      return;
+    }
+
     const pendingJoinCode = typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null;
     const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
     const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
@@ -157,7 +165,7 @@ export default function Home() {
         });
 
         // If user already belongs to leagues and didn't come via a specific ?join= or ?create= invite or pending code
-        if (m.length > 0 && !hasJoinParam && !hasCreateParam && !pendingJoinCode && !pendingSquaresCode) {
+        if (m.length > 0 && !hasJoinParam && !hasCreateParam && !pendingJoinCode && !pendingSquaresCode && !pendingBracketCode) {
           const lastLeagueId = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
           const matchingLeague = m.find((l) => l.leagueId === lastLeagueId);
           const targetLeagueId = matchingLeague ? matchingLeague.leagueId : m[0].leagueId;

@@ -4,21 +4,58 @@ import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   simulatePlayoffOutcomes,
   rankBracketParticipants,
+  calculateBracketScore,
+  extractBracketCode,
   SimulationResults,
   BracketParticipant,
+  BracketPool,
 } from "@/lib/playoff-bracket";
-
-const PLAYOFFS_DOC_ID = "nfl_playoffs_2025";
 
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request);
     enforceRateLimit(`bracket_simulate:${ip}`, 30, 60_000, "Too many simulation requests. Please slow down.");
 
-    await requireUser(request);
+    const caller = await requireUser(request);
     const body = await request.json().catch(() => ({}));
+    const rawPoolId = body?.poolId;
+    const cleanPoolId = rawPoolId ? extractBracketCode(rawPoolId) : null;
+
+    if (!cleanPoolId) {
+      return NextResponse.json({ error: "Missing or invalid pool ID for simulation" }, { status: 400 });
+    }
+
     const action = body.action || "simulate";
     const db = adminDb();
+
+    let poolRef = db.collection("bracket_pools").doc(cleanPoolId);
+    let poolDoc = await poolRef.get();
+    if (!poolDoc.exists) {
+      const qSnap = await db
+        .collection("bracket_pools")
+        .where("joinCode", "==", cleanPoolId)
+        .limit(1)
+        .get();
+      if (!qSnap.empty) {
+        poolDoc = qSnap.docs[0];
+        poolRef = poolDoc.ref;
+      }
+    }
+
+    if (!poolDoc.exists) {
+      return NextResponse.json({ error: "Bracket pool not found" }, { status: 404 });
+    }
+
+    const poolData = poolDoc.data() as BracketPool;
+    const poolId = poolDoc.id;
+
+    // Verify caller is commissioner
+    if (poolData.creatorUserId !== caller.uid) {
+      return NextResponse.json(
+        { error: "Unauthorized: only the commissioner can simulate game outcomes" },
+        { status: 403 }
+      );
+    }
 
     let results: SimulationResults = {};
     let isSimulated = false;
@@ -36,8 +73,8 @@ export async function POST(request: Request) {
       simulatedAt = null;
     }
 
-    // Save simulation and lock state
-    await db.collection("bracket_state").doc(PLAYOFFS_DOC_ID).set(
+    // Save simulation state to the pool
+    await poolRef.set(
       {
         results,
         isSimulated,
@@ -48,23 +85,27 @@ export async function POST(request: Request) {
       { merge: true }
     );
 
-    // Fetch all participant entries
-    const entriesSnapshot = await db.collection("bracket_entries").get();
+    // Fetch all members in this pool
+    const entriesSnapshot = await db
+      .collection("bracket_memberships")
+      .where("poolId", "==", poolId)
+      .get();
+
     const rawParticipants: BracketParticipant[] = [];
 
     entriesSnapshot.forEach((doc) => {
       const data = doc.data();
+      const scoreRes = calculateBracketScore(data.picks || {}, results, data.tiebreaker || undefined);
       rawParticipants.push({
-        id: doc.id,
+        id: data.userId || doc.id,
         userId: data.userId || doc.id,
-        userName: data.userName || "Anonymous",
+        userName: data.userName || "Participant",
         userAvatar: data.userAvatar || "bg-emerald-600",
         picks: data.picks || {},
-        tiebreaker: data.tiebreaker,
-        score: 0,
+        tiebreaker: data.tiebreaker || undefined,
+        score: scoreRes.score,
         superBowlWinner: data.picks?.super_bowl || "",
         updatedAt: data.updatedAt || "",
-        isSample: !!data.isSample,
       });
     });
 
@@ -74,7 +115,7 @@ export async function POST(request: Request) {
     // Update scores in database batch
     const batch = db.batch();
     for (const p of rankedLeaderboard) {
-      batch.update(db.collection("bracket_entries").doc(p.id), {
+      batch.update(db.collection("bracket_memberships").doc(`${p.userId}_${poolId}`), {
         score: p.score,
       });
     }

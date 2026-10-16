@@ -66,7 +66,35 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Check Leagues
+    // 2. Check Bracket pools
+    let bracketDoc = null;
+    const directBracketUpper = await db.collection("bracket_pools").doc(upperCode).get();
+    if (directBracketUpper.exists) {
+      bracketDoc = directBracketUpper;
+    } else {
+      const qSnap = await db
+        .collection("bracket_pools")
+        .where("joinCode", "==", upperCode)
+        .limit(1)
+        .get();
+      if (!qSnap.empty) {
+        bracketDoc = qSnap.docs[0];
+      }
+    }
+
+    if (bracketDoc && bracketDoc.exists) {
+      const data = bracketDoc.data()!;
+      const displayCode = data.joinCode || bracketDoc.id.toUpperCase();
+      return NextResponse.json({
+        found: true,
+        type: "bracket",
+        id: bracketDoc.id,
+        code: displayCode,
+        title: data.name || "Playoff Bracket Challenge",
+      });
+    }
+
+    // 3. Check Leagues
     let leagueDoc = await db.collection("leagues").doc(upperCode).get();
     if (!leagueDoc.exists) {
       leagueDoc = await db.collection("leagues").doc(cleanCode).get();

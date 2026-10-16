@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Trophy,
   RotateCcw,
@@ -25,6 +26,11 @@ import {
   ChevronRight,
   Settings,
   LogOut,
+  Check,
+  Copy,
+  Plus,
+  Shield,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -44,29 +50,54 @@ import {
   extractActualWinners,
   TEAM_BY_ABBR,
   PlayoffTeam,
+  BracketPool,
+  UserBracketPool,
+  extractBracketCode,
 } from "@/lib/playoff-bracket";
 
-const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v2";
-const STORAGE_TIEBREAKER_KEY = "pocketpicks_bracket_tb_v2";
+const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v3";
+const STORAGE_TIEBREAKER_KEY = "pocketpicks_bracket_tb_v3";
 
 function BracketApp() {
   const { user, loading: authLoading } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const userDropdownRef = useRef<HTMLDivElement>(null);
+  // Pool state
+  const rawIdParam = searchParams.get("id");
+  const poolId = useMemo(() => (rawIdParam ? extractBracketCode(rawIdParam) : ""), [rawIdParam]);
+  const [poolData, setPoolData] = useState<BracketPool | null>(null);
+  const [userPools, setUserPools] = useState<UserBracketPool[]>([]);
+  const [poolsFetched, setPoolsFetched] = useState(false);
+  const [loadingPool, setLoadingPool] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [userRole, setUserRole] = useState<"commissioner" | "member" | "viewer">("viewer");
 
+  // Dropdown menus
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [showUserPoolsMenu, setShowUserPoolsMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+  const userPoolsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close menus on click outside
   useEffect(() => {
-    if (!userDropdownOpen) return;
+    if (!userDropdownOpen && !showUserPoolsMenu) return;
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setUserDropdownOpen(false);
+      }
+      if (userPoolsMenuRef.current && !userPoolsMenuRef.current.contains(target)) {
+        setShowUserPoolsMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -75,7 +106,18 @@ function BracketApp() {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [userDropdownOpen]);
+  }, [userDropdownOpen, showUserPoolsMenu]);
+
+  // Clean up pending storage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("pending_bracket_code");
+        localStorage.removeItem("pending_redirect_after_auth");
+        localStorage.removeItem("pending_join_code");
+      } catch {}
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -84,9 +126,8 @@ function BracketApp() {
         try {
           localStorage.removeItem("last_active_league");
           localStorage.removeItem("pending_join_code");
-        } catch {
-          // Ignore storage errors
-        }
+          localStorage.removeItem("pending_bracket_code");
+        } catch {}
       }
       await signOut(auth);
       if (typeof window !== "undefined") {
@@ -106,10 +147,8 @@ function BracketApp() {
 
   const handleTabChange = useCallback((newTab: "bracket" | "leaderboard") => {
     if (newTab === activeTab) return;
-    // Save current scroll position for active tab
     tabScrollMap.current[activeTab] = window.scrollY;
     setActiveTab(newTab);
-    // Restore target tab's scroll position
     requestAnimationFrame(() => {
       window.scrollTo({
         top: tabScrollMap.current[newTab] ?? 0,
@@ -126,8 +165,35 @@ function BracketApp() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [viewingParticipant, setViewingParticipant] = useState<BracketParticipant | null>(null);
 
+  // Pool management modals
+  const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
+  const [createPoolName, setCreatePoolName] = useState("");
+  const [creatingPool, setCreatingPool] = useState(false);
+
+  const [showJoinPoolModal, setShowJoinPoolModal] = useState(false);
+  const [joinPoolCode, setJoinPoolCode] = useState("");
+  const [joiningPool, setJoiningPool] = useState(false);
+  const [joinError, setJoinError] = useState("");
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [poolToDelete, setPoolToDelete] = useState<string | null>(null);
+  const [deletingPool, setDeletingPool] = useState(false);
+
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [poolToLeave, setPoolToLeave] = useState<string | null>(null);
+  const [leavingPool, setLeavingPool] = useState(false);
+
   // Prevent background scrolling when any modal is open
-  const isAnyModalOpen = Boolean(showRulesModal || showClearModal || viewingParticipant);
+  const isAnyModalOpen = Boolean(
+    showRulesModal ||
+    showClearModal ||
+    viewingParticipant ||
+    showCreatePoolModal ||
+    showJoinPoolModal ||
+    showDeleteModal ||
+    showLeaveModal
+  );
+
   useEffect(() => {
     if (isAnyModalOpen) {
       const originalOverflow = document.body.style.overflow;
@@ -144,6 +210,7 @@ function BracketApp() {
     }
   }, [isAnyModalOpen]);
 
+  // Bracket Picks and Simulation state
   const [picks, setPicks] = useState<BracketPicks>({});
   const [tiebreaker, setTiebreaker] = useState<TiebreakerPrediction>({
     homeScore: 24,
@@ -160,7 +227,6 @@ function BracketApp() {
   const [leaderboard, setLeaderboard] = useState<BracketParticipant[]>([]);
   const [savingPicks, setSavingPicks] = useState(false);
   const [simulating, setSimulating] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -179,59 +245,70 @@ function BracketApp() {
     }
   }, []);
 
-  // Load initial bracket state from API / localStorage
+  // Fetch bracket pool data or user's pool list
   useEffect(() => {
     if (authLoading) return;
     let active = true;
+
     const fetchBracketData = async () => {
+      setLoadingPool(true);
       try {
-        const token = user ? await getAuthToken() : null;
+        const token = await getAuthToken();
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const res = await fetch("/api/bracket", { headers });
+        const url = poolId ? `/api/bracket?id=${encodeURIComponent(poolId)}` : "/api/bracket";
+        const res = await fetch(url, { headers });
         if (!active) return;
+
         if (res.ok) {
           const data = await res.json();
           if (!active) return;
-          setResults(data.results || {});
-          setIsSimulated(!!data.isSimulated);
-          setIsLocked(!!data.isLocked);
-          setLeaderboard(data.leaderboard || []);
 
-          if (data.currentUserEntry?.picks) {
-            setPicks(data.currentUserEntry.picks);
+          setUserPools(data.userPools || []);
+          setPoolsFetched(true);
+
+          if (data.pool) {
+            setPoolData(data.pool);
+            setResults(data.pool.results || {});
+            setIsSimulated(!!data.pool.isSimulated);
+            setIsLocked(!!data.pool.isLocked);
+            setLeaderboard(data.leaderboard || []);
+            setIsOwner(!!data.isOwner);
+            setUserRole(data.role || "viewer");
+
+            if (data.currentUserEntry?.picks) {
+              setPicks(data.currentUserEntry.picks);
+            } else {
+              setPicks({});
+            }
+
+            if (data.currentUserEntry?.tiebreaker) {
+              setTiebreaker(data.currentUserEntry.tiebreaker);
+              setHomeScoreInput(String(data.currentUserEntry.tiebreaker.homeScore ?? 24));
+              setAwayScoreInput(String(data.currentUserEntry.tiebreaker.awayScore ?? 21));
+            } else {
+              setTiebreaker({ homeScore: 24, awayScore: 21, totalScore: 45 });
+              setHomeScoreInput("24");
+              setAwayScoreInput("21");
+            }
           } else {
-            // When not signed in or no entry, ensure clean default state with no picks selected
-            setPicks({});
-            try {
-              localStorage.removeItem(STORAGE_PICKS_KEY);
-              localStorage.removeItem("pocketpicks_bracket_picks_v1");
-              localStorage.removeItem("pocketpicks_bracket_picks_v2");
-            } catch {
-              // Ignore
+            // No specific pool loaded: if user has pools, auto-forward to the first one
+            setPoolData(null);
+            if (data.userPools && data.userPools.length > 0 && !poolId) {
+              const defaultPool = data.userPools[0];
+              router.replace(`/bracket?id=${encodeURIComponent(defaultPool.joinCode || defaultPool.id)}`);
             }
           }
-
-          if (data.currentUserEntry?.tiebreaker) {
-            setTiebreaker(data.currentUserEntry.tiebreaker);
-            setHomeScoreInput(String(data.currentUserEntry.tiebreaker.homeScore ?? 24));
-            setAwayScoreInput(String(data.currentUserEntry.tiebreaker.awayScore ?? 21));
-          } else {
-            setTiebreaker({ homeScore: 24, awayScore: 21, totalScore: 45 });
-            setHomeScoreInput("24");
-            setAwayScoreInput("21");
-            try {
-              localStorage.removeItem(STORAGE_TIEBREAKER_KEY);
-              localStorage.removeItem("pocketpicks_bracket_tb_v1");
-              localStorage.removeItem("pocketpicks_bracket_tb_v2");
-            } catch {
-              // Ignore
-            }
-          }
+        } else if (res.status === 404 && poolId) {
+          showToast("Bracket pool not found. Please check your code.");
+          setPoolData(null);
+          setPoolsFetched(true);
         }
       } catch (err) {
         console.error("Failed to fetch bracket data:", err);
+      } finally {
+        if (active) setLoadingPool(false);
       }
     };
 
@@ -239,21 +316,7 @@ function BracketApp() {
     return () => {
       active = false;
     };
-  }, [authLoading, user, getAuthToken]);
-
-  // Persist picks and tiebreaker to localStorage
-  useEffect(() => {
-    try {
-      if (Object.keys(picks).length > 0) {
-        localStorage.setItem(STORAGE_PICKS_KEY, JSON.stringify(picks));
-      }
-      if (tiebreaker) {
-        localStorage.setItem(STORAGE_TIEBREAKER_KEY, JSON.stringify(tiebreaker));
-      }
-    } catch {
-      // Ignore storage errors
-    }
-  }, [picks, tiebreaker]);
+  }, [authLoading, user, poolId, getAuthToken, router, showToast]);
 
   // Clean up debounce timer on unmount
   useEffect(() => {
@@ -262,16 +325,16 @@ function BracketApp() {
     };
   }, []);
 
-  // Save picks and tiebreaker to Firestore backend automatically
+  // Save picks and tiebreaker to Firestore backend for the active pool
   const savePicksToBackend = useCallback(
     async (newPicks: BracketPicks, newTb: TiebreakerPrediction) => {
-      if (!user || isLocked) return;
+      if (!user || isLocked || !poolId) return;
       setSavingPicks(true);
       try {
         const token = await getAuthToken();
         if (!token) return;
 
-        const res = await fetch("/api/bracket", {
+        const res = await fetch(`/api/bracket/${encodeURIComponent(poolId)}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -280,7 +343,7 @@ function BracketApp() {
           body: JSON.stringify({
             picks: newPicks,
             tiebreaker: newTb,
-            userName: user.name || user.username || "PocketPicks Fan",
+            userName: user.name || user.username || "Participant",
             userAvatar: user.avatarColor || "bg-emerald-600",
           }),
         });
@@ -299,26 +362,24 @@ function BracketApp() {
         setSavingPicks(false);
       }
     },
-    [user, isLocked, getAuthToken]
+    [user, isLocked, poolId, getAuthToken]
   );
 
   const debouncedSavePicksToBackend = useCallback(
     (newPicks: BracketPicks, newTb: TiebreakerPrediction, delayMs = 600) => {
-      if (!user || isLocked) return;
+      if (!user || isLocked || !poolId) return;
       if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
       setSavingPicks(true);
       saveDebounceRef.current = setTimeout(() => {
         savePicksToBackend(newPicks, newTb);
       }, delayMs);
     },
-    [user, isLocked, savePicksToBackend]
+    [user, isLocked, poolId, savePicksToBackend]
   );
 
-  // Handle pick selection and cascade clearing of invalid downstream picks
+  // Handle pick selection and cascade clearing of downstream invalid picks
   const handleSelectTeam = (gameId: BracketGameId, teamAbbr: string) => {
-    if (isLocked) {
-      return;
-    }
+    if (isLocked) return;
 
     const updated = { ...picks, [gameId]: teamAbbr };
     const newMatchups = resolveBracketMatchups(updated);
@@ -414,10 +475,10 @@ function BracketApp() {
     }
   };
 
-  // Simulate outcomes button handler (locks bracket on simulate)
+  // Simulate outcomes button handler (commissioner only)
   const handleSimulate = async () => {
-    if (!user) {
-      showToast("Please sign in or register to simulate playoff scores.");
+    if (!poolId || !user) {
+      showToast("Please sign in to simulate playoff scores.");
       return;
     }
     try {
@@ -429,13 +490,13 @@ function BracketApp() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action: "simulate" }),
+        body: JSON.stringify({ poolId, action: "simulate" }),
       });
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || {});
         setIsSimulated(true);
-        setIsLocked(true); // Automatically locks when scores are simulated
+        setIsLocked(true);
         setLeaderboard(data.leaderboard || []);
         showToast("⚡ Playoff scores simulated & bracket locked!");
       } else {
@@ -450,9 +511,9 @@ function BracketApp() {
     }
   };
 
-  // Reset simulation handler (unlocks bracket when reset)
+  // Reset simulation handler (commissioner only)
   const handleResetSimulation = async () => {
-    if (!user) {
+    if (!poolId || !user) {
       showToast("Please sign in to reset tournament scores.");
       return;
     }
@@ -465,13 +526,13 @@ function BracketApp() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action: "reset" }),
+        body: JSON.stringify({ poolId, action: "reset" }),
       });
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || {});
         setIsSimulated(false);
-        setIsLocked(false); // Unlocks when simulation is reset
+        setIsLocked(false);
         setLeaderboard(data.leaderboard || []);
         showToast("Scores reset to unplayed state.");
       } else {
@@ -486,14 +547,38 @@ function BracketApp() {
     }
   };
 
-  // Seed sample competitors
-  const handleSeedParticipants = async () => {
+  // Toggle lock handler (commissioner only)
+  const handleToggleLock = async () => {
+    if (!poolId || !user || !isOwner) return;
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`/api/bracket/${encodeURIComponent(poolId)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: "toggle_lock", isLocked: !isLocked }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsLocked(!!data.isLocked);
+        showToast(data.isLocked ? "🔒 Bracket locked for all members." : "🔓 Bracket unlocked for picks.");
+      }
+    } catch (err) {
+      console.error("Error toggling lock:", err);
+    }
+  };
+
+  // Create new bracket pool handler
+  const handleCreatePool = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) {
-      showToast("Please sign in to seed test competitors.");
+      showToast("Please log in to create a bracket pool.");
       return;
     }
+    setCreatingPool(true);
     try {
-      setSeeding(true);
       const token = await getAuthToken();
       const res = await fetch("/api/bracket", {
         method: "POST",
@@ -501,65 +586,150 @@ function BracketApp() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action: "seed" }),
+        body: JSON.stringify({ name: createPoolName.trim() || "Playoff Bracket Challenge" }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setLeaderboard(data.leaderboard || []);
-        showToast("Sample competitors added to leaderboard!");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || "Failed to seed competitors.");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create bracket pool");
       }
-    } catch (err) {
-      console.error("Failed to seed participants:", err);
-      showToast("Failed to seed competitors.");
+      setShowCreatePoolModal(false);
+      setCreatePoolName("");
+      showToast(`Created bracket pool: ${data.name || data.poolId}`);
+      router.push(`/bracket?id=${encodeURIComponent(data.poolId)}`);
+    } catch (err: any) {
+      showToast(err.message || "Failed to create bracket pool");
     } finally {
-      setSeeding(false);
+      setCreatingPool(false);
     }
   };
 
-  // Clear sample competitors
-  const handleClearSampleParticipants = async () => {
+  // Join bracket pool handler
+  const handleJoinPool = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) {
-      showToast("Please sign in to clear test competitors.");
+      showToast("Please log in to join a bracket pool.");
       return;
     }
+    const clean = extractBracketCode(joinPoolCode);
+    if (!clean) {
+      setJoinError("Please enter a valid 5-character code or link.");
+      return;
+    }
+    setJoiningPool(true);
+    setJoinError("");
     try {
-      setSeeding(true);
       const token = await getAuthToken();
-      const res = await fetch("/api/bracket", {
+      const res = await fetch("/api/bracket/join", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action: "clear_samples" }),
+        body: JSON.stringify({ code: clean }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setLeaderboard(data.leaderboard || []);
-        showToast("Test competitors removed.");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || "Failed to clear test competitors.");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to join bracket pool");
       }
-    } catch (err) {
-      console.error("Failed to clear sample participants:", err);
-      showToast("Failed to clear test competitors.");
+      setShowJoinPoolModal(false);
+      setJoinPoolCode("");
+      showToast(`Joined bracket pool: ${data.name || data.poolId}`);
+      router.push(`/bracket?id=${encodeURIComponent(data.poolId)}`);
+    } catch (err: any) {
+      setJoinError(err.message || "Failed to join bracket pool");
     } finally {
-      setSeeding(false);
+      setJoiningPool(false);
     }
   };
 
-  // Confirm clear user picks via modal
+  // Confirm delete bracket pool
+  const handleConfirmDeletePool = async () => {
+    if (!poolToDelete || !user) return;
+    setDeletingPool(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`/api/bracket/${encodeURIComponent(poolToDelete)}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete bracket pool");
+
+      showToast("Bracket pool permanently deleted.");
+      setShowDeleteModal(false);
+      const remaining = userPools.filter((p) => p.id !== poolToDelete && p.joinCode !== poolToDelete);
+      setUserPools(remaining);
+      setPoolToDelete(null);
+
+      if (remaining.length > 0) {
+        router.push(`/bracket?id=${encodeURIComponent(remaining[0].id)}`);
+      } else {
+        router.push("/bracket");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete bracket pool");
+    } finally {
+      setDeletingPool(false);
+    }
+  };
+
+  // Confirm leave bracket pool
+  const handleConfirmLeavePool = async () => {
+    if (!poolToLeave || !user) return;
+    setLeavingPool(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`/api/bracket/${encodeURIComponent(poolToLeave)}/leave`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to leave bracket pool");
+
+      showToast("Left bracket pool successfully.");
+      setShowLeaveModal(false);
+      const remaining = userPools.filter((p) => p.id !== poolToLeave && p.joinCode !== poolToLeave);
+      setUserPools(remaining);
+      setPoolToLeave(null);
+
+      if (remaining.length > 0) {
+        router.push(`/bracket?id=${encodeURIComponent(remaining[0].id)}`);
+      } else {
+        router.push("/bracket");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to leave bracket pool");
+    } finally {
+      setLeavingPool(false);
+    }
+  };
+
+  // Copy code or invite link to clipboard
+  const handleCopyCode = useCallback(() => {
+    if (!poolId) return;
+    const cleanCode = (poolData?.joinCode || poolId).toUpperCase();
+    const url = typeof window !== "undefined"
+      ? `${window.location.origin}/bracket?id=${cleanCode}`
+      : `https://pocketpicks.app/bracket?id=${cleanCode}`;
+
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setCopiedCode(true);
+      showToast(`Copied invite link: ${url}`);
+      setTimeout(() => setCopiedCode(false), 2000);
+    }
+  }, [poolId, poolData, showToast]);
+
+  // Clear user picks via modal
   const handleConfirmClearPicks = () => {
     setPicks({});
     try {
       localStorage.removeItem(STORAGE_PICKS_KEY);
-    } catch {
-      // Ignore storage errors
-    }
+    } catch {}
     savePicksToBackend({}, tiebreaker);
     setShowClearModal(false);
   };
@@ -569,21 +739,19 @@ function BracketApp() {
   const actualTournamentMatchups = useMemo(() => resolveBracketMatchups(actualWinners), [actualWinners]);
   const userProjectedMatchups = useMemo(() => resolveBracketMatchups(picks), [picks]);
 
-  // When simulated, default to showing the actual teams advancing in the tournament
   const isDisplayingActual = isSimulated && bracketViewMode === "actual";
   const activeMatchups = isDisplayingActual ? actualTournamentMatchups : userProjectedMatchups;
 
   const scoreDetails = useMemo(() => calculateBracketScore(picks, results, tiebreaker), [picks, results, tiebreaker]);
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
 
-  // Component to render an individual matchup card
+  // Render matchup card
   const renderMatchupCard = (slotKey: BracketGameId) => {
     const slot = activeMatchups[slotKey];
     const userPickAbbr = picks[slotKey];
     const gameResult = results[slotKey];
     const isGameDone = isSimulated && gameResult?.isCompleted;
 
-    // Check if the user's pick for this round matches either team in the actual matchup
     const homeAbbr = slot.homeTeam?.abbr;
     const awayAbbr = slot.awayTeam?.abbr;
     const hasPickedInMatchup = userPickAbbr && (userPickAbbr === homeAbbr || userPickAbbr === awayAbbr);
@@ -627,7 +795,7 @@ function BracketApp() {
         {/* Home Team Option */}
         {renderTeamRow(slotKey, slot.homeTeam, gameResult?.homeScore, isGameDone, gameResult?.winner)}
 
-        {/* Slim, discreet sub-line if user's predicted pick was eliminated in an earlier round */}
+        {/* Sub-line if predicted pick was eliminated */}
         {isPickEliminated && eliminatedTeam && (
           <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] px-1">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -651,7 +819,7 @@ function BracketApp() {
     );
   };
 
-  // Component to render each team row inside a matchup
+  // Render team row
   const renderTeamRow = (
     gameId: BracketGameId,
     team: PlayoffTeam | null,
@@ -735,11 +903,10 @@ function BracketApp() {
     );
   };
 
-  // Resolve teams for Super Bowl tiebreaker labels
   const sbHomeName = activeMatchups.super_bowl.homeTeam?.name || "Home Team";
   const sbAwayName = activeMatchups.super_bowl.awayTeam?.name || "Away Team";
 
-  // Helper to render the Super Bowl Champion card and tiebreaker inputs (shared between Desktop & Mobile)
+  // Super Bowl Champion Center Card
   const renderSuperBowlCenterCard = () => (
     <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
       <Trophy className="w-8 h-8 text-amber-500" />
@@ -748,35 +915,20 @@ function BracketApp() {
       </div>
       {renderMatchupCard("super_bowl")}
 
-      {/* Super Bowl Tiebreaker Prediction Input (arrow-free & debounced) */}
-      <div className="w-full mt-2 pt-3 border-t border-purple-300/30 dark:border-purple-800/40 flex flex-col gap-2 text-left">
+      {/* Super Bowl Tiebreaker Prediction Card */}
+      <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs flex flex-col gap-2 mt-1">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300">
-            Tiebreaker Score
+          <span className="text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-400">
+            Tiebreaker: Final Score
           </span>
-          <span className="text-[11px] font-mono font-black text-purple-600 dark:text-purple-400">
-            Total: {tiebreaker.homeScore + tiebreaker.awayScore}
+          <span className="text-[10px] text-slate-400 font-bold">
+            Total: {tiebreaker.totalScore ?? (tiebreaker.homeScore + tiebreaker.awayScore)}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 text-left">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbHomeName}>
-              {sbHomeName}
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              disabled={isLocked}
-              value={homeScoreInput}
-              onChange={(e) => handleTiebreakerInputChange("home", e.target.value)}
-              onBlur={() => handleTiebreakerBlur("home")}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 truncate" title={sbAwayName}>
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
               {sbAwayName}
             </label>
             <input
@@ -787,13 +939,27 @@ function BracketApp() {
               value={awayScoreInput}
               onChange={(e) => handleTiebreakerInputChange("away", e.target.value)}
               onBlur={() => handleTiebreakerBlur("away")}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-center text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 disabled:opacity-75 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              placeholder="0"
+              className="w-full font-mono text-center font-bold text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
+              {sbHomeName}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              disabled={isLocked}
+              value={homeScoreInput}
+              onChange={(e) => handleTiebreakerInputChange("home", e.target.value)}
+              onBlur={() => handleTiebreakerBlur("home")}
+              placeholder="0"
+              className="w-full font-mono text-center font-bold text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
             />
           </div>
         </div>
-        <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
-          Tier 1: Closest total &bull; Tier 2: Home diff &bull; Tier 3: Away diff
-        </span>
       </div>
     </div>
   );
@@ -807,31 +973,231 @@ function BracketApp() {
     );
   }
 
+  const cleanDisplayCode = poolId ? (poolData?.joinCode || poolId).toUpperCase() : "";
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Branding & Game Switcher */}
+          {/* Left: Branding & Game Switcher & Bracket Dropdown */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown currentGame="bracket" />
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
-                <span className="truncate">Playoff Bracket</span>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800 shrink-0">
-                  Challenge
-                </span>
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-0.5 hidden sm:block truncate">
-                Picks lock at start of 1st game &bull; 1 pt / win
-              </p>
-            </div>
+
+            {/* Brackets Dropdown (Created vs Joined) */}
+            {user ? (
+              <div ref={userPoolsMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowUserPoolsMenu((prev) => !prev)}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
+                  title="Switch between your bracket pools"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {userPools.length > 0 ? `My Brackets (${userPools.length})` : "Brackets"}
+                  </span>
+                  <ChevronDown
+                    className={`w-3 h-3 text-slate-400 transition-transform ${showUserPoolsMenu ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {showUserPoolsMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
+                    <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
+                      {userPools.length === 0 ? (
+                        <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                          You haven&apos;t created or joined any bracket pools yet.
+                        </div>
+                      ) : (
+                        <>
+                          {userPools.filter((p) => p.role === "commissioner").length > 0 && (
+                            <div>
+                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Brackets You Run</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold">
+                                  {userPools.filter((p) => p.role === "commissioner").length}
+                                </span>
+                              </div>
+                              {userPools
+                                .filter((p) => p.role === "commissioner")
+                                .map((p) => {
+                                  const cCode = (p.joinCode || p.id).toUpperCase();
+                                  const isCurrent = cleanDisplayCode === cCode;
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                                        isCurrent
+                                          ? "bg-purple-500/10 font-bold text-purple-700 dark:text-purple-400"
+                                          : "text-slate-700 dark:text-slate-300"
+                                      }`}
+                                    >
+                                      <Link
+                                        href={`/bracket?id=${cCode}`}
+                                        onClick={() => setShowUserPoolsMenu(false)}
+                                        className="min-w-0 pr-2 flex-1"
+                                      >
+                                        <div className="font-bold truncate flex items-center gap-1.5">
+                                          <span className="truncate">{p.name}</span>
+                                          {cCode && (
+                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                              {cCode}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </Link>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {isCurrent && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPoolToDelete(p.id);
+                                            setShowDeleteModal(true);
+                                            setShowUserPoolsMenu(false);
+                                          }}
+                                          title="Delete this bracket pool"
+                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+
+                          {userPools.filter((p) => p.role === "member").length > 0 && (
+                            <div className={userPools.filter((p) => p.role === "commissioner").length > 0 ? "border-t border-slate-100 dark:border-slate-800 mt-1 pt-1" : ""}>
+                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Joined Brackets</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
+                                  {userPools.filter((p) => p.role === "member").length}
+                                </span>
+                              </div>
+                              {userPools
+                                .filter((p) => p.role === "member")
+                                .map((p) => {
+                                  const cCode = (p.joinCode || p.id).toUpperCase();
+                                  const isCurrent = cleanDisplayCode === cCode;
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                                        isCurrent
+                                          ? "bg-purple-500/10 font-bold text-purple-700 dark:text-purple-400"
+                                          : "text-slate-700 dark:text-slate-300"
+                                      }`}
+                                    >
+                                      <Link
+                                        href={`/bracket?id=${cCode}`}
+                                        onClick={() => setShowUserPoolsMenu(false)}
+                                        className="min-w-0 pr-2 flex-1"
+                                      >
+                                        <div className="font-bold truncate flex items-center gap-1.5">
+                                          <span className="truncate">{p.name}</span>
+                                          {cCode && (
+                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                              {cCode}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </Link>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {isCurrent && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPoolToLeave(p.id);
+                                            setShowLeaveModal(true);
+                                            setShowUserPoolsMenu(false);
+                                          }}
+                                          title="Leave this bracket pool"
+                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                        >
+                                          <LogOut className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Dropdown Action Buttons */}
+                      <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1 px-1 space-y-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserPoolsMenu(false);
+                            setCreatePoolName("");
+                            setShowCreatePoolModal(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Create New Bracket</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserPoolsMenu(false);
+                            setJoinPoolCode("");
+                            setJoinError("");
+                            setShowJoinPoolModal(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                        >
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Join With Code</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {/* Bracket Title & 5-Character Code Pill */}
+            {poolData ? (
+              <div className="min-w-0 flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-black tracking-tight leading-none text-slate-900 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">
+                  {poolData.name}
+                </h1>
+                {cleanDisplayCode && (
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-mono font-black bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition shadow-2xs shrink-0 cursor-pointer"
+                    title="Click to copy invite link"
+                  >
+                    {copiedCode ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-700 dark:text-emerald-300 font-bold">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{cleanDisplayCode}</span>
+                        <Copy className="w-2.5 h-2.5 opacity-60" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : null}
           </div>
 
           {/* Right: Simulation Controls & User Info */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Simulation controls (authenticated only) */}
-            {user && (
+            {/* Simulation controls (commissioner only) */}
+            {user && isOwner && poolData && (
               <>
                 {isSimulated ? (
                   <button
@@ -857,13 +1223,13 @@ function BracketApp() {
                   </button>
                 )}
 
-                {/* Clear Picks Button (in main bar) */}
+                {/* Clear Picks Button */}
                 {!isLocked && completedPicksCount > 0 && (
                   <button
                     type="button"
                     onClick={() => setShowClearModal(true)}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                    title="Clear all picks"
+                    title="Clear your picks"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span className="hidden md:inline">Clear</span>
@@ -971,14 +1337,14 @@ function BracketApp() {
             ) : (
               <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 shrink-0">
                 <Link
-                  href="/auth/login?redirect=/bracket"
+                  href={`/auth/login?redirect=${encodeURIComponent(poolId ? `/bracket?id=${poolId}` : "/bracket")}`}
                   className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
                 </Link>
                 <Link
-                  href="/auth/register?redirect=/bracket"
+                  href={`/auth/register?redirect=${encodeURIComponent(poolId ? `/bracket?id=${poolId}` : "/bracket")}`}
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
@@ -989,620 +1355,605 @@ function BracketApp() {
           </div>
         </div>
 
-        {/* Sub-header Navigation Tabs (authenticated only) */}
-        {user && (
+        {/* Sub-header Navigation Tabs */}
+        {poolData && (
           <div className="border-t border-slate-100 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 sm:py-2.5">
-            {/* Left: Tabs */}
-            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleTabChange("bracket")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-                  activeTab === "bracket"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <Trophy className="w-3.5 h-3.5 shrink-0" />
-                <span className="whitespace-nowrap">My Bracket</span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-white/20 dark:bg-black/20 shrink-0 whitespace-nowrap">
-                  {completedPicksCount}/13
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange("leaderboard")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-                  activeTab === "leaderboard"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <Medal className="w-3.5 h-3.5 shrink-0" />
-                <span className="whitespace-nowrap">Leaderboard</span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 whitespace-nowrap">
-                  {leaderboard.length}
-                </span>
-              </button>
-
-              {/* Simplified Rules Popup Button */}
-              <button
-                type="button"
-                onClick={() => setShowRulesModal(true)}
-                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap shrink-0"
-                title="View Rules & Scoring"
-              >
-                <HelpCircle className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Rules</span>
-              </button>
-            </div>
-
-            {/* Right: Desktop Controls & Indicators (hidden on mobile to keep toolbar strictly centered) */}
-            <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-              {/* Desktop View Mode Toggle */}
-              {isSimulated && (
-                <div className="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setBracketViewMode("actual")}
-                    className={`px-2 py-1 rounded-lg transition-all ${
-                      bracketViewMode === "actual"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
-                        : "text-slate-500 dark:text-slate-400"
-                    }`}
-                  >
-                    Actual Field
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBracketViewMode("projected")}
-                    className={`px-2 py-1 rounded-lg transition-all ${
-                      bracketViewMode === "projected"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
-                        : "text-slate-500 dark:text-slate-400"
-                    }`}
-                  >
-                    My Picks Tree
-                  </button>
-                </div>
-              )}
-
-              {/* Desktop Score Badge */}
-              {isSimulated && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black shrink-0 whitespace-nowrap">
-                  <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                  <span>
-                    {scoreDetails.score} / 13 pts
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 sm:py-2.5">
+              {/* Left: Tabs */}
+              <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("bracket")}
+                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                    activeTab === "bracket"
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">My Bracket</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-white/20 dark:bg-black/20 shrink-0 whitespace-nowrap">
+                    {completedPicksCount}/13
                   </span>
-                </div>
-              )}
+                </button>
 
-              {savingPicks ? (
-                <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                  <span>Saving...</span>
-                </span>
-              ) : saveSuccess ? (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in shrink-0 whitespace-nowrap">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Saved</span>
-                </span>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("leaderboard")}
+                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                    activeTab === "leaderboard"
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Medal className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">Leaderboard</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 whitespace-nowrap">
+                    {leaderboard.length}
+                  </span>
+                </button>
+
+                {/* Rules Modal Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowRulesModal(true)}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap shrink-0 cursor-pointer"
+                  title="View Rules & Scoring"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Rules</span>
+                </button>
+              </div>
+
+              {/* Right: Desktop Controls & Indicators */}
+              <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+                {/* Lock Status indicator */}
+                {isLocked ? (
+                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wide bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                    Locked
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wide bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    Open for Picks
+                  </span>
+                )}
+
+                {/* Commissioner Lock toggle button */}
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={handleToggleLock}
+                    className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
+                  >
+                    {isLocked ? "Unlock Bracket" : "Lock Bracket"}
+                  </button>
+                )}
+
+                {/* Desktop View Mode Toggle */}
+                {isSimulated && (
+                  <div className="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setBracketViewMode("actual")}
+                      className={`px-2 py-1 rounded-lg transition-all ${
+                        bracketViewMode === "actual"
+                          ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                          : "text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      Actual Field
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBracketViewMode("projected")}
+                      className={`px-2 py-1 rounded-lg transition-all ${
+                        bracketViewMode === "projected"
+                          ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                          : "text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      My Picks Tree
+                    </button>
+                  </div>
+                )}
+
+                {/* Desktop Score Badge */}
+                {isSimulated && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black shrink-0 whitespace-nowrap">
+                    <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <span>{scoreDetails.score} / 13 pts</span>
+                  </div>
+                )}
+
+                {savingPicks ? (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    <span>Saving...</span>
+                  </span>
+                ) : saveSuccess ? (
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-fade-in shrink-0 whitespace-nowrap">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Saved</span>
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </header>
+        )}
+      </header>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
-        {!user ? (
-          /* Dedicated Bracket Lock / Landing Screen when unauthenticated */
-          <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
-            <div className="flex flex-col items-center justify-center mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 flex items-center justify-center mb-4">
-                <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-              </div>
-
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-xs font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/80 shadow-2xs">
-                <Trophy className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>Account Required</span>
-              </div>
+        {/* Zero State: No Pools Found */}
+        {user && poolsFetched && userPools.length === 0 && !poolId ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-lg mx-auto my-auto py-12">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-purple-500/20 mb-5">
+              <Trophy className="w-8 h-8" />
             </div>
-
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
               Playoff Bracket Challenge
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-8 max-w-md mx-auto">
-              Predict the entire postseason journey from Wild Card weekend to the Super Bowl champion. Sign in or create a free account to make your picks, predict final scores, and compete on the leaderboard.
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              Pick winners for all 13 postseason games with realistic reseeding and compete with friends. Create your own private bracket pool or join with a 5-digit code.
             </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto mb-6">
-              <Link
-                href="/auth/login?redirect=/bracket"
-                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatePoolName("");
+                  setShowCreatePoolModal(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-sm shadow-md transition cursor-pointer"
               >
-                <LogIn className="w-4 h-4" />
-                <span>Log In to Make Picks</span>
-              </Link>
-              <Link
-                href="/auth/register?redirect=/bracket"
-                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700 transition-all hover:-translate-y-0.5"
+                <Plus className="w-4 h-4" />
+                <span>Create Playoff Bracket</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setJoinPoolCode("");
+                  setJoinError("");
+                  setShowJoinPoolModal(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm shadow-2xs transition cursor-pointer"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>Create Account</span>
-              </Link>
+                <Users className="w-4 h-4 text-purple-500" />
+                <span>Join With Code</span>
+              </button>
             </div>
-
-            <div className="pt-5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs text-slate-500">
-              <span>Postseason Picks:</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-300">Picks lock automatically at kickoff of the first game.</span>
+          </div>
+        ) : loadingPool ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+            <span className="text-xs font-bold text-slate-500">Loading bracket pool...</span>
+          </div>
+        ) : !poolData ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto my-auto py-12">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Bracket Not Found</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              We couldn&apos;t find a bracket pool matching that code. Check your link or join another bracket.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setJoinPoolCode("");
+                  setJoinError("");
+                  setShowJoinPoolModal(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition"
+              >
+                Enter Code
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/bracket")}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition"
+              >
+                Home
+              </button>
             </div>
           </div>
         ) : (
           <>
-            {/* TAB 1: INTERACTIVE BRACKET */}
-        {activeTab === "bracket" && (
-          <div className="flex-1 flex flex-col gap-4 sm:gap-6">
-            {/* Mobile Simulation Bar: View Mode Switch + Score Badge */}
-            {isSimulated && (
-              <div className="flex lg:hidden items-center justify-between gap-2 w-full">
-                <div className="flex-1 flex items-center p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => setBracketViewMode("actual")}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      bracketViewMode === "actual"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
-                        : "text-slate-500 dark:text-slate-400"
-                    }`}
-                  >
-                    Actual Field
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBracketViewMode("projected")}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      bracketViewMode === "projected"
-                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-xs"
-                        : "text-slate-500 dark:text-slate-400"
-                    }`}
-                  >
-                    My Picks Tree
-                  </button>
+            {/* TAB 1: BRACKET CANVAS VIEW */}
+            {activeTab === "bracket" && (
+              <div className="w-full flex flex-col gap-4 animate-in fade-in duration-200">
+                {/* Mobile View Mode & Round Tabs */}
+                <div className="xl:hidden flex flex-col gap-2.5">
+                  {isSimulated && (
+                    <div className="flex items-center justify-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold mx-auto max-w-xs w-full">
+                      <button
+                        type="button"
+                        onClick={() => setBracketViewMode("actual")}
+                        className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
+                          bracketViewMode === "actual"
+                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                            : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        Actual Field
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBracketViewMode("projected")}
+                        className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
+                          bracketViewMode === "projected"
+                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                            : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        My Picks Tree
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Mobile Round Selection Tabs */}
+                  <div className="flex items-center justify-between gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setMobileRoundTab("wc")}
+                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        mobileRoundTab === "wc"
+                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                      }`}
+                    >
+                      Wild Card
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileRoundTab("div")}
+                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        mobileRoundTab === "div"
+                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                      }`}
+                    >
+                      Divisional
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileRoundTab("conf")}
+                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        mobileRoundTab === "conf"
+                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                      }`}
+                    >
+                      Conference
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileRoundTab("sb")}
+                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        mobileRoundTab === "sb"
+                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                      }`}
+                    >
+                      Super Bowl
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black shrink-0 shadow-2xs whitespace-nowrap">
-                  <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                  <span>{scoreDetails.score} / 13 pts</span>
-                </div>
-              </div>
-            )}
+                {/* Mobile Round Content */}
+                <div className="xl:hidden flex flex-col items-center gap-4">
+                  {mobileRoundTab === "wc" && (
+                    <div className="w-full flex flex-col gap-4">
+                      <div className="flex flex-col items-center gap-3 w-full">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          AFC Wild Card
+                        </div>
+                        {renderMatchupCard("afc_wc_1")}
+                        {renderMatchupCard("afc_wc_2")}
+                        {renderMatchupCard("afc_wc_3")}
+                      </div>
 
-            {/* Mobile Round Filter Pills */}
-            <div className="flex lg:hidden items-center justify-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <button
-                type="button"
-                onClick={() => setMobileRoundTab("wc")}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all ${
-                  mobileRoundTab === "wc"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                    : "text-slate-600 dark:text-slate-400"
-                }`}
-              >
-                Wild Card
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileRoundTab("div")}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all ${
-                  mobileRoundTab === "div"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                    : "text-slate-600 dark:text-slate-400"
-                }`}
-              >
-                Divisional
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileRoundTab("conf")}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all ${
-                  mobileRoundTab === "conf"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                    : "text-slate-600 dark:text-slate-400"
-                }`}
-              >
-                Championship
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileRoundTab("sb")}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all ${
-                  mobileRoundTab === "sb"
-                    ? "bg-purple-600 text-white"
-                    : "text-slate-600 dark:text-slate-400"
-                }`}
-              >
-                Super Bowl
-              </button>
-            </div>
+                      <div className="flex flex-col items-center gap-3 w-full pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          NFC Wild Card
+                        </div>
+                        {renderMatchupCard("nfc_wc_1")}
+                        {renderMatchupCard("nfc_wc_2")}
+                        {renderMatchupCard("nfc_wc_3")}
+                      </div>
+                    </div>
+                  )}
 
-            {/* DESKTOP FULL BRACKET TREE */}
-            <div className="hidden lg:grid grid-cols-5 gap-4 items-center">
-              {/* Col 1: AFC Wild Card */}
-              <div className="flex flex-col gap-4">
-                <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
-                  AFC Wild Card
-                </div>
-                {renderMatchupCard("afc_wc_1")}
-                {renderMatchupCard("afc_wc_2")}
-                {renderMatchupCard("afc_wc_3")}
-              </div>
+                  {mobileRoundTab === "div" && (
+                    <div className="w-full flex flex-col gap-4">
+                      <div className="flex flex-col items-center gap-3 w-full">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          AFC Divisional
+                        </div>
+                        {renderMatchupCard("afc_div_1")}
+                        {renderMatchupCard("afc_div_2")}
+                      </div>
 
-              {/* Col 2: AFC Divisional */}
-              <div className="flex flex-col gap-6">
-                <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                  AFC Divisional
-                </div>
-                <div className="flex flex-col gap-8 justify-around h-full py-4">
-                  {renderMatchupCard("afc_div_1")}
-                  {renderMatchupCard("afc_div_2")}
-                </div>
-              </div>
+                      <div className="flex flex-col items-center gap-3 w-full pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          NFC Divisional
+                        </div>
+                        {renderMatchupCard("nfc_div_1")}
+                        {renderMatchupCard("nfc_div_2")}
+                      </div>
+                    </div>
+                  )}
 
-              {/* Col 3: Conference Championships, Super Bowl & Tiebreaker */}
-              <div className="flex flex-col gap-5 items-center">
-                <div className="text-center font-black text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                  Championship &amp; Super Bowl
+                  {mobileRoundTab === "conf" && (
+                    <div className="w-full flex flex-col items-center gap-4">
+                      <div className="w-full flex flex-col items-center gap-3">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                          AFC Championship
+                        </div>
+                        {renderMatchupCard("afc_champ")}
+                      </div>
+
+                      <div className="w-full flex flex-col items-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                          NFC Championship
+                        </div>
+                        {renderMatchupCard("nfc_champ")}
+                      </div>
+                    </div>
+                  )}
+
+                  {mobileRoundTab === "sb" && (
+                    <div className="w-full flex flex-col items-center gap-4">
+                      {renderSuperBowlCenterCard()}
+                    </div>
+                  )}
                 </div>
 
-                {/* AFC Championship */}
-                <div className="w-full flex justify-center">
-                  {renderMatchupCard("afc_champ")}
-                </div>
-
-                {/* Lombardi Trophy & Super Bowl Card */}
-                {renderSuperBowlCenterCard()}
-
-                {/* NFC Championship */}
-                <div className="w-full flex justify-center">
-                  {renderMatchupCard("nfc_champ")}
-                </div>
-              </div>
-
-              {/* Col 4: NFC Divisional */}
-              <div className="flex flex-col gap-6">
-                <div className="text-center font-black text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                  NFC Divisional
-                </div>
-                <div className="flex flex-col gap-8 justify-around h-full py-4">
-                  {renderMatchupCard("nfc_div_1")}
-                  {renderMatchupCard("nfc_div_2")}
-                </div>
-              </div>
-
-              {/* Col 5: NFC Wild Card */}
-              <div className="flex flex-col gap-4">
-                <div className="text-center font-black text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
-                  NFC Wild Card
-                </div>
-                {renderMatchupCard("nfc_wc_1")}
-                {renderMatchupCard("nfc_wc_2")}
-                {renderMatchupCard("nfc_wc_3")}
-              </div>
-            </div>
-
-            {/* MOBILE VIEW (by selected round) */}
-            <div className="lg:hidden flex flex-col gap-4 items-center">
-              {mobileRoundTab === "wc" && (
-                <div className="w-full flex flex-col gap-6">
-                  <div>
-                    <h3 className="font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-3 text-center">
-                      AFC Wild Card Games
-                    </h3>
-                    <div className="flex flex-col gap-3 items-center">
+                {/* Desktop 5-Column Interactive Bracket Canvas */}
+                <div className="hidden xl:block w-full overflow-x-auto pb-4">
+                  <div className="min-w-[1180px] grid grid-cols-5 gap-4 items-stretch py-2">
+                    {/* Col 1: AFC Wild Card */}
+                    <div className="flex flex-col gap-3">
+                      <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        AFC Wild Card
+                      </div>
                       {renderMatchupCard("afc_wc_1")}
                       {renderMatchupCard("afc_wc_2")}
                       {renderMatchupCard("afc_wc_3")}
                     </div>
-                  </div>
-                  <div>
-                    <h3 className="font-black text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3 text-center">
-                      NFC Wild Card Games
-                    </h3>
-                    <div className="flex flex-col gap-3 items-center">
+
+                    {/* Col 2: AFC Divisional */}
+                    <div className="flex flex-col justify-around h-full py-4 gap-4">
+                      <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1">
+                        AFC Divisional
+                      </div>
+                      {renderMatchupCard("afc_div_1")}
+                      {renderMatchupCard("afc_div_2")}
+                    </div>
+
+                    {/* Col 3: Center Column (AFC Champ, Super Bowl with Trophy, NFC Champ) */}
+                    <div className="flex flex-col justify-between h-full py-1 gap-4 items-center">
+                      <div className="w-full flex flex-col items-center gap-1.5">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                          AFC Championship
+                        </div>
+                        {renderMatchupCard("afc_champ")}
+                      </div>
+
+                      {/* Super Bowl Center Card */}
+                      {renderSuperBowlCenterCard()}
+
+                      <div className="w-full flex flex-col items-center gap-1.5">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                          NFC Championship
+                        </div>
+                        {renderMatchupCard("nfc_champ")}
+                      </div>
+                    </div>
+
+                    {/* Col 4: NFC Divisional */}
+                    <div className="flex flex-col justify-around h-full py-4 gap-4">
+                      <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1">
+                        NFC Divisional
+                      </div>
+                      {renderMatchupCard("nfc_div_1")}
+                      {renderMatchupCard("nfc_div_2")}
+                    </div>
+
+                    {/* Col 5: NFC Wild Card */}
+                    <div className="flex flex-col gap-3">
+                      <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5 py-1">
+                        <span className="w-2 h-2 rounded-full bg-sky-500" />
+                        NFC Wild Card
+                      </div>
                       {renderMatchupCard("nfc_wc_1")}
                       {renderMatchupCard("nfc_wc_2")}
                       {renderMatchupCard("nfc_wc_3")}
                     </div>
                   </div>
                 </div>
-              )}
-
-              {mobileRoundTab === "div" && (
-                <div className="w-full flex flex-col gap-6">
-                  <div>
-                    <h3 className="font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-3 text-center">
-                      AFC Divisional Games
-                    </h3>
-                    <div className="flex flex-col gap-3 items-center">
-                      {renderMatchupCard("afc_div_1")}
-                      {renderMatchupCard("afc_div_2")}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-black text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3 text-center">
-                      NFC Divisional Games
-                    </h3>
-                    <div className="flex flex-col gap-3 items-center">
-                      {renderMatchupCard("nfc_div_1")}
-                      {renderMatchupCard("nfc_div_2")}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {mobileRoundTab === "conf" && (
-                <div className="w-full flex flex-col gap-6 items-center">
-                  <div className="w-full">
-                    <h3 className="font-black text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-3 text-center">
-                      Conference Championships
-                    </h3>
-                    <div className="flex flex-col gap-3 items-center">
-                      {renderMatchupCard("afc_champ")}
-                      {renderMatchupCard("nfc_champ")}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {mobileRoundTab === "sb" && (
-                <div className="w-full flex flex-col gap-4 items-center">
-                  {renderSuperBowlCenterCard()}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: LEADERBOARD */}
-        {activeTab === "leaderboard" && (
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white">Tournament Leaderboard</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Click any participant to view their full playoff bracket.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Populate / Clear competitors */}
-                {leaderboard.some((p) => p.isSample) ? (
-                  <button
-                    type="button"
-                    onClick={handleClearSampleParticipants}
-                    disabled={seeding}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
-                    title="Remove sample competitors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="hidden sm:inline">Clear Test Competitors</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSeedParticipants}
-                    disabled={seeding}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
-                    title="Populate leaderboard with sample competitors"
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>Add Sample Competitors</span>
-                  </button>
-                )}
-
-                {!isSimulated && (
-                  <button
-                    type="button"
-                    onClick={handleSimulate}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Simulate Scores</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {leaderboard.length === 0 ? (
-              <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
-                <Trophy className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-sm">No Brackets Submitted Yet</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                  Click &ldquo;Add Sample Competitors&rdquo; above to fill the leaderboard, or make your own picks!
-                </p>
-                <div className="flex items-center justify-center gap-2 mt-4">
-                  <button
-                    type="button"
-                    onClick={handleSeedParticipants}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                  >
-                    <Users className="w-3.5 h-3.5" /> Add Competitors
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("bracket")}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition shadow-xs"
-                  >
-                    Make Your Picks
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase font-black tracking-wider text-[10px]">
-                        <th className="py-3.5 px-4 w-12 text-center">Rank</th>
-                        <th className="py-3.5 px-4">Participant</th>
-                        <th className="py-3.5 px-4 text-center">Super Bowl Pick</th>
-                        <th className="py-3.5 px-4 text-center">Tiebreaker Prediction</th>
-                        <th className="py-3.5 px-4 text-center">Picks Made</th>
-                        <th className="py-3.5 px-4 text-right">Points</th>
-                        <th className="py-3.5 px-4 w-16 text-center">Bracket</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {leaderboard.map((entry) => {
-                        const isCurrentUser = user && entry.userId === user.id;
-                        const rank = entry.rank || 1;
-                        const totalPicks = Object.keys(entry.picks || {}).length;
-                        const tb = entry.tiebreaker;
-                        const tbStats = entry.tiebreakerStats;
-
-                        return (
-                          <tr
-                            key={entry.id}
-                            onClick={() => setViewingParticipant(entry)}
-                            className={`transition-colors cursor-pointer ${
-                              isCurrentUser
-                                ? "bg-emerald-50/50 dark:bg-emerald-950/20 font-bold"
-                                : "hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
-                            }`}
-                          >
-                            <td className="py-3.5 px-4 text-center font-black">
-                              {rank === 1 ? (
-                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
-                                  🥇
-                                </span>
-                              ) : rank === 2 ? (
-                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300">
-                                  🥈
-                                </span>
-                              ) : rank === 3 ? (
-                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
-                                  🥉
-                                </span>
-                              ) : (
-                                <span className="text-slate-500 font-mono">#{rank}</span>
-                              )}
-                            </td>
-
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-2.5">
-                                <div
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 ${
-                                    entry.userAvatar || "bg-emerald-600"
-                                  }`}
-                                >
-                                  {entry.userName.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="truncate font-bold text-slate-900 dark:text-white">
-                                      {entry.userName}
-                                    </span>
-                                    {isCurrentUser && (
-                                      <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">
-                                        (You)
-                                      </span>
-                                    )}
-                                    {entry.isSample && (
-                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">
-                                        Test
-                                      </span>
-                                    )}
-                                  </div>
-                                  {entry.tiebreakerExplanation && (
-                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
-                                      {entry.tiebreakerExplanation}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-
-                            <td className="py-3.5 px-4 text-center">
-                              {entry.superBowlWinner ? (
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-200">
-                                  <TeamLogo
-                                    alt={entry.superBowlWinner}
-                                    width={16}
-                                    height={16}
-                                    className="w-4 h-4 object-contain"
-                                  />
-                                  <span>{entry.superBowlWinner}</span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400">-</span>
-                              )}
-                            </td>
-
-                            <td className="py-3.5 px-4 text-center">
-                              {tb ? (
-                                <div className="inline-flex flex-col items-center">
-                                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                                    {tb.homeScore} - {tb.awayScore}
-                                    <span className="text-[10px] text-slate-400 font-normal ml-1">
-                                      ({(tb.totalScore ?? (tb.homeScore + tb.awayScore))} pts)
-                                    </span>
-                                  </span>
-                                  {isSimulated && tbStats?.tier1TotalDiff !== undefined && (
-                                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono font-extrabold">
-                                      diff: &plusmn;{tbStats.tier1TotalDiff}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-slate-400">-</span>
-                              )}
-                            </td>
-
-                            <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-600 dark:text-slate-400">
-                              {totalPicks} / 13
-                            </td>
-
-                            <td className="py-3.5 px-4 text-right">
-                              <span className="inline-flex items-center gap-1 font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">
-                                {entry.score} <span className="text-[10px] text-slate-400 font-normal">pts</span>
-                              </span>
-                            </td>
-
-                            <td className="py-3.5 px-4 text-center">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setViewingParticipant(entry);
-                                }}
-                                className="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                                title="View full bracket"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             )}
-          </div>
+
+            {/* TAB 2: LEADERBOARD TABLE */}
+            {activeTab === "leaderboard" && (
+              <div className="w-full flex flex-col gap-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                      {poolData.name} Leaderboard
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Ranked by total correct picks, followed by the 3-tier Super Bowl tiebreaker.
+                    </p>
+                  </div>
+                  <div className="text-xs font-mono font-bold text-slate-500">
+                    {leaderboard.length} {leaderboard.length === 1 ? "participant" : "participants"}
+                  </div>
+                </div>
+
+                {leaderboard.length === 0 ? (
+                  <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      No brackets submitted yet. Make your picks to appear on the leaderboard!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase font-black tracking-wider text-[10px]">
+                            <th className="py-3.5 px-4 w-12 text-center">Rank</th>
+                            <th className="py-3.5 px-4">Participant</th>
+                            <th className="py-3.5 px-4 text-center">Super Bowl Pick</th>
+                            <th className="py-3.5 px-4 text-center">Tiebreaker Prediction</th>
+                            <th className="py-3.5 px-4 text-center">Picks Made</th>
+                            <th className="py-3.5 px-4 text-right">Points</th>
+                            <th className="py-3.5 px-4 w-16 text-center">Bracket</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {leaderboard.map((entry) => {
+                            const isCurrentUser = user && entry.userId === user.id;
+                            const rank = entry.rank || 1;
+                            const totalPicks = Object.keys(entry.picks || {}).length;
+                            const tb = entry.tiebreaker;
+                            const tbStats = entry.tiebreakerStats;
+
+                            return (
+                              <tr
+                                key={entry.id}
+                                onClick={() => setViewingParticipant(entry)}
+                                className={`transition-colors cursor-pointer ${
+                                  isCurrentUser
+                                    ? "bg-purple-50/50 dark:bg-purple-950/20 font-bold"
+                                    : "hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
+                                }`}
+                              >
+                                <td className="py-3.5 px-4 text-center font-black">
+                                  {rank === 1 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                                      🥇
+                                    </span>
+                                  ) : rank === 2 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300">
+                                      🥈
+                                    </span>
+                                  ) : rank === 3 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+                                      🥉
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-500 font-mono">#{rank}</span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5 px-4">
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 ${
+                                        entry.userAvatar || "bg-emerald-600"
+                                      }`}
+                                    >
+                                      {entry.userName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="truncate font-bold text-slate-900 dark:text-white">
+                                          {entry.userName}
+                                        </span>
+                                        {isCurrentUser && (
+                                          <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400">
+                                            (You)
+                                          </span>
+                                        )}
+                                      </div>
+                                      {entry.tiebreakerExplanation && (
+                                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold truncate">
+                                          {entry.tiebreakerExplanation}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="py-3.5 px-4 text-center">
+                                  {entry.superBowlWinner ? (
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                                      <TeamLogo
+                                        alt={entry.superBowlWinner}
+                                        width={16}
+                                        height={16}
+                                        className="w-4 h-4 object-contain"
+                                      />
+                                      <span>{entry.superBowlWinner}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">-</span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5 px-4 text-center">
+                                  {tb ? (
+                                    <div className="inline-flex flex-col items-center">
+                                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                        {tb.homeScore} - {tb.awayScore}
+                                        <span className="text-[10px] text-slate-400 font-normal ml-1">
+                                          ({(tb.totalScore ?? (tb.homeScore + tb.awayScore))} pts)
+                                        </span>
+                                      </span>
+                                      {isSimulated && tbStats?.tier1TotalDiff !== undefined && (
+                                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono font-extrabold">
+                                          diff: &plusmn;{tbStats.tier1TotalDiff}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">-</span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-600 dark:text-slate-400">
+                                  {totalPicks} / 13
+                                </td>
+
+                                <td className="py-3.5 px-4 text-right">
+                                  <span className="inline-flex items-center gap-1 font-mono font-black text-sm text-purple-600 dark:text-purple-400">
+                                    {entry.score} <span className="text-[10px] text-slate-400 font-normal">pts</span>
+                                  </span>
+                                </td>
+
+                                <td className="py-3.5 px-4 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewingParticipant(entry);
+                                    }}
+                                    className="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                    title="View full bracket"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
-      </>
-    )}
-  </main>
+      </main>
 
       {/* MODAL 1: VIEW PARTICIPANT BRACKET */}
-      {/* MODAL 1: VIEW PARTICIPANT BRACKET (OLD SCHOOL STYLE) */}
       {viewingParticipant && (() => {
         const pMatchups = resolveBracketMatchups(viewingParticipant.picks);
 
@@ -1635,7 +1986,7 @@ function BracketApp() {
                       ? "bg-emerald-600 text-white shadow-xs"
                       : isWrong
                       ? "bg-rose-600 text-white shadow-xs"
-                      : "bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-500/50 text-emerald-900 dark:text-emerald-200"
+                      : "bg-purple-50 dark:bg-purple-950/70 border border-purple-500/50 text-purple-900 dark:text-purple-200"
                     : "bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300"
                 }`}
               >
@@ -1645,7 +1996,7 @@ function BracketApp() {
                       isPicked
                         ? isCorrect || isWrong
                           ? "bg-white/20 text-white"
-                          : "bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200"
+                          : "bg-purple-200 text-purple-900 dark:bg-purple-900 dark:text-purple-200"
                         : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
                     }`}
                   >
@@ -1662,7 +2013,7 @@ function BracketApp() {
                     ) : isWrong ? (
                       <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white shrink-0" />
                     ) : (
-                      <span className="text-[8px] sm:text-[9px] font-black uppercase px-1 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200">
+                      <span className="text-[8px] sm:text-[9px] font-black uppercase px-1 py-0.2 rounded bg-purple-200 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200">
                         Pick
                       </span>
                     )
@@ -1706,7 +2057,6 @@ function BracketApp() {
               {renderViewerTeamLine(slot.awayTeam)}
               {renderViewerTeamLine(slot.homeTeam)}
 
-              {/* Show actual winner if participant picked wrong */}
               {isWrong && actualWinnerTeam && (
                 <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[9px] sm:text-[10px] px-0.5 text-slate-400 dark:text-slate-500">
                   <span>Actual:</span>
@@ -1759,19 +2109,19 @@ function BracketApp() {
                 <button
                   type="button"
                   onClick={() => setViewingParticipant(null)}
-                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition shrink-0"
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition shrink-0 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Scroll sideways hint on smaller screens */}
+              {/* Scroll sideways hint */}
               <div className="xl:hidden flex items-center justify-center gap-1.5 py-1 px-2.5 mt-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
                 <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span>Scroll sideways to view all 5 rounds</span>
               </div>
 
-              {/* Modal Body: Old School 5-Column Bracket Canvas */}
+              {/* 5-Column Bracket Canvas */}
               <div className="overflow-x-auto overflow-y-auto flex-1 py-2 sm:py-3 pr-1">
                 <div className="min-w-[720px] sm:min-w-[880px] lg:min-w-[1020px] py-1 sm:py-2">
                   <div className="grid grid-cols-5 gap-2 sm:gap-3.5 items-stretch">
@@ -1795,71 +2145,34 @@ function BracketApp() {
                       {renderViewerMatchupBox("afc_div_2")}
                     </div>
 
-                    {/* Col 3: Center Column (AFC Champ, Super Bowl with Trophy & Tiebreaker, NFC Champ) */}
+                    {/* Col 3: Center Column */}
                     <div className="flex flex-col justify-between h-full py-1 gap-2 sm:gap-3.5 items-center">
-                      {/* AFC Championship */}
-                      <div className="w-full">
-                        <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1">
+                      <div className="w-full flex flex-col items-center gap-1">
+                        <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
                           AFC Championship
                         </div>
-                        {renderViewerMatchupBox("afc_champ", "AFC Title Game")}
+                        {renderViewerMatchupBox("afc_champ")}
                       </div>
 
-                      {/* Super Bowl Center Card */}
-                      <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col items-center gap-1.5 sm:gap-2 text-center shadow-md">
-                        <div className="flex items-center gap-1.5 text-amber-500">
-                          <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
-                          <span className="font-black text-[10px] sm:text-[11px] uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                            Super Bowl LIX
-                          </span>
+                      <div className="w-full max-w-[260px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-2.5 sm:p-3 flex flex-col items-center gap-2 text-center shadow-xs">
+                        <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500" />
+                        <div className="font-black text-[10px] sm:text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                          Super Bowl Pick
                         </div>
-
-                        {/* Super Bowl Matchup */}
-                        <div className="w-full text-left">
-                          {renderViewerMatchupBox("super_bowl", "Super Bowl")}
-                        </div>
-
-                        {/* Predicted Champion Hero */}
-                        {viewingParticipant.superBowlWinner && (
-                          <div className="w-full pt-1 sm:pt-1.5 border-t border-purple-300/30 dark:border-purple-800/40 flex items-center justify-between text-[10px] sm:text-xs">
-                            <span className="text-[9px] sm:text-[10px] font-extrabold uppercase text-slate-400">
-                              Champ Pick:
-                            </span>
-                            <span className="font-black text-slate-900 dark:text-white flex items-center gap-1">
-                              <TeamLogo alt={viewingParticipant.superBowlWinner} width={14} height={14} className="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain" />
-                              <span className="truncate max-w-[90px] sm:max-w-none">{TEAM_BY_ABBR[viewingParticipant.superBowlWinner]?.name || viewingParticipant.superBowlWinner}</span>
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Predicted Tiebreaker Score */}
-                        {viewingParticipant.tiebreaker && (
-                          <div className="w-full pt-1 sm:pt-1.5 border-t border-purple-200/40 dark:border-purple-800/30 flex items-center justify-between text-[9px] sm:text-[11px]">
-                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                              Tiebreaker:
-                            </span>
-                            <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
-                              {viewingParticipant.tiebreaker.homeScore}-{viewingParticipant.tiebreaker.awayScore}{" "}
-                              <span className="text-[8px] sm:text-[10px] text-slate-400">
-                                ({viewingParticipant.tiebreaker.totalScore ?? (viewingParticipant.tiebreaker.homeScore + viewingParticipant.tiebreaker.awayScore)} pts)
-                              </span>
-                            </span>
-                          </div>
-                        )}
+                        {renderViewerMatchupBox("super_bowl")}
                       </div>
 
-                      {/* NFC Championship */}
-                      <div className="w-full">
-                        <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-1">
+                      <div className="w-full flex flex-col items-center gap-1">
+                        <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-sky-600 dark:text-sky-400">
                           NFC Championship
                         </div>
-                        {renderViewerMatchupBox("nfc_champ", "NFC Title Game")}
+                        {renderViewerMatchupBox("nfc_champ")}
                       </div>
                     </div>
 
                     {/* Col 4: NFC Divisional */}
                     <div className="flex flex-col justify-around h-full py-2 sm:py-4 gap-2 sm:gap-4">
-                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-sky-600 dark:text-sky-400">
                         NFC Divisional
                       </div>
                       {renderViewerMatchupBox("nfc_div_1")}
@@ -1868,8 +2181,8 @@ function BracketApp() {
 
                     {/* Col 5: NFC Wild Card */}
                     <div className="flex flex-col gap-2 sm:gap-3">
-                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                         NFC Wild Card
                       </div>
                       {renderViewerMatchupBox("nfc_wc_1")}
@@ -1879,124 +2192,333 @@ function BracketApp() {
                   </div>
                 </div>
               </div>
-
-              {/* Modal Footer */}
-              <div className="pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-                <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-bold">
-                  Score: <span className="text-slate-900 dark:text-white font-black">{viewingParticipant.score} / 13</span> pts
-                  {isSimulated && (
-                    <span className="ml-1 sm:ml-2 text-[10px] sm:text-[11px] text-purple-600 dark:text-purple-400">
-                      ({viewingParticipant.score} correct)
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setViewingParticipant(null)}
-                  className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
-                >
-                  Close
-                </button>
-              </div>
             </div>
           </div>
         );
       })()}
 
-      {/* MODAL 2: CLEAR PICKS CONFIRMATION */}
+      {/* MODAL 2: CLEAR PICKS */}
       {showClearModal && (
         <div
           onClick={() => setShowClearModal(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto overscroll-contain"
+            className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative"
           >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">Clear All Picks?</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  This will remove all 13 of your playoff picks and reset your tiebreaker score. You can make new picks anytime before the tournament locks.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <h3 className="font-extrabold text-lg text-slate-900 dark:text-white mb-2">Clear All Picks?</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+              This will remove all your game selections and reset the bracket canvas. You can make new picks anytime before the tournament locks.
+            </p>
+            <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowClearModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmClearPicks}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-xs"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer shadow-xs"
               >
-                Clear All Picks
+                Clear Picks
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 3: RULES & SCORING POPUP */}
-      {showRulesModal && (
+      {/* MODAL 3: CREATE BRACKET POOL */}
+      {showCreatePoolModal && (
         <div
-          onClick={() => setShowRulesModal(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overscroll-contain"
+          onClick={() => setShowCreatePoolModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto overscroll-contain"
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <HelpCircle className="w-5 h-5" />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Trophy className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">Rules &amp; Scoring</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Playoff Challenge Summary</p>
-                </div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  Create Playoff Bracket Pool
+                </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setShowRulesModal(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition"
+                onClick={() => setShowCreatePoolModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
-                <strong className="text-slate-900 dark:text-white font-bold block mb-0.5">1 Point Per Game (Max 13 Pts)</strong>
-                <span>Score 1 pt for each correct winner across Wild Card (6), Divisional (4), Conference (2), and Super Bowl (1).</span>
+            <form onSubmit={handleCreatePool} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Bracket Pool Name
+                </label>
+                <input
+                  type="text"
+                  value={createPoolName}
+                  onChange={(e) => setCreatePoolName(e.target.value)}
+                  placeholder="e.g. Office Playoff Challenge"
+                  maxLength={60}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  autoFocus
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  A unique 5-character code will be generated automatically for friends to join.
+                </span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
-                <strong className="text-slate-900 dark:text-white font-bold block mb-0.5">3-Tier Super Bowl Tiebreaker</strong>
-                <span>If points are tied, the winner is decided by: (1) Closest combined score &bull; (2) Closest home team score &bull; (3) Closest away team score.</span>
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePoolModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingPool}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-md transition cursor-pointer disabled:opacity-60"
+                >
+                  {creatingPool && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Create Bracket</span>
+                </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
-                <strong className="text-slate-900 dark:text-white font-bold block mb-0.5">NFL Reseeding</strong>
-                <span>In the Divisional round, the #1 seed automatically plays the lowest remaining seed that advanced from the Wild Card round.</span>
+      {/* MODAL 4: JOIN BRACKET POOL */}
+      {showJoinPoolModal && (
+        <div
+          onClick={() => setShowJoinPoolModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  Join Playoff Bracket Pool
+                </h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowJoinPoolModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <form onSubmit={handleJoinPool} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  5-Character Code or Invite Link
+                </label>
+                <input
+                  type="text"
+                  value={joinPoolCode}
+                  onChange={(e) => {
+                    setJoinPoolCode(e.target.value);
+                    if (joinError) setJoinError("");
+                  }}
+                  placeholder="e.g. K9W2M or link"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold uppercase tracking-wider focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  autoFocus
+                />
+                {joinError && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1.5 flex items-center gap-1">
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{joinError}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowJoinPoolModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={joiningPool || !joinPoolCode.trim()}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-md transition cursor-pointer disabled:opacity-60"
+                >
+                  {joiningPool && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Join Bracket</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: DELETE BRACKET POOL CONFIRMATION */}
+      {showDeleteModal && (
+        <div
+          onClick={() => setShowDeleteModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white mb-2">
+              Delete Bracket Pool?
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              Are you sure you want to permanently delete this bracket pool? This action cannot be undone and will delete all participants&apos; brackets from this pool.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePool}
+                disabled={deletingPool}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer shadow-xs disabled:opacity-60"
+              >
+                {deletingPool && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Delete Permanently</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: LEAVE BRACKET POOL CONFIRMATION */}
+      {showLeaveModal && (
+        <div
+          onClick={() => setShowLeaveModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center mb-4">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white mb-2">
+              Leave Bracket Pool?
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              Are you sure you want to leave this bracket pool? Your bracket picks and score will be removed from the pool leaderboard.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLeaveModal(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLeavePool}
+                disabled={leavingPool}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition cursor-pointer shadow-xs disabled:opacity-60"
+              >
+                {leavingPool && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Leave Pool</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: RULES & SCORING */}
+      {showRulesModal && (
+        <div
+          onClick={() => setShowRulesModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  Rules &amp; Scoring
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowRulesModal(false)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                <h4 className="font-bold text-slate-900 dark:text-white mb-1">
+                  1. How Scoring Works
+                </h4>
+                <p>
+                  Each correct game pick is worth <strong>1 point</strong> across all 13 postseason games. The maximum possible score is <strong>13 points</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                <h4 className="font-bold text-slate-900 dark:text-white mb-1">
+                  2. Official NFL Reseeding
+                </h4>
+                <p>
+                  In the Divisional round, the #1 seed ALWAYS hosts the lowest remaining seed. The two middle winners play each other. Your bracket automatically updates with dynamic reseeding as you make your picks.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                <h4 className="font-bold text-slate-900 dark:text-white mb-1">
+                  3. 3-Tier Super Bowl Tiebreaker
+                </h4>
+                <p>If participants are tied in points, ties are broken sequentially:</p>
+                <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                  <li><strong>Tier 1:</strong> Closest combined total score to the actual Super Bowl.</li>
+                  <li><strong>Tier 2:</strong> Closest predicted score for the home team.</li>
+                  <li><strong>Tier 3:</strong> Closest predicted score for the away team.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-purple-600 dark:hover:bg-purple-500 text-white transition cursor-pointer"
               >
                 Got It
               </button>
@@ -2014,10 +2536,7 @@ function BracketApp() {
       )}
 
       {/* User Settings Modal */}
-      <UserSettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+      <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }
