@@ -17,6 +17,10 @@ import {
   AlertCircle,
   Sun,
   Moon,
+  Share2,
+  Copy,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -84,6 +88,13 @@ export function Header({
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
 
   const activeUser = currentActiveUserId ? users.find((u) => u.id === currentActiveUserId) || null : null;
 
@@ -269,6 +280,17 @@ export function Header({
               <h1 className="font-black text-sm sm:text-lg tracking-tight text-slate-900 dark:text-white truncate flex items-center gap-1 sm:gap-1.5">
                 {settings.leagueName} <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>
               </h1>
+
+              {currentLeagueId && (
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(true)}
+                  className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition cursor-pointer shrink-0"
+                  title="Click to view share code and link"
+                >
+                  <span>{currentLeagueId.toUpperCase()}</span>
+                </button>
+              )}
               
               {user && (
                 <>
@@ -726,6 +748,132 @@ export function Header({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Share League Modal */}
+      {showShareModal && currentLeagueId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="fixed inset-0"
+            onClick={() => setShowShareModal(false)}
+          />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Share League
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Invite friends to join {settings.leagueName}.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 5-Character League Code Box */}
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                  5-Character League Code
+                </span>
+                <span className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-medium">
+                  For PocketPicks users
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-xl px-4 py-2.5 border border-emerald-300 dark:border-emerald-800/80">
+                <span className="font-mono text-xl font-black tracking-widest text-slate-900 dark:text-white">
+                  {currentLeagueId.toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const code = currentLeagueId.toUpperCase();
+                    try {
+                      await navigator.clipboard.writeText(code);
+                      showToast(`Code ${code} copied!`);
+                    } catch {
+                      showToast("Could not copy code");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Code</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Friends with an account can enter this code in the league switcher or login to join your league.
+              </p>
+            </div>
+
+            {/* Direct Web Link Box */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                  Direct League Link
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  One-click view & join
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+                  {typeof window !== "undefined" ? `${window.location.origin}/league/${currentLeagueId.toUpperCase()}` : `https://pocketpicks.app/league/${currentLeagueId.toUpperCase()}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = typeof window !== "undefined"
+                      ? `${window.location.origin}/league/${currentLeagueId.toUpperCase()}`
+                      : `https://pocketpicks.app/league/${currentLeagueId.toUpperCase()}`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      showToast("Direct link copied to clipboard!");
+                    } catch {
+                      showToast("Could not copy link");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Send this link directly to friends. When they open it, they will see this league&apos;s standings and results.
+              </p>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-2xl shadow-xl animate-in slide-in-from-bottom-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </>

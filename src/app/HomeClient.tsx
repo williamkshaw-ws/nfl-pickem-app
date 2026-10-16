@@ -74,6 +74,21 @@ export default function HomeClient() {
                 }).catch(() => null);
               }
               window.location.href = `/squares?id=${encodeURIComponent(data.code || clean)}`;
+            } else if (data.found && data.type === "bracket") {
+              const token = await auth.currentUser?.getIdToken();
+              if (token) {
+                await fetch("/api/bracket/join", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ code: data.code || clean }),
+                }).catch(() => null);
+              }
+              window.location.href = `/bracket?id=${encodeURIComponent(data.code || clean)}`;
+            } else if (data.found && data.type === "league") {
+              window.location.href = `/league/${encodeURIComponent(data.id || data.code || clean)}`;
             } else {
               setJoinCode(clean);
               setShowJoin(true);
