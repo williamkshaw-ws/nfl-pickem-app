@@ -521,7 +521,7 @@ function SquaresPoolApp() {
   // Fetch user's created pools if logged in
   useEffect(() => {
     let active = true;
-    if (!user) return;
+    if (authLoading || !user) return;
 
     const fetchUserPools = async () => {
       try {
@@ -544,7 +544,7 @@ function SquaresPoolApp() {
     return () => {
       active = false;
     };
-  }, [user, getAuthToken]);
+  }, [authLoading, user, getAuthToken]);
 
   // 2. Save State: LocalStorage + Online Firestore sync (debounced)
   const saveState = (updated: SquaresBoardState, immediateOnline = false) => {
@@ -617,7 +617,7 @@ function SquaresPoolApp() {
   const saveStateRef = useRef(saveState);
   useEffect(() => {
     saveStateRef.current = saveState;
-  });
+  }, [saveState]);
 
   // Fetch live score from ESPN & auto-populate quarter scores
   const fetchLiveScore = useCallback(async (forcedGameId?: string) => {
@@ -700,6 +700,9 @@ function SquaresPoolApp() {
 
   // Live score polling: 30s when live, 60s otherwise
   useEffect(() => {
+    // If not authenticated and no poolId (i.e. commissioner lock screen), do not poll live score
+    if (!poolId && !user) return;
+
     let isMounted = true;
     const isLive = liveGame?.status?.state === "in";
     const intervalMs = isLive ? 30000 : 60000;
@@ -719,7 +722,7 @@ function SquaresPoolApp() {
       clearTimeout(initialTimer);
       clearInterval(timer);
     };
-  }, [board.topTeam, board.leftTeam, selectedGameId, liveGame?.status?.state, fetchLiveScore]);
+  }, [poolId, user, board.topTeam, board.leftTeam, selectedGameId, liveGame?.status?.state, fetchLiveScore]);
 
   // Refresh when user returns to tab
   useEffect(() => {
@@ -997,7 +1000,7 @@ function SquaresPoolApp() {
     }
   }, []);
 
-  if (!mounted || isLoadingOnline) {
+  if (!mounted || (authLoading && !poolId) || isLoadingOnline) {
     return (
       <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
         <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
@@ -1354,13 +1357,7 @@ function SquaresPoolApp() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-8 w-full flex-1 print-container">
-        {/* Loading State when checking auth on draft */}
-        {authLoading && !poolId ? (
-          <div className="flex flex-col items-center justify-center py-28 text-slate-400 dark:text-slate-500">
-            <Loader2 className="w-9 h-9 animate-spin text-amber-500 mb-3" />
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Checking commissioner access...</p>
-          </div>
-        ) : !user && !poolId ? (
+        {!user && !poolId ? (
           /* Dedicated Commissioner Lock Screen when visiting /squares without an id and unauthenticated */
           <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
             <div className="flex flex-col items-center justify-center mb-6">

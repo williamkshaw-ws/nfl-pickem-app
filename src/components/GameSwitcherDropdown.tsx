@@ -54,13 +54,18 @@ const GAMES: GameOption[] = [
 
 export function GameSwitcherDropdown({ currentGame, className = "" }: GameSwitcherDropdownProps) {
   const { user } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const currentGameConfig = GAMES.find((g) => g.key === currentGame) || GAMES[0];
 
-  // If user is not signed in, render simple home logo without dropdown
-  if (!user) {
+  // If not mounted or user is not signed in, render simple home logo without dropdown
+  if (!mounted || !user) {
     return (
       <Link
         href="/"

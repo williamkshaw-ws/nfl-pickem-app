@@ -136,6 +136,7 @@ function BracketApp() {
 
   // Load initial bracket state from API / localStorage
   useEffect(() => {
+    if (authLoading) return;
     let active = true;
     const fetchBracketData = async () => {
       try {
@@ -193,7 +194,7 @@ function BracketApp() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [authLoading, user]);
 
   // Persist picks and tiebreaker to localStorage
   useEffect(() => {
@@ -745,7 +746,7 @@ function BracketApp() {
     </div>
   );
 
-  if (!mounted) {
+  if (!mounted || authLoading) {
     return (
       <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
         <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
@@ -842,7 +843,7 @@ function BracketApp() {
                   }`}
                   title={user.name || user.email}
                 >
-                  {(user.name || user.username || user.email).charAt(0).toUpperCase()}
+                  {(user.name || user.username || user.email || "U").charAt(0).toUpperCase()}
                 </div>
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 max-w-[100px] truncate hidden md:inline">
                   {user.name || user.username}
@@ -978,13 +979,7 @@ function BracketApp() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
-        {/* Loading State when checking auth */}
-        {authLoading ? (
-          <div className="flex flex-col items-center justify-center py-28 text-slate-400 dark:text-slate-500">
-            <Loader2 className="w-9 h-9 animate-spin text-purple-500 mb-3" />
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Checking bracket access...</p>
-          </div>
-        ) : !user ? (
+        {!user ? (
           /* Dedicated Bracket Lock / Landing Screen when unauthenticated */
           <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
             <div className="flex flex-col items-center justify-center mb-6">
