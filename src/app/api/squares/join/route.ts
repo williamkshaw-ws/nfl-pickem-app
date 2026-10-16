@@ -29,20 +29,26 @@ export async function POST(request: Request) {
       // Not a valid URL, use as raw string
     }
 
-    cleanCode = cleanCode.trim().toLowerCase();
+    const upperCode = cleanCode.toUpperCase();
+    const lowerCode = cleanCode.toLowerCase();
 
     const db = adminDb();
     let poolDoc = null;
 
-    // 1. Try exact ID
-    const directDoc = await db.collection("squares_pools").doc(cleanCode).get();
-    if (directDoc.exists) {
-      poolDoc = directDoc;
+    // 1. Try exact ID (uppercase or lowercase)
+    const directUpper = await db.collection("squares_pools").doc(upperCode).get();
+    if (directUpper.exists) {
+      poolDoc = directUpper;
+    } else {
+      const directLower = await db.collection("squares_pools").doc(lowerCode).get();
+      if (directLower.exists) {
+        poolDoc = directLower;
+      }
     }
 
     // 2. Try prefixing with "sb-"
-    if (!poolDoc && !cleanCode.startsWith("sb-")) {
-      const sbDoc = await db.collection("squares_pools").doc(`sb-${cleanCode}`).get();
+    if (!poolDoc && !lowerCode.startsWith("sb-")) {
+      const sbDoc = await db.collection("squares_pools").doc(`sb-${lowerCode}`).get();
       if (sbDoc.exists) {
         poolDoc = sbDoc;
       }

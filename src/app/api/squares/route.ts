@@ -4,8 +4,8 @@ import { validateAndSanitizeBoard, generateOwnerKey } from "@/lib/squares-valida
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
 function generatePoolId(): string {
-  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
-  let result = "sb-";
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
   for (let i = 0; i < 5; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     const db = adminDb();
-    let poolId = (requestedId && typeof requestedId === "string" ? requestedId.trim().toLowerCase() : "").replace(/[^a-z0-9_-]/g, "");
+    let poolId = (requestedId && typeof requestedId === "string" ? requestedId.trim().toUpperCase() : "").replace(/[^A-Z0-9_-]/g, "");
     if (!poolId) {
       poolId = generatePoolId();
     }

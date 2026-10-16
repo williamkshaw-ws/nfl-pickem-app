@@ -778,8 +778,8 @@ function SquaresPoolApp() {
             // keep raw
           }
         }
-        code = code.toLowerCase().trim();
-        const poolIdToOpen = code.startsWith("sb-") ? code : `sb-${code}`;
+        code = code.trim();
+        const poolIdToOpen = code;
         setShowJoinModal(false);
         router.push(`/squares?id=${poolIdToOpen}`);
         return;
@@ -1395,33 +1395,19 @@ function SquaresPoolApp() {
             <div className="min-w-0">
                 <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
                   <span className="truncate">{poolId ? (board.title || "Super Bowl Squares") : user ? (board.title || "Super Bowl Squares") : "Super Bowl Squares"}</span>
-                  {poolId ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setShowShareModal(true)}
-                        className="inline-flex items-center gap-1 text-[10px] font-mono font-black tracking-widest px-2 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
-                        title="Click to view share code and link"
-                      >
-                        <span>Code: {currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
-                      </button>
-                      <span className="hidden sm:inline-flex text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/60 items-center gap-1 shrink-0">
-                        <Globe className="w-2.5 h-2.5" />
-                        <span>{isReadOnly ? "Live Board" : "Live Online"}</span>
-                      </span>
-                    </>
-                  ) : user ? (
-                    <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
-                      Draft Board
-                    </span>
-                  ) : (
-                    <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
-                      Squares Pool
-                    </span>
+                  {poolId && (
+                    <button
+                      type="button"
+                      onClick={() => setShowShareModal(true)}
+                      className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
+                      title="Click to view share code and link"
+                    >
+                      <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
+                    </button>
                   )}
                 </h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-0.5 hidden sm:block">
-                  PocketPicks&trade; 100 Squares Pool &bull; Printable &amp; Shareable
+                  PocketPicks&trade; 100 Squares Pool
                 </p>
               </div>
             </div>
@@ -1433,7 +1419,7 @@ function SquaresPoolApp() {
               <button
                 type="button"
                 onClick={() => setIsViewerPreview(!isViewerPreview)}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs border shrink-0 ${
+                className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs border shrink-0 ${
                   isViewerPreview
                     ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600"
                     : "bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
@@ -1441,8 +1427,7 @@ function SquaresPoolApp() {
                 title={isViewerPreview ? "Exit preview and return to commissioner editing" : "Preview how players see the shared link"}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{isViewerPreview ? "Exit Preview" : "Spectator Preview"}</span>
-                <span className="sm:hidden">{isViewerPreview ? "Edit" : "View"}</span>
+                <span>{isViewerPreview ? "Exit Preview" : "Spectator Preview"}</span>
               </button>
             )}
 
@@ -1616,80 +1601,7 @@ function SquaresPoolApp() {
               </button>
             )}
 
-            {/* Share / Invite Button */}
-            {poolId ? (
-              <button
-                type="button"
-                onClick={() => setShowShareModal(true)}
-                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
-                title="Share board with code or link"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Share Board</span>
-                <span className="sm:hidden">Share</span>
-              </button>
-            ) : user ? (
-              <button
-                type="button"
-                onClick={handleShareOnline}
-                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
-                title="Share this board online with friends (view-only for players)"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Share Online</span>
-              </button>
-            ) : null}
 
-            {/* Print / PDF with Dropdown (only for active board or signed in commissioner) */}
-            {(poolId || user) && (
-              <div className="relative hidden sm:block">
-                <button
-                  type="button"
-                  onClick={() => setShowPrintMenu((prev) => !prev)}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
-                  title="Print or Save PDF"
-                >
-                  <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Print / PDF</span>
-                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showPrintMenu ? "rotate-180" : ""}`} />
-                </button>
-
-                {showPrintMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowPrintMenu(false)} />
-                    <div className="absolute right-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPrintMenu(false);
-                          setIsPrintingBlank(false);
-                          setTimeout(() => window.print(), 50);
-                        }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>Print Board</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPrintMenu(false);
-                          setIsPrintingBlank(true);
-                          setTimeout(() => {
-                            window.print();
-                            setTimeout(() => setIsPrintingBlank(false), 1000);
-                          }, 50);
-                        }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400 cursor-pointer"
-                      >
-                        <Grid className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span>Print Blank Grid</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
             <button
               type="button"
@@ -2024,20 +1936,6 @@ function SquaresPoolApp() {
                     <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
                       {liveGame.status.shortDetail || "VS"}
                     </span>
-                    {liveGame.topTeam.linescores?.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1 text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-lg overflow-x-auto max-w-[130px] sm:max-w-none">
-                        {liveGame.topTeam.linescores.map((val: number, idx: number) => {
-                          const leftVal = liveGame.leftTeam.linescores?.[idx] ?? 0;
-                          const qLabel = idx < 4 ? `Q${idx + 1}` : "OT";
-                          return (
-                            <span key={idx} className="whitespace-nowrap">
-                              {qLabel}: {val}-{leftVal}
-                              {idx < liveGame.topTeam.linescores.length - 1 && <span className="mx-0.5 text-slate-300 dark:text-slate-600">&bull;</span>}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
 
                   {/* NFC Team */}
@@ -2235,20 +2133,7 @@ function SquaresPoolApp() {
                   <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
                     {liveGame?.status?.shortDetail || "VS"}
                   </span>
-                  {liveGame && liveGame.topTeam.linescores.length > 0 && (
-                    <div className="flex items-center gap-1 mt-0.5 text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                      {liveGame.topTeam.linescores.map((val: number, idx: number) => {
-                        const leftVal = liveGame.leftTeam.linescores?.[idx] ?? 0;
-                        const qLabel = idx < 4 ? `Q${idx + 1}` : "OT";
-                        return (
-                          <span key={idx} className="whitespace-nowrap">
-                            {qLabel}: {val}-{leftVal}
-                            {idx < liveGame.topTeam.linescores.length - 1 && <span className="mx-0.5 text-slate-300 dark:text-slate-600">&bull;</span>}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
+
                 </div>
 
                 {/* NFC Team */}

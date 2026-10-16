@@ -12,13 +12,30 @@ export async function GET(
     enforceRateLimit(`squares_get:${ip}`, 120, 60_000);
 
     const { id } = await params;
-    const poolId = (id || "").toLowerCase().trim();
+    let poolId = (id || "").trim();
     if (!poolId) {
       return NextResponse.json({ error: "Invalid pool ID" }, { status: 400 });
     }
 
     const db = adminDb();
-    const docSnap = await db.collection("squares_pools").doc(poolId).get();
+    let docSnap = await db.collection("squares_pools").doc(poolId).get();
+
+    if (!docSnap.exists) {
+      // Try opposite casing
+      const altId = poolId === poolId.toUpperCase() ? poolId.toLowerCase() : poolId.toUpperCase();
+      const altSnap = await db.collection("squares_pools").doc(altId).get();
+      if (altSnap.exists) {
+        docSnap = altSnap;
+        poolId = altId;
+      } else if (!poolId.toLowerCase().startsWith("sb-")) {
+        // Try legacy sb- prefix
+        const legacySnap = await db.collection("squares_pools").doc(`sb-${poolId.toLowerCase()}`).get();
+        if (legacySnap.exists) {
+          docSnap = legacySnap;
+          poolId = `sb-${poolId.toLowerCase()}`;
+        }
+      }
+    }
 
     if (!docSnap.exists) {
       return NextResponse.json({ error: "Pool not found" }, { status: 404 });
@@ -102,7 +119,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const poolId = (id || "").toLowerCase().trim();
+    let poolId = (id || "").trim();
     if (!poolId) {
       return NextResponse.json({ error: "Invalid pool ID" }, { status: 400 });
     }
@@ -131,8 +148,25 @@ export async function POST(
     }
 
     const db = adminDb();
-    const poolRef = db.collection("squares_pools").doc(poolId);
-    const docSnap = await poolRef.get();
+    let poolRef = db.collection("squares_pools").doc(poolId);
+    let docSnap = await poolRef.get();
+
+    if (!docSnap.exists) {
+      const altId = poolId === poolId.toUpperCase() ? poolId.toLowerCase() : poolId.toUpperCase();
+      const altSnap = await db.collection("squares_pools").doc(altId).get();
+      if (altSnap.exists) {
+        docSnap = altSnap;
+        poolId = altId;
+        poolRef = db.collection("squares_pools").doc(poolId);
+      } else if (!poolId.toLowerCase().startsWith("sb-")) {
+        const legacySnap = await db.collection("squares_pools").doc(`sb-${poolId.toLowerCase()}`).get();
+        if (legacySnap.exists) {
+          docSnap = legacySnap;
+          poolId = `sb-${poolId.toLowerCase()}`;
+          poolRef = db.collection("squares_pools").doc(poolId);
+        }
+      }
+    }
 
     if (!docSnap.exists) {
       return NextResponse.json({ error: "Pool not found" }, { status: 404 });
