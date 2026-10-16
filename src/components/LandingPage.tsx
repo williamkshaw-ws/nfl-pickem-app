@@ -853,9 +853,9 @@ export function LandingPage() {
 
                   {/* Squares Preview Body: Exact 3x3 Site Grid + Quarter Winners */}
                   <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-center">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
                       {/* 3x3 Squares Grid Card Mirroring /squares UI */}
-                      <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+                      <div className="lg:col-span-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden flex flex-col">
                         {/* Top Team Banner (AFC: Bills) */}
                         <div className="bg-slate-100/90 dark:bg-slate-800/80 px-3 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-center">
                           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 px-2 py-0.5 rounded-md tracking-wider">
@@ -875,7 +875,7 @@ export function LandingPage() {
                           </span>
                         </div>
 
-                        <div className="flex items-stretch">
+                        <div className="flex items-stretch flex-1">
                           {/* Left Team Vertical Column (NFC: 49ers) */}
                           <div className="w-10 sm:w-12 bg-slate-100/90 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center select-none py-2 shrink-0">
                             <div className="flex items-center justify-center gap-1.5 [writing-mode:vertical-lr] rotate-180 select-none">
@@ -900,8 +900,8 @@ export function LandingPage() {
                           </div>
 
                           {/* 3x3 Table with Junction Cell + Column/Row Numbers */}
-                          <div className="flex-1 min-w-0">
-                            <table className="w-full table-fixed border-collapse">
+                          <div className="flex-1 min-w-0 flex flex-col">
+                            <table className="w-full h-full table-fixed border-collapse">
                               <colgroup>
                                 <col className="w-[22%]" />
                                 <col className="w-[26%]" />
@@ -1008,35 +1008,137 @@ export function LandingPage() {
                         </div>
                       </div>
 
-                      {/* Quarter Payout Summary */}
-                      <div className="lg:col-span-5 grid grid-cols-2 gap-2">
-                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 flex items-center justify-between">
-                          <div>
-                            <div className="text-[10px] font-black uppercase text-amber-600">Q1 (SF 7 - BUF 7)</div>
-                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Sarah J.</div>
+                      {/* Quarter Payout Summary — Mobile stays compact 2x2; Desktop stretches to match grid height */}
+                      <div className="lg:col-span-6 flex flex-col">
+                        {/* MOBILE VIEW (Untouched compact 2x2 grid) */}
+                        <div className="grid grid-cols-2 gap-2 lg:hidden">
+                          <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] font-black uppercase text-amber-600">Q1 (SF 7 - BUF 7)</div>
+                              <div className="text-xs font-extrabold text-slate-900 dark:text-white">Sarah J.</div>
+                            </div>
+                            <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
                           </div>
-                          <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
+                          <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-sky-300 dark:border-sky-800 flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] font-black uppercase text-sky-600">Half (SF 14 - BUF 10)</div>
+                              <div className="text-xs font-extrabold text-slate-900 dark:text-white">Jimmy</div>
+                            </div>
+                            <span className="text-xs font-mono font-black text-emerald-600">+$250</span>
+                          </div>
+                          <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-purple-300 dark:border-purple-800 flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] font-black uppercase text-purple-600">Q3 (SF 20 - BUF 20)</div>
+                              <div className="text-xs font-extrabold text-slate-900 dark:text-white">Marcus</div>
+                            </div>
+                            <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
+                          </div>
+                          <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border-2 border-emerald-500 dark:border-emerald-600 flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] font-black uppercase text-emerald-600">Final (SF 34 - BUF 27)</div>
+                              <div className="text-xs font-extrabold text-slate-900 dark:text-white">Coach Tom</div>
+                            </div>
+                            <span className="text-xs font-mono font-black text-emerald-600">+$450</span>
+                          </div>
                         </div>
-                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-sky-300 dark:border-sky-800 flex items-center justify-between">
-                          <div>
-                            <div className="text-[10px] font-black uppercase text-sky-600">Half (SF 14 - BUF 10)</div>
-                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Jimmy</div>
-                          </div>
-                          <span className="text-xs font-mono font-black text-emerald-600">+$250</span>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-purple-300 dark:border-purple-800 flex items-center justify-between">
-                          <div>
-                            <div className="text-[10px] font-black uppercase text-purple-600">Q3 (SF 20 - BUF 20)</div>
-                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Marcus</div>
-                          </div>
-                          <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border-2 border-emerald-500 dark:border-emerald-600 flex items-center justify-between">
-                          <div>
-                            <div className="text-[10px] font-black uppercase text-emerald-600">Final (SF 34 - BUF 27)</div>
-                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Coach Tom</div>
-                          </div>
-                          <span className="text-xs font-mono font-black text-emerald-600">+$450</span>
+
+                        {/* DESKTOP VIEW (Expanded 2x2 grid matching the 3x3 Squares grid height & site style) */}
+                        <div className="hidden lg:grid grid-cols-2 grid-rows-2 gap-3 h-full">
+                          {[
+                            {
+                              tag: "Q1",
+                              label: "1st Quarter",
+                              tagClass: "bg-amber-500 text-white",
+                              borderClass: "border-amber-200 dark:border-amber-800/70",
+                              winnerBg: "bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border-amber-200/80 dark:border-amber-800/60",
+                              billsScore: "7",
+                              ninersScore: "7",
+                              winner: "Sarah J.",
+                              coord: "[7, 7]",
+                              payout: "$150",
+                            },
+                            {
+                              tag: "Q2",
+                              label: "Halftime",
+                              tagClass: "bg-sky-500 text-white",
+                              borderClass: "border-sky-200 dark:border-sky-800/70",
+                              winnerBg: "bg-sky-50 dark:bg-sky-950/50 text-sky-900 dark:text-sky-200 border-sky-200/80 dark:border-sky-800/60",
+                              billsScore: "10",
+                              ninersScore: "14",
+                              winner: "Jimmy",
+                              coord: "[4, 0]",
+                              payout: "$250",
+                            },
+                            {
+                              tag: "Q3",
+                              label: "3rd Quarter",
+                              tagClass: "bg-purple-500 text-white",
+                              borderClass: "border-purple-200 dark:border-purple-800/70",
+                              winnerBg: "bg-purple-50 dark:bg-purple-950/50 text-purple-900 dark:text-purple-200 border-purple-200/80 dark:border-purple-800/60",
+                              billsScore: "20",
+                              ninersScore: "20",
+                              winner: "Marcus",
+                              coord: "[0, 0]",
+                              payout: "$150",
+                            },
+                            {
+                              tag: "FINAL",
+                              label: "Final Score",
+                              tagClass: "bg-emerald-600 text-white",
+                              borderClass: "border-emerald-300 dark:border-emerald-700",
+                              winnerBg: "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800/60",
+                              billsScore: "27",
+                              ninersScore: "34",
+                              winner: "Coach Tom",
+                              coord: "[4, 7]",
+                              payout: "$450",
+                            },
+                          ].map((q) => (
+                            <div
+                              key={q.tag}
+                              className={`bg-white dark:bg-slate-900 p-3 rounded-2xl border ${q.borderClass} shadow-2xs flex flex-col justify-between gap-2`}
+                            >
+                              {/* Top Row: Tag + Quarter Label & Payout Pill */}
+                              <div className="flex items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-black shadow-2xs shrink-0 ${q.tagClass}`}>
+                                    {q.tag}
+                                  </span>
+                                  <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                                    {q.label}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Payout</span>
+                                  <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    {q.payout}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Middle Row: Bills & 49ers Score Pills */}
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/70 rounded-xl px-2.5 py-1 flex items-center justify-between">
+                                  <span className="text-[9px] font-black uppercase text-red-600 dark:text-red-400">Bills</span>
+                                  <span className="text-xs font-mono font-black text-slate-900 dark:text-white">{q.billsScore}</span>
+                                </div>
+                                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/70 rounded-xl px-2.5 py-1 flex items-center justify-between">
+                                  <span className="text-[9px] font-black uppercase text-sky-600 dark:text-sky-400">49ers</span>
+                                  <span className="text-xs font-mono font-black text-slate-900 dark:text-white">{q.ninersScore}</span>
+                                </div>
+                              </div>
+
+                              {/* Bottom Row: Winner Bar */}
+                              <div className={`px-2.5 py-1 rounded-xl border ${q.winnerBg} flex items-center justify-between text-[11px]`}>
+                                <span className="font-extrabold truncate">
+                                  Winner: {q.winner}
+                                </span>
+                                <span className="font-mono text-[10px] font-black opacity-80 shrink-0">
+                                  {q.coord}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
