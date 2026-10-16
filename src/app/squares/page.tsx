@@ -340,6 +340,13 @@ function SquaresPoolApp() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState("Super Bowl LIX Squares");
+  const [newBoardTopTeam, setNewBoardTopTeam] = useState("Buffalo Bills");
+  const [newBoardLeftTeam, setNewBoardLeftTeam] = useState("San Francisco 49ers");
+  const [newBoardCost, setNewBoardCost] = useState(10);
+  const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+  const [createBoardError, setCreateBoardError] = useState("");
   const [joinInput, setJoinInput] = useState("");
   const [joinError, setJoinError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
@@ -364,7 +371,7 @@ function SquaresPoolApp() {
 
   // Prevent background scrolling and handle Escape key when any modal is open
   const isAnyModalOpen = Boolean(
-    showRulesModal || confirmModal.isOpen || editingHeader || showJoinModal || showShareModal
+    showRulesModal || confirmModal.isOpen || editingHeader || showJoinModal || showShareModal || showCreateBoardModal
   );
   useEffect(() => {
     if (isAnyModalOpen) {
@@ -463,6 +470,28 @@ function SquaresPoolApp() {
         setPoolsFetched(true);
         return;
       }
+
+      // Check localStorage for any legacy owner keys to recover previously created boards
+      if (typeof window !== "undefined") {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith("squares_owner_key_sb-")) {
+            const legacyPoolId = key.replace("squares_owner_key_", "");
+            const ownerKey = localStorage.getItem(key) || "";
+            try {
+              await fetch(`/api/squares/${encodeURIComponent(legacyPoolId)}`, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "x-owner-key": ownerKey,
+                },
+              });
+            } catch {
+              // Ignore network error for individual legacy check
+            }
+          }
+        }
+      }
+
       const res = await fetch("/api/squares", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -544,6 +573,13 @@ function SquaresPoolApp() {
   }, [board.title]);
 
   const loadFromLocal = useCallback(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create") === "1") {
+      setBoard({
+        ...INITIAL_STATE,
+        grid: {},
+      });
+      return;
+    }
     setBoard(getInitialBoardState());
   }, []);
 
@@ -564,8 +600,10 @@ function SquaresPoolApp() {
       (async () => {
         try {
           const token = await getAuthToken();
+          const ownerKey = typeof window !== "undefined" ? localStorage.getItem(`squares_owner_key_${idParam}`) || "" : "";
           const headers: Record<string, string> = {};
           if (token) headers["Authorization"] = `Bearer ${token}`;
+          if (ownerKey) headers["x-owner-key"] = ownerKey;
 
           const res = await fetch(`/api/squares/${encodeURIComponent(idParam)}`, { headers });
           if (!res.ok) throw new Error("Pool not found");
@@ -605,7 +643,14 @@ function SquaresPoolApp() {
       })();
     } else {
       setIsLoadingOnline(false);
-      loadFromLocal();
+      if (searchParams.get("create") === "1") {
+        setBoard({
+          ...INITIAL_STATE,
+          grid: {},
+        });
+      } else {
+        loadFromLocal();
+      }
     }
   }, [searchParams, loadFromLocal, getAuthToken, fetchUserPools]);
 
@@ -637,6 +682,80 @@ function SquaresPoolApp() {
       localStorage.setItem("last_active_squares_board", poolId);
     }
   }, [poolId]);
+
+  const handleCreateNewBoard = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!user) {
+      router.push("/auth/login?redirect=/squares");
+      return;
+    }
+
+    setIsCreatingBoard(true);
+    setCreateBoardError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error("Please log in to create a board");
+
+      const freshBoard: SquaresBoardState = {
+        title: newBoardTitle.trim() || "Super Bowl LIX Squares",
+        topTeam: newBoardTopTeam.trim() || "Buffalo Bills",
+        leftTeam: newBoardLeftTeam.trim() || "San Francisco 49ers",
+        topNumbers: [...DEFAULT_TOP_NUMBERS],
+        leftNumbers: [...DEFAULT_LEFT_NUMBERS],
+        grid: {}, // Guaranteed 100% blank grid!
+        costPerSquare: typeof newBoardCost === "number" ? newBoardCost : 10,
+        payouts: { q1: "", q2: "", q3: "", final: "" },
+        q1Score: { top: "", left: "" },
+        q2Score: { top: "", left: "" },
+        q3Score: { top: "", left: "" },
+        finalScore: { top: "", left: "" },
+      };
+
+      const res = await fetch("/api/squares", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          board: freshBoard,
+          creatorName: user.name || user.username || "",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.id) {
+        throw new Error(data.error || "Failed to create board");
+      }
+
+      if (data.ownerKey && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`squares_owner_key_${data.id}`, data.ownerKey);
+          localStorage.setItem(`squares_owner_${data.id}`, "true");
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
+      setShowCreateBoardModal(false);
+      showToast(`Board "${freshBoard.title}" created!`);
+      setBoard(freshBoard);
+      setPublishedPoolId(data.id);
+      setPoolCreatorId(user.id);
+      if (data.joinCode) {
+        setCurrentJoinCode(data.joinCode);
+      }
+      await fetchUserPools();
+      router.push(`/squares?id=${data.id}`);
+    } catch (err: unknown) {
+      console.error("Create board error:", err);
+      const msg = err instanceof Error ? err.message : "Failed to create board";
+      setCreateBoardError(msg);
+    } finally {
+      setIsCreatingBoard(false);
+    }
+  };
 
   const handleJoinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -705,7 +824,11 @@ function SquaresPoolApp() {
 
     // Save locally
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (poolId) {
+        localStorage.setItem(`pocketpicks_squares_board_${poolId}`, JSON.stringify(updated));
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      }
     } catch (e) {
       console.error("Local save error:", e);
     }
@@ -1460,19 +1583,22 @@ function SquaresPoolApp() {
                           <LogIn className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                           <span>Join Board with Code</span>
                         </button>
-                        <Link
-                          href="/squares?create=1"
+                        <button
+                          type="button"
                           onClick={() => {
                             setShowUserPoolsMenu(false);
-                            setPublishedPoolId(null);
-                            setPoolCreatorId(user.id);
-                            loadFromLocal();
+                            setNewBoardTitle("Super Bowl LIX Squares");
+                            setNewBoardTopTeam("Buffalo Bills");
+                            setNewBoardLeftTeam("San Francisco 49ers");
+                            setNewBoardCost(10);
+                            setCreateBoardError("");
+                            setShowCreateBoardModal(true);
                           }}
-                          className="px-3.5 py-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold transition"
+                          className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold transition cursor-pointer"
                         >
                           <Grid className="w-3.5 h-3.5 shrink-0" />
                           <span>+ Create New Board</span>
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   </>
@@ -1733,7 +1859,14 @@ function SquaresPoolApp() {
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => router.push("/squares?create=1")}
+                  onClick={() => {
+                    setNewBoardTitle("Super Bowl LIX Squares");
+                    setNewBoardTopTeam("Buffalo Bills");
+                    setNewBoardLeftTeam("San Francisco 49ers");
+                    setNewBoardCost(10);
+                    setCreateBoardError("");
+                    setShowCreateBoardModal(true);
+                  }}
                   className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
                   <Grid className="w-3.5 h-3.5" />
@@ -2879,6 +3012,139 @@ function SquaresPoolApp() {
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-2xl shadow-xl animate-in slide-in-from-bottom-2 duration-200 no-print">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* CREATE NEW BOARD MODAL */}
+      {showCreateBoardModal && (
+        <div
+          onClick={() => {
+            setShowCreateBoardModal(false);
+            setCreateBoardError("");
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <Grid className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Create Squares Board
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Start a fresh, blank 100-square grid for your game.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateBoardModal(false);
+                  setCreateBoardError("");
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {createBoardError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{createBoardError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateNewBoard} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Board Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. Super Bowl LIX Squares"
+                  value={newBoardTitle}
+                  onChange={(e) => setNewBoardTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                    Top Team (Columns)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Buffalo Bills"
+                    value={newBoardTopTeam}
+                    onChange={(e) => setNewBoardTopTeam(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                    Left Team (Rows)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. San Francisco 49ers"
+                    value={newBoardLeftTeam}
+                    onChange={(e) => setNewBoardLeftTeam(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Cost Per Square ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10000"
+                  value={newBoardCost}
+                  onChange={(e) => setNewBoardCost(Number(e.target.value) || 0)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateBoardModal(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingBoard}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isCreatingBoard ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <span>Create Board</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

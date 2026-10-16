@@ -37,10 +37,26 @@ export async function GET(
 
     // If caller is authenticated, automatically associate this pool with their account
     const joinCode = data?.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+    const headerKey = request.headers.get("x-owner-key") || "";
     try {
       const caller = await requireUser(request);
       if (caller && caller.uid) {
-        const isCreator = data?.creatorUserId === caller.uid;
+        const isOwnerByStorageKey = Boolean(data?.ownerKey && headerKey && headerKey === data.ownerKey);
+        const isOwnerByEmail = Boolean(data?.creatorEmail && caller.email && data.creatorEmail === caller.email);
+        const isCreator = data?.creatorUserId === caller.uid || isOwnerByStorageKey || isOwnerByEmail;
+
+        // If pool is missing creatorUserId and caller has the ownerKey or matching email, claim it
+        if (!data?.creatorUserId && (isOwnerByStorageKey || isOwnerByEmail)) {
+          await docSnap.ref.set(
+            {
+              creatorUserId: caller.uid,
+              creatorEmail: caller.email || data?.creatorEmail || "",
+              joinCode,
+            },
+            { merge: true }
+          );
+        }
+
         const membershipRef = db.collection("squares_memberships").doc(`${caller.uid}_${poolId}`);
         await membershipRef.set(
           {

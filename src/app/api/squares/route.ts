@@ -176,11 +176,28 @@ export async function GET(request: Request) {
 
     const db = adminDb();
 
-    // 1. Fetch pools created by the user
+    // 1. Fetch pools created by the user (by creatorUserId)
     const createdSnap = await db
       .collection("squares_pools")
       .where("creatorUserId", "==", caller.uid)
       .get();
+
+    // Also fetch pools created with matching email (legacy compatibility)
+    const allCreatedDocs = [...createdSnap.docs];
+    if (caller.email) {
+      const emailSnap = await db
+        .collection("squares_pools")
+        .where("creatorEmail", "==", caller.email)
+        .get();
+      for (const emailDoc of emailSnap.docs) {
+        if (!allCreatedDocs.some((d) => d.id === emailDoc.id)) {
+          allCreatedDocs.push(emailDoc);
+          if (!emailDoc.data()?.creatorUserId) {
+            emailDoc.ref.set({ creatorUserId: caller.uid }, { merge: true }).catch(() => {});
+          }
+        }
+      }
+    }
 
     // 2. Fetch all pool memberships for the user (both commissioner and joined member)
     const memberSnap = await db
@@ -202,7 +219,7 @@ export async function GET(request: Request) {
     }>();
 
     // Process created pools first
-    for (const doc of createdSnap.docs) {
+    for (const doc of allCreatedDocs) {
       const data = doc.data();
       const board = data.board || {};
       const poolId = doc.id;
