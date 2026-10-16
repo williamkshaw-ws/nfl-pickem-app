@@ -38,6 +38,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+import { extractSquaresCode } from "@/lib/squares-validation";
 
 type PoolModeTab = "pickem" | "bracket" | "squares";
 
@@ -60,6 +61,7 @@ export function LandingPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [loginJoinCode, setLoginJoinCode] = useState("");
   const [loginShowPassword, setLoginShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginResetMessage, setLoginResetMessage] = useState("");
@@ -108,9 +110,9 @@ export function LandingPage() {
   };
 
   const handleModalSubmit = (action: "register" | "login") => {
-    const clean = modalCode.trim().toUpperCase();
-    if (clean.length !== 5) {
-      setModalError("Invite codes must be exactly 5 characters.");
+    const clean = extractSquaresCode(modalCode);
+    if (!clean || clean.length < 3) {
+      setModalError("Please enter a valid invite code or share link.");
       return;
     }
     setModalError("");
@@ -121,13 +123,14 @@ export function LandingPage() {
       // Ignore storage errors
     }
     if (action === "register") {
-      router.push(`/auth/register?join=${clean}`);
+      router.push(`/auth/register?join=${encodeURIComponent(clean)}`);
     } else {
       try {
         localStorage.setItem("pending_join_code", clean);
       } catch {
         // Ignore storage errors
       }
+      setLoginJoinCode(clean);
       setLoginError("");
       setShowLoginModal(true);
     }
@@ -229,11 +232,40 @@ export function LandingPage() {
         return;
       }
 
-      if (pendingJoin && pendingJoin.length === 5) {
+      const targetJoinCode = loginJoinCode.trim() || pendingJoin;
+      if (targetJoinCode) {
+        const cleanJoin = extractSquaresCode(targetJoinCode);
         try {
           localStorage.removeItem("pending_join_code");
         } catch {}
-        window.location.href = `/?join=${pendingJoin.toUpperCase()}`;
+
+        try {
+          const res = await fetch("/api/auth/resolve-code", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: cleanJoin }),
+          });
+          const data = await res.json();
+          if (data.found && data.type === "squares") {
+            const token = await userCredential.user.getIdToken();
+            if (token) {
+              await fetch("/api/squares/join", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ code: data.code || cleanJoin }),
+              }).catch(() => null);
+            }
+            window.location.href = `/squares?id=${encodeURIComponent(data.code || cleanJoin)}`;
+            return;
+          }
+        } catch (err) {
+          console.error("Resolve code error:", err);
+        }
+
+        window.location.href = `/?join=${encodeURIComponent(cleanJoin)}`;
         return;
       }
 
@@ -1531,15 +1563,15 @@ export function LandingPage() {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
               <Users className="w-6 h-6" />
             </div>
 
             <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Join a League
+              Join a Pool or Board
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-              Enter the 5-digit invite code provided by your league commissioner.
+              Enter the 5-digit invite code or link for your NFL Pick&apos;em League or Super Bowl Squares Board.
             </p>
 
             <form
@@ -1551,23 +1583,22 @@ export function LandingPage() {
             >
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  5-Digit League Code
+                  5-Digit Code or Share Link
                 </label>
                 <input
                   type="text"
-                  maxLength={5}
+                  maxLength={40}
                   autoFocus
-                  inputMode="numeric"
                   autoCapitalize="characters"
                   autoCorrect="off"
                   spellCheck={false}
-                  placeholder="e.g. 84920"
+                  placeholder="e.g. U7VUF or 84920"
                   value={modalCode}
                   onChange={(e) => {
                     setModalCode(e.target.value.toUpperCase());
                     if (modalError) setModalError("");
                   }}
-                  className="w-full text-center tracking-[0.3em] font-mono text-2xl font-black py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 uppercase transition-colors"
+                  className="w-full text-center tracking-[0.2em] font-mono text-2xl font-black py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 uppercase transition-colors"
                 />
                 {modalError && (
                   <p className="text-rose-500 text-xs font-semibold mt-2">{modalError}</p>
@@ -1577,8 +1608,8 @@ export function LandingPage() {
               <div className="pt-2 flex flex-col gap-2.5">
                 <button
                   type="submit"
-                  disabled={modalCode.trim().length !== 5}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={modalCode.trim().length < 3}
+                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-md shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Continue to Register &amp; Join</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1587,8 +1618,8 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => handleModalSubmit("login")}
-                  disabled={modalCode.trim().length !== 5}
-                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
+                  disabled={modalCode.trim().length < 3}
+                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer"
                 >
                   Already have an account? Sign in and join →
                 </button>
@@ -1843,7 +1874,7 @@ export function LandingPage() {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
               <LogIn className="w-6 h-6" />
             </div>
 
@@ -1854,6 +1885,31 @@ export function LandingPage() {
               Enter your username or email to access your leagues, brackets, and squares boards.
             </p>
 
+            {loginJoinCode && (
+              <div className="mt-4 p-3 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-300 text-xs font-semibold flex items-center justify-between gap-3 shadow-xs">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="truncate">Joining pool with code: <strong className="font-mono font-black">{loginJoinCode}</strong></span>
+                  </div>
+                  <div className="text-[10px] text-amber-700/90 dark:text-amber-400/90 font-normal truncate mt-0.5">
+                    Will enter your League or Squares board upon signing in.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginJoinCode("");
+                    try { localStorage.removeItem("pending_join_code"); } catch {}
+                  }}
+                  title="Remove code"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-900/40 transition shrink-0 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {loginError && (
               <div className="mt-4 p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <XCircle className="w-4 h-4 flex-shrink-0" />
@@ -1862,7 +1918,7 @@ export function LandingPage() {
             )}
 
             {loginResetMessage && (
-              <div className="mt-4 p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+              <div className="mt-4 p-3.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                 <span>{loginResetMessage}</span>
               </div>
@@ -1887,7 +1943,7 @@ export function LandingPage() {
                     if (loginError) setLoginError("");
                     if (loginResetMessage) setLoginResetMessage("");
                   }}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
 
@@ -1900,7 +1956,7 @@ export function LandingPage() {
                     type="button"
                     disabled={loginResetSending}
                     onClick={handleForgotPassword}
-                    className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 cursor-pointer"
+                    className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:underline disabled:opacity-50 cursor-pointer"
                   >
                     {loginResetSending ? "Sending reset link..." : "Forgot password?"}
                   </button>
@@ -1915,12 +1971,12 @@ export function LandingPage() {
                       setLoginPassword(e.target.value);
                       if (loginError) setLoginError("");
                     }}
-                    className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-amber-500 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setLoginShowPassword(!loginShowPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
                   >
                     {loginShowPassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -1931,11 +1987,36 @@ export function LandingPage() {
                 </div>
               </div>
 
+              {/* Optional Join Code field if not already prefilled */}
+              {!loginJoinCode && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Have a Code? <span className="font-normal lowercase text-slate-400">(optional)</span>
+                    </label>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                      League or Squares Board
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={32}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="e.g. U7VUF or 84920"
+                    value={loginJoinCode}
+                    onChange={(e) => setLoginJoinCode(e.target.value.toUpperCase())}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono uppercase text-xs sm:text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              )}
+
               <div className="pt-2 flex flex-col gap-2.5">
                 <button
                   type="submit"
                   disabled={loginLoading || !loginIdentifier.trim() || !loginPassword.trim()}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-md shadow-amber-500/25 transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {loginLoading ? (
                     <>
@@ -1957,7 +2038,7 @@ export function LandingPage() {
                       setShowLoginModal(false);
                       setShowCreateModal(true);
                     }}
-                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
+                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer"
                   >
                     Start a Pool →
                   </button>
@@ -1969,9 +2050,9 @@ export function LandingPage() {
                       setModalError("");
                       setShowJoinModal(true);
                     }}
-                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
+                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer"
                   >
-                    Join with 5-Digit Code →
+                    Join Pool or Board with Code →
                   </button>
                 </div>
               </div>

@@ -12,6 +12,7 @@ import { authFetch } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+import { extractSquaresCode } from "@/lib/squares-validation";
 
 interface LeagueMembership {
   id: string;
@@ -51,9 +52,37 @@ export default function Home() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const join = params.get("join");
-      if (join && join.length === 5) {
-        setJoinCode(join);
-        setShowJoin(true);
+      if (join) {
+        const clean = extractSquaresCode(join);
+        fetch("/api/auth/resolve-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: clean }),
+        })
+          .then((r) => r.json())
+          .then(async (data) => {
+            if (data.found && data.type === "squares") {
+              const token = await auth.currentUser?.getIdToken();
+              if (token) {
+                await fetch("/api/squares/join", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ code: data.code || clean }),
+                }).catch(() => null);
+              }
+              window.location.href = `/squares?id=${encodeURIComponent(data.code || clean)}`;
+            } else {
+              setJoinCode(clean);
+              setShowJoin(true);
+            }
+          })
+          .catch(() => {
+            setJoinCode(clean);
+            setShowJoin(true);
+          });
         window.history.replaceState({}, document.title, window.location.pathname);
       }
       const create = params.get("create");

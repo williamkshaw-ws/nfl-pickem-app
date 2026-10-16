@@ -1,0 +1,103 @@
+import { NextResponse } from "next/server";
+import { adminDb, errorResponse, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { extractSquaresCode } from "@/lib/squares-validation";
+
+export async function POST(request: Request) {
+  try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`resolve-code:${ip}`, 60, 60 * 1000, "Too many code lookups. Please wait a moment.");
+
+    const body = await request.json().catch(() => ({}));
+    const rawCode = typeof body?.code === "string" ? body.code.trim() : "";
+
+    if (!rawCode) {
+      throw new HttpError(400, "Code is required");
+    }
+
+    const cleanCode = extractSquaresCode(rawCode);
+    if (!cleanCode || cleanCode.length < 3 || cleanCode.length > 32) {
+      return NextResponse.json({ found: false, error: "Invalid code format" });
+    }
+
+    const db = adminDb();
+    const upperCode = cleanCode.toUpperCase();
+    const lowerCode = cleanCode.toLowerCase();
+
+    // 1. Check Squares pools
+    let poolDoc = null;
+    const directUpper = await db.collection("squares_pools").doc(upperCode).get();
+    if (directUpper.exists) {
+      poolDoc = directUpper;
+    } else {
+      const directLower = await db.collection("squares_pools").doc(lowerCode).get();
+      if (directLower.exists) {
+        poolDoc = directLower;
+      }
+    }
+
+    if (!poolDoc && !lowerCode.startsWith("sb-")) {
+      const sbDoc = await db.collection("squares_pools").doc(`sb-${lowerCode}`).get();
+      if (sbDoc.exists) poolDoc = sbDoc;
+    }
+
+    if (!poolDoc) {
+      const querySnap = await db
+        .collection("squares_pools")
+        .where("joinCode", "==", upperCode)
+        .limit(1)
+        .get();
+      if (!querySnap.empty) {
+        poolDoc = querySnap.docs[0];
+      }
+    }
+
+    if (poolDoc && poolDoc.exists) {
+      const data = poolDoc.data()!;
+      const displayCode = data.joinCode || poolDoc.id.replace(/^sb-/i, "").toUpperCase();
+      return NextResponse.json({
+        found: true,
+        type: "squares",
+        id: poolDoc.id,
+        code: displayCode,
+        title: data.title || "Super Bowl Squares",
+        topTeam: data.topTeam,
+        leftTeam: data.leftTeam,
+      });
+    }
+
+    // 2. Check Leagues
+    let leagueDoc = await db.collection("leagues").doc(upperCode).get();
+    if (!leagueDoc.exists) {
+      leagueDoc = await db.collection("leagues").doc(cleanCode).get();
+    }
+    if (!leagueDoc.exists) {
+      const leagueSnap = await db
+        .collection("leagues")
+        .where("inviteCode", "==", upperCode)
+        .limit(1)
+        .get();
+      if (!leagueSnap.empty) {
+        leagueDoc = leagueSnap.docs[0];
+      }
+    }
+
+    if (leagueDoc && leagueDoc.exists) {
+      const data = leagueDoc.data()!;
+      return NextResponse.json({
+        found: true,
+        type: "league",
+        id: leagueDoc.id,
+        code: upperCode,
+        name: data.name || "Pick'em League",
+      });
+    }
+
+    return NextResponse.json({
+      found: false,
+      error: "No league or squares board found with that code",
+    });
+  } catch (err: any) {
+    return errorResponse(err);
+  }
+}
