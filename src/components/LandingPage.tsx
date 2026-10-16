@@ -282,6 +282,11 @@ export function LandingPage() {
         } catch (err) {
           console.error("Error joining squares board:", err);
         }
+        try {
+          localStorage.removeItem("pending_squares_code");
+          localStorage.removeItem("pending_redirect_after_auth");
+          localStorage.removeItem("pending_join_code");
+        } catch {}
         window.location.href = `/squares?id=${encodeURIComponent(resolvedSquaresCode)}`;
         return;
       }

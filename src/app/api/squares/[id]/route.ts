@@ -316,10 +316,20 @@ export async function DELETE(
 
     const docData = docSnap.data();
 
-    // Verify caller is the commissioner/owner OR an orphan board with no creatorUserId
+    // Verify caller is the commissioner/owner OR an orphan board with matching ownerKey
     const isOwner = docData?.creatorUserId === caller.uid;
-    const isOrphan = !docData?.creatorUserId;
-    if (!isOwner && !isOrphan) {
+    let isAuthorizedOrphan = false;
+    if (!docData?.creatorUserId) {
+      if (docData?.ownerKey) {
+        const headerKey = request.headers.get("x-owner-key") || "";
+        isAuthorizedOrphan = Boolean(headerKey && headerKey === docData.ownerKey);
+      } else {
+        // True unkeyed legacy board with no owner credentials
+        isAuthorizedOrphan = true;
+      }
+    }
+
+    if (!isOwner && !isAuthorizedOrphan) {
       return NextResponse.json(
         { error: "Unauthorized: only the commissioner who created this board can delete it" },
         { status: 403 }

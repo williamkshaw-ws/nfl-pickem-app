@@ -108,6 +108,13 @@ export default function Login() {
               body: JSON.stringify({ code: data.code || cleanCode }),
             }).catch(() => null);
           }
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.removeItem("pending_squares_code");
+              localStorage.removeItem("pending_redirect_after_auth");
+              localStorage.removeItem("pending_join_code");
+            } catch {}
+          }
           router.replace(`/squares?id=${encodeURIComponent(data.code || cleanCode)}`);
           return;
         }

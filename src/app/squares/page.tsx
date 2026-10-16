@@ -580,6 +580,15 @@ function SquaresPoolApp() {
     const idParam = searchParams.get("id");
     const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
 
+    // Clean up any lingering auth redirect keys once arrived on squares page
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("pending_squares_code");
+        localStorage.removeItem("pending_redirect_after_auth");
+        localStorage.removeItem("pending_join_code");
+      } catch {}
+    }
+
     if (idParam) {
       if (editParam && typeof window !== "undefined") {
         try {
