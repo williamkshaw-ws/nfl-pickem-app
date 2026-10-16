@@ -126,24 +126,12 @@ function getTeamNickname(fullName: string): string {
 function getInitialBoardState(): SquaresBoardState {
   if (typeof window === "undefined") return INITIAL_STATE;
   try {
-    // Purge old legacy v1 local save to ensure fresh default board
+    // Purge legacy storage keys to prevent stale boards from flashing
     localStorage.removeItem("pocketpicks_squares_v1");
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        ...INITIAL_STATE,
-        ...parsed,
-        topTeam: parsed.topTeam === "Kansas City Chiefs" ? "Buffalo Bills" : (parsed.topTeam || "Buffalo Bills"),
-        topNumbers: Array.isArray(parsed.topNumbers) && parsed.topNumbers.length === 10 ? parsed.topNumbers : DEFAULT_TOP_NUMBERS,
-        leftNumbers: Array.isArray(parsed.leftNumbers) && parsed.leftNumbers.length === 10 ? parsed.leftNumbers : DEFAULT_LEFT_NUMBERS,
-        grid: parsed.grid || {},
-        costPerSquare: typeof parsed.costPerSquare === "number" ? parsed.costPerSquare : 10,
-        payouts: parsed.payouts || { q1: "", q2: "", q3: "", final: "" },
-      };
-    }
+    localStorage.removeItem("pocketpicks_squares_v2");
+    localStorage.removeItem(STORAGE_KEY);
   } catch (e) {
-    console.error("Failed to load squares from storage:", e);
+    console.error("Failed to clean squares storage:", e);
   }
   return INITIAL_STATE;
 }
@@ -352,6 +340,7 @@ function SquaresPoolApp() {
   const [joinError, setJoinError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [poolsFetched, setPoolsFetched] = useState(false);
+  const [poolNotFound, setPoolNotFound] = useState(false);
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const [isPrintingBlank, setIsPrintingBlank] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
@@ -634,18 +623,27 @@ function SquaresPoolApp() {
               }
             }
             setSyncStatus("synced");
+            setPoolNotFound(false);
             // Refresh memberships list so joined pool appears in dropdown
             fetchUserPools();
           }
         } catch (err) {
           console.error("Failed to load online squares pool:", err);
-          showToast("Could not load online pool. Loading local copy.");
-          loadFromLocal();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(`pocketpicks_squares_board_${idParam}`);
+            localStorage.removeItem(`squares_owner_${idParam}`);
+            localStorage.removeItem(`squares_owner_key_${idParam}`);
+            if (localStorage.getItem("last_active_squares_board") === idParam) {
+              localStorage.removeItem("last_active_squares_board");
+            }
+          }
+          setPoolNotFound(true);
         } finally {
           setIsLoadingOnline(false);
         }
       })();
     } else {
+      setPoolNotFound(false);
       setIsLoadingOnline(false);
       if (searchParams.get("create") === "1") {
         setBoard({
@@ -1390,7 +1388,7 @@ function SquaresPoolApp() {
     }
   }, []);
 
-  if (!mounted || (authLoading && !poolId) || isLoadingOnline) {
+  if (!mounted || authLoading || (!poolId && user && !poolsFetched) || isLoadingOnline) {
     return (
       <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
         <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
@@ -1791,7 +1789,35 @@ function SquaresPoolApp() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-8 w-full flex-1 print-container">
-        {!user && !poolId ? (
+        {poolNotFound ? (
+          /* Dedicated Board Not Found Screen when a requested board does not exist online */
+          <div className="max-w-md mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-4 animate-in fade-in duration-300">
+            <div className="w-16 h-16 rounded-3xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">Board Not Found</h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              The board &quot;{poolId}&quot; does not exist or has been permanently deleted by its commissioner.
+            </p>
+            <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+              <Link
+                href="/squares"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition active:scale-95"
+              >
+                <Grid className="w-4 h-4" />
+                <span>Go to Squares</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowJoinModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition cursor-pointer active:scale-95"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Join with Code</span>
+              </button>
+            </div>
+          </div>
+        ) : !user && !poolId ? (
           /* Dedicated Commissioner Lock Screen when visiting /squares without an id and unauthenticated */
           <div className="max-w-lg mx-auto my-6 sm:my-16 p-6 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300">
             <div className="flex flex-col items-center justify-center mb-6">

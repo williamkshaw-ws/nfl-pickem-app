@@ -79,21 +79,25 @@ export async function GET(
           }
         }
 
-        const membershipRef = db.collection("squares_memberships").doc(`${callerUser.uid}_${poolId}`);
-        await membershipRef.set(
-          {
-            userId: callerUser.uid,
-            userEmail: callerUser.email || "",
-            poolId,
-            joinCode,
-            poolTitle: rawBoard?.title || "Super Bowl Squares",
-            topTeam: rawBoard?.topTeam || "Team 1",
-            leftTeam: rawBoard?.leftTeam || "Team 2",
-            role: isCreator ? "commissioner" : "member",
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
+        // Only register a membership if the caller is the CREATOR (so it appears in "Boards You Run").
+        // Do NOT silently register regular viewers as members just for viewing a shared link.
+        if (isCreator) {
+          const membershipRef = db.collection("squares_memberships").doc(`${callerUser.uid}_${poolId}`);
+          await membershipRef.set(
+            {
+              userId: callerUser.uid,
+              userEmail: callerUser.email || "",
+              poolId,
+              joinCode,
+              poolTitle: rawBoard?.title || "Super Bowl Squares",
+              topTeam: rawBoard?.topTeam || "Team 1",
+              leftTeam: rawBoard?.leftTeam || "Team 2",
+              role: "commissioner",
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
       }
     } catch {
       // Unauthenticated viewers are permitted
@@ -312,9 +316,10 @@ export async function DELETE(
 
     const docData = docSnap.data();
 
-    // Verify caller is the commissioner/owner
+    // Verify caller is the commissioner/owner OR an orphan board with no creatorUserId
     const isOwner = docData?.creatorUserId === caller.uid;
-    if (!isOwner) {
+    const isOrphan = !docData?.creatorUserId;
+    if (!isOwner && !isOrphan) {
       return NextResponse.json(
         { error: "Unauthorized: only the commissioner who created this board can delete it" },
         { status: 403 }
