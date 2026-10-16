@@ -113,9 +113,12 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
+    const joinCode = existingData?.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+
     await db.collection("squares_pools").doc(poolId).set(
       {
         id: poolId,
+        joinCode,
         board,
         creatorUserId: existingData?.creatorUserId || caller.uid,
         creatorEmail: existingData?.creatorEmail || caller.email || "",
@@ -127,9 +130,29 @@ export async function POST(request: Request) {
       { merge: true }
     );
 
+    // Save commissioner membership for the creator
+    const creatorUid = existingData?.creatorUserId || caller.uid;
+    const membershipId = `${creatorUid}_${poolId}`;
+    await db.collection("squares_memberships").doc(membershipId).set(
+      {
+        userId: creatorUid,
+        userEmail: caller.email || "",
+        poolId,
+        joinCode,
+        poolTitle: board.title || "Super Bowl Squares",
+        topTeam: board.topTeam || "Team 1",
+        leftTeam: board.leftTeam || "Team 2",
+        role: "commissioner",
+        joinedAt: existingData?.createdAt || now,
+        updatedAt: now,
+      },
+      { merge: true }
+    );
+
     return NextResponse.json({
       success: true,
       id: poolId,
+      joinCode,
       creatorUserId: existingData?.creatorUserId || caller.uid,
       creatorName: existingData?.creatorName || creatorName,
       ownerKey,
@@ -152,26 +175,106 @@ export async function GET(request: Request) {
     const caller = await requireUser(request);
 
     const db = adminDb();
-    const snap = await db
+
+    // 1. Fetch pools created by the user
+    const createdSnap = await db
       .collection("squares_pools")
       .where("creatorUserId", "==", caller.uid)
       .get();
 
-    const pools = snap.docs.map((doc) => {
+    // 2. Fetch all pool memberships for the user (both commissioner and joined member)
+    const memberSnap = await db
+      .collection("squares_memberships")
+      .where("userId", "==", caller.uid)
+      .get();
+
+    const poolsMap = new Map<string, {
+      id: string;
+      joinCode: string;
+      title: string;
+      topTeam: string;
+      leftTeam: string;
+      costPerSquare: number;
+      totalClaimed: number;
+      role: "commissioner" | "member";
+      createdAt?: string;
+      updatedAt?: string;
+    }>();
+
+    // Process created pools first
+    for (const doc of createdSnap.docs) {
       const data = doc.data();
       const board = data.board || {};
-      return {
-        id: doc.id,
+      const poolId = doc.id;
+      const joinCode = data.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+      poolsMap.set(poolId, {
+        id: poolId,
+        joinCode,
         title: board.title || "Super Bowl Squares",
         topTeam: board.topTeam || "Team 1",
         leftTeam: board.leftTeam || "Team 2",
         costPerSquare: typeof board.costPerSquare === "number" ? board.costPerSquare : 0,
         totalClaimed: board.grid ? Object.keys(board.grid).length : 0,
+        role: "commissioner",
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
-      };
-    });
+      });
+    }
 
+    // Process memberships (includes joined boards)
+    const missingPoolIds: string[] = [];
+    for (const doc of memberSnap.docs) {
+      const data = doc.data();
+      const poolId = data.poolId;
+      if (!poolId) continue;
+
+      if (!poolsMap.has(poolId)) {
+        missingPoolIds.push(poolId);
+      } else {
+        // Already have it from createdSnap, verify role is commissioner
+        const existing = poolsMap.get(poolId)!;
+        if (data.role === "commissioner") {
+          existing.role = "commissioner";
+        }
+      }
+    }
+
+    // Fetch details for joined pools not created by caller
+    if (missingPoolIds.length > 0) {
+      const chunks = [];
+      for (let i = 0; i < missingPoolIds.length; i += 10) {
+        chunks.push(missingPoolIds.slice(i, i + 10));
+      }
+
+      for (const chunk of chunks) {
+        const docRefs = chunk.map((id) => db.collection("squares_pools").doc(id));
+        const snapshots = await db.getAll(...docRefs);
+
+        for (const doc of snapshots) {
+          if (!doc.exists) continue;
+          const data = doc.data()!;
+          const board = data.board || {};
+          const poolId = doc.id;
+          const joinCode = data.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+          const isCreator = data.creatorUserId === caller.uid;
+
+          poolsMap.set(poolId, {
+            id: poolId,
+            joinCode,
+            title: board.title || "Super Bowl Squares",
+            topTeam: board.topTeam || "Team 1",
+            leftTeam: board.leftTeam || "Team 2",
+            costPerSquare: typeof board.costPerSquare === "number" ? board.costPerSquare : 0,
+            totalClaimed: board.grid ? Object.keys(board.grid).length : 0,
+            role: isCreator ? "commissioner" : "member",
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          });
+        }
+      }
+    }
+
+    const pools = Array.from(poolsMap.values());
     pools.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
     return NextResponse.json({ success: true, pools });

@@ -320,6 +320,7 @@ function SquaresPoolApp() {
   }, []);
   const [publishedPoolId, setPublishedPoolId] = useState<string | null>(null);
   const poolId = searchParams.get("id") || publishedPoolId;
+  const [currentJoinCode, setCurrentJoinCode] = useState<string>("");
   const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "local">("local");
   const [isLoadingOnline, setIsLoadingOnline] = useState<boolean>(() => Boolean(searchParams.get("id")));
   const [filterUser, setFilterUser] = useState<string>("");
@@ -337,6 +338,12 @@ function SquaresPoolApp() {
   const [editingHeader, setEditingHeader] = useState<{ type: "top" | "left"; index: number } | null>(null);
   const [headerInputValue, setHeaderInputValue] = useState("");
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [joinInput, setJoinInput] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
+  const [poolsFetched, setPoolsFetched] = useState(false);
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const [isPrintingBlank, setIsPrintingBlank] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
@@ -356,7 +363,9 @@ function SquaresPoolApp() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Prevent background scrolling and handle Escape key when any modal is open
-  const isAnyModalOpen = Boolean(showRulesModal || confirmModal.isOpen || editingHeader);
+  const isAnyModalOpen = Boolean(
+    showRulesModal || confirmModal.isOpen || editingHeader || showJoinModal || showShareModal
+  );
   useEffect(() => {
     if (isAnyModalOpen) {
       const originalOverflow = document.body.style.overflow;
@@ -421,17 +430,18 @@ function SquaresPoolApp() {
     }
   };
 
-  // User's existing created pools
-  const [userPools, setUserPools] = useState<
-    Array<{
-      id: string;
-      title: string;
-      topTeam: string;
-      leftTeam: string;
-      costPerSquare: number;
-      totalClaimed: number;
-    }>
-  >([]);
+  // User's existing created and joined pools
+  interface UserPoolItem {
+    id: string;
+    joinCode?: string;
+    title: string;
+    topTeam: string;
+    leftTeam: string;
+    costPerSquare: number;
+    totalClaimed: number;
+    role: "commissioner" | "member";
+  }
+  const [userPools, setUserPools] = useState<UserPoolItem[]>([]);
   const [showUserPoolsMenu, setShowUserPoolsMenu] = useState(false);
 
   const getAuthToken = useCallback(async () => {
@@ -442,11 +452,39 @@ function SquaresPoolApp() {
     }
   }, []);
 
+  const fetchUserPools = useCallback(async () => {
+    if (!user) {
+      setPoolsFetched(true);
+      return;
+    }
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setPoolsFetched(true);
+        return;
+      }
+      const res = await fetch("/api/squares", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.pools)) {
+          setUserPools(data.pools);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load user pools:", e);
+    } finally {
+      setPoolsFetched(true);
+    }
+  }, [user, getAuthToken]);
+
   // Viewer & Commissioner Mode State
   const [isAuthDenied, setIsAuthDenied] = useState(false);
 
   const isOwner = useMemo(() => {
     if (isAuthDenied) return false;
+    if (searchParams.get("create") === "1" && user) return true;
     // When no pool ID is in the URL, commissioner must be signed in to create/edit
     if (!poolId) return Boolean(user);
     if (publishedPoolId && publishedPoolId === poolId) return true;
@@ -523,12 +561,15 @@ function SquaresPoolApp() {
         }
       }
 
-      fetch(`/api/squares/${encodeURIComponent(idParam)}`)
-        .then((res) => {
+      (async () => {
+        try {
+          const token = await getAuthToken();
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+
+          const res = await fetch(`/api/squares/${encodeURIComponent(idParam)}`, { headers });
           if (!res.ok) throw new Error("Pool not found");
-          return res.json();
-        })
-        .then((data) => {
+          const data = await res.json();
           if (data.board) {
             setBoard({
               ...INITIAL_STATE,
@@ -545,47 +586,115 @@ function SquaresPoolApp() {
             if (data.creatorName) {
               setPoolCreatorName(data.creatorName);
             }
+            if (data.joinCode) {
+              setCurrentJoinCode(data.joinCode);
+            } else {
+              setCurrentJoinCode(idParam.replace(/^sb-/, "").toUpperCase());
+            }
             setSyncStatus("synced");
+            // Refresh memberships list so joined pool appears in dropdown
+            fetchUserPools();
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           console.error("Failed to load online squares pool:", err);
           showToast("Could not load online pool. Loading local copy.");
           loadFromLocal();
-        })
-        .finally(() => {
+        } finally {
           setIsLoadingOnline(false);
-        });
+        }
+      })();
+    } else {
+      setIsLoadingOnline(false);
+      loadFromLocal();
     }
-  }, [searchParams, loadFromLocal]);
+  }, [searchParams, loadFromLocal, getAuthToken, fetchUserPools]);
 
-  // Fetch user's created pools if logged in
+  // Fetch user's created and joined pools if logged in
   useEffect(() => {
-    let active = true;
-    if (authLoading || !user) return;
+    if (authLoading) return;
+    if (user) {
+      fetchUserPools();
+    } else {
+      setPoolsFetched(true);
+    }
+  }, [authLoading, user, fetchUserPools]);
 
-    const fetchUserPools = async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token || !active) return;
-        const res = await fetch("/api/squares", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok && active) {
-          const data = await res.json();
-          if (Array.isArray(data.pools)) {
-            setUserPools(data.pools);
+  // Auto-redirect to last active or first board for logged-in users visiting /squares without ?id or ?create
+  useEffect(() => {
+    const idParam = searchParams.get("id");
+    const createParam = searchParams.get("create");
+    if (!idParam && createParam !== "1" && poolsFetched && user && userPools.length > 0) {
+      const lastBoardId = typeof window !== "undefined" ? localStorage.getItem("last_active_squares_board") : null;
+      const target = userPools.find((p) => p.id === lastBoardId) || userPools[0];
+      if (target) {
+        router.replace(`/squares?id=${target.id}`);
+      }
+    }
+  }, [searchParams, poolsFetched, user, userPools, router]);
+
+  useEffect(() => {
+    if (poolId && typeof window !== "undefined") {
+      localStorage.setItem("last_active_squares_board", poolId);
+    }
+  }, [poolId]);
+
+  const handleJoinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = joinInput.trim();
+    if (!raw) return;
+
+    setIsJoining(true);
+    setJoinError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        // If guest, parse code and redirect directly to board as viewer
+        let code = raw;
+        if (code.includes("id=")) {
+          try {
+            const u = new URL(code, window.location.origin);
+            code = u.searchParams.get("id") || code;
+          } catch {
+            // keep raw
           }
         }
-      } catch (e) {
-        console.error("Failed to load user pools:", e);
+        code = code.toLowerCase().trim();
+        const poolIdToOpen = code.startsWith("sb-") ? code : `sb-${code}`;
+        setShowJoinModal(false);
+        router.push(`/squares?id=${poolIdToOpen}`);
+        return;
       }
-    };
-    fetchUserPools();
-    return () => {
-      active = false;
-    };
-  }, [authLoading, user, getAuthToken]);
+
+      const res = await fetch("/api/squares/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: raw }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setJoinError(data.error || "Failed to join board");
+        setIsJoining(false);
+        return;
+      }
+
+      setShowJoinModal(false);
+      setJoinInput("");
+      showToast(`Joined ${data.title || "Squares Board"}!`);
+      await fetchUserPools();
+      router.push(`/squares?id=${data.poolId}`);
+    } catch (err: unknown) {
+      console.error("Join pool error:", err);
+      const msg = err instanceof Error ? err.message : "Failed to join board";
+      setJoinError(msg);
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   // 2. Save State: LocalStorage + Online Firestore sync (debounced)
   const saveState = (updated: SquaresBoardState, immediateOnline = false) => {
@@ -851,6 +960,11 @@ function SquaresPoolApp() {
         if (data.creatorName) {
           setPoolCreatorName(data.creatorName);
         }
+        if (data.joinCode) {
+          setCurrentJoinCode(data.joinCode);
+        } else {
+          setCurrentJoinCode(data.id.replace(/^sb-/, "").toUpperCase());
+        }
         setSyncStatus("synced");
         try {
           if (data.ownerKey) {
@@ -862,9 +976,9 @@ function SquaresPoolApp() {
         }
         setIsAuthDenied(false);
         window.history.replaceState({}, "", `/squares?id=${data.id}`);
-        const shareUrl = `${window.location.origin}/squares?id=${data.id}&view=1`;
-        await navigator.clipboard.writeText(shareUrl);
-        showToast("Board published online! Shareable link copied (View-only for players).");
+        await fetchUserPools();
+        setShowShareModal(true);
+        showToast("Board published online! Share modal opened.");
       } else {
         throw new Error(data.error || "Failed to publish");
       }
@@ -1159,10 +1273,20 @@ function SquaresPoolApp() {
                 <h1 className="text-sm sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
                   <span className="truncate">{poolId ? (board.title || "Super Bowl Squares") : user ? (board.title || "Super Bowl Squares") : "Super Bowl Squares"}</span>
                   {poolId ? (
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/60 flex items-center gap-1 shrink-0">
-                      <Globe className="w-2.5 h-2.5" />
-                      <span>{isReadOnly ? "Live Board" : "Live Online"}</span>
-                    </span>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowShareModal(true)}
+                        className="inline-flex items-center gap-1 text-[10px] font-mono font-black tracking-widest px-2 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
+                        title="Click to view share code and link"
+                      >
+                        <span>Code: {currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
+                      </button>
+                      <span className="hidden sm:inline-flex text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/60 items-center gap-1 shrink-0">
+                        <Globe className="w-2.5 h-2.5" />
+                        <span>{isReadOnly ? "Live Board" : "Live Online"}</span>
+                      </span>
+                    </>
                   ) : user ? (
                     <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
                       Draft Board
@@ -1216,8 +1340,8 @@ function SquaresPoolApp() {
               </span>
             )}
 
-            {/* Commissioner's Saved Pools Dropdown */}
-            {user && userPools.length > 0 && (
+            {/* Squares Boards Dropdown */}
+            {user ? (
               <div className="relative">
                 <button
                   type="button"
@@ -1226,41 +1350,118 @@ function SquaresPoolApp() {
                   title="Switch between your squares boards"
                 >
                   <Grid className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span className="hidden sm:inline">My Boards ({userPools.length})</span>
+                  <span className="hidden sm:inline">{userPools.length > 0 ? `My Boards (${userPools.length})` : "Boards"}</span>
                   <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showUserPoolsMenu ? "rotate-180" : ""}`} />
                 </button>
 
                 {showUserPoolsMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
-                    <div className="absolute right-0 mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-80 overflow-y-auto">
-                      <div className="px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                        Your Squares Boards
-                      </div>
-                      {userPools.map((p) => {
-                        const isCurrent = poolId === p.id;
-                        return (
-                          <Link
-                            key={p.id}
-                            href={`/squares?id=${p.id}`}
-                            onClick={() => setShowUserPoolsMenu(false)}
-                            className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
-                              isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <div className="font-bold truncate">{p.title}</div>
-                              <div className="text-[10px] text-slate-400 truncate">
-                                {p.topTeam} vs {p.leftTeam} &bull; {p.totalClaimed}/100 sq
+                    <div className="absolute right-0 mt-1.5 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
+                      {userPools.length === 0 ? (
+                        <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                          You haven&apos;t created or joined any squares boards yet.
+                        </div>
+                      ) : (
+                        <>
+                          {userPools.filter((p) => p.role === "commissioner").length > 0 && (
+                            <div>
+                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Boards You Run</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
+                                  {userPools.filter((p) => p.role === "commissioner").length}
+                                </span>
                               </div>
+                              {userPools
+                                .filter((p) => p.role === "commissioner")
+                                .map((p) => {
+                                  const isCurrent = poolId === p.id;
+                                  return (
+                                    <Link
+                                      key={p.id}
+                                      href={`/squares?id=${p.id}`}
+                                      onClick={() => setShowUserPoolsMenu(false)}
+                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                                        isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
+                                      }`}
+                                    >
+                                      <div className="min-w-0 pr-2">
+                                        <div className="font-bold truncate flex items-center gap-1.5">
+                                          <span className="truncate">{p.title}</span>
+                                          {p.joinCode && (
+                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                              {p.joinCode}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 truncate">
+                                          {p.topTeam} vs {p.leftTeam} &bull; {p.totalClaimed}/100 sq
+                                        </div>
+                                      </div>
+                                      {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
+                                    </Link>
+                                  );
+                                })}
                             </div>
-                            {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
-                          </Link>
-                        );
-                      })}
-                      <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1">
+                          )}
+
+                          {userPools.filter((p) => p.role === "member").length > 0 && (
+                            <div className={userPools.filter((p) => p.role === "commissioner").length > 0 ? "border-t border-slate-100 dark:border-slate-800 mt-1 pt-1" : ""}>
+                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Joined Boards</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
+                                  {userPools.filter((p) => p.role === "member").length}
+                                </span>
+                              </div>
+                              {userPools
+                                .filter((p) => p.role === "member")
+                                .map((p) => {
+                                  const isCurrent = poolId === p.id;
+                                  return (
+                                    <Link
+                                      key={p.id}
+                                      href={`/squares?id=${p.id}`}
+                                      onClick={() => setShowUserPoolsMenu(false)}
+                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                                        isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
+                                      }`}
+                                    >
+                                      <div className="min-w-0 pr-2">
+                                        <div className="font-bold truncate flex items-center gap-1.5">
+                                          <span className="truncate">{p.title}</span>
+                                          {p.joinCode && (
+                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                              {p.joinCode}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 truncate">
+                                          {p.topTeam} vs {p.leftTeam} &bull; {p.totalClaimed}/100 sq
+                                        </div>
+                                      </div>
+                                      {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
+                                    </Link>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1 space-y-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserPoolsMenu(false);
+                            setShowJoinModal(true);
+                          }}
+                          className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition cursor-pointer"
+                        >
+                          <LogIn className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>Join Board with Code</span>
+                        </button>
                         <Link
-                          href="/squares"
+                          href="/squares?create=1"
                           onClick={() => {
                             setShowUserPoolsMenu(false);
                             setPublishedPoolId(null);
@@ -1269,7 +1470,7 @@ function SquaresPoolApp() {
                           }}
                           className="px-3.5 py-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold transition"
                         >
-                          <Grid className="w-3.5 h-3.5" />
+                          <Grid className="w-3.5 h-3.5 shrink-0" />
                           <span>+ Create New Board</span>
                         </Link>
                       </div>
@@ -1277,38 +1478,30 @@ function SquaresPoolApp() {
                   </>
                 )}
               </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowJoinModal(true)}
+                className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
+                title="Join a board with code"
+              >
+                <LogIn className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="hidden sm:inline">Join Board</span>
+              </button>
             )}
 
-            {/* Share / Copy Link Button */}
+            {/* Share / Invite Button */}
             {poolId ? (
-              isOwner ? (
-                <button
-                  type="button"
-                  onClick={handleShareOnline}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
-                  title="Share this board online with friends (view-only for players)"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Link</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(window.location.href);
-                      showToast("Board link copied! Send it to your friends.");
-                    } catch {
-                      showToast("Could not copy link to clipboard.");
-                    }
-                  }}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
-                  title="Copy shareable link"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Link</span>
-                </button>
-              )
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 cursor-pointer"
+                title="Share board with code or link"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Share Board</span>
+                <span className="sm:hidden">Share</span>
+              </button>
             ) : user ? (
               <button
                 type="button"
@@ -1500,8 +1693,86 @@ function SquaresPoolApp() {
             </div>
 
             <div className="pt-5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs text-slate-500">
-              <span>Have a link from your commissioner?</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-300">Open their shared link to view the board.</span>
+              <span>Have a code or link from your commissioner?</span>
+              <button
+                type="button"
+                onClick={() => setShowJoinModal(true)}
+                className="font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+              >
+                Enter Code to View Board
+              </button>
+            </div>
+          </div>
+        ) : user && !authLoading && poolsFetched && userPools.length === 0 && !poolId && searchParams.get("create") !== "1" ? (
+          /* Dedicated 0-Board Onboarding Screen for logged-in users with 0 boards */
+          <div className="max-w-md mx-auto my-6 sm:my-14 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center animate-in fade-in duration-300 space-y-6">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+              <Grid className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white">
+                Welcome{user?.name ? `, ${user.name}` : ""}!
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1.5 leading-relaxed">
+                You don&apos;t have any active Squares boards yet. Create a brand new board for your game or join an existing board with a code.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 text-left space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-slate-900 dark:text-white leading-tight">Super Bowl Squares</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">10x10 party grid with live score auto-sync</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => router.push("/squares?create=1")}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  <span>Create a Board</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-amber-500 dark:hover:border-amber-500 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Join with Code</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Links to other games */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1 text-left">
+              <Link
+                href="/"
+                className="group bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 hover:border-emerald-500/50 rounded-xl p-3 transition flex items-center justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">Pick&apos;em</div>
+                  <div className="text-[10px] text-slate-400 truncate">Weekly picks</div>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition shrink-0" />
+              </Link>
+
+              <Link
+                href="/bracket"
+                className="group bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 hover:border-purple-500/50 rounded-xl p-3 transition flex items-center justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">Playoff Bracket</div>
+                  <div className="text-[10px] text-slate-400 truncate">14-team pool</div>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-500 group-hover:translate-x-0.5 transition shrink-0" />
+              </Link>
             </div>
           </div>
         ) : (
@@ -2608,6 +2879,220 @@ function SquaresPoolApp() {
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-2xl shadow-xl animate-in slide-in-from-bottom-2 duration-200 no-print">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* JOIN BOARD MODAL */}
+      {showJoinModal && (
+        <div
+          onClick={() => {
+            setShowJoinModal(false);
+            setJoinError("");
+            setJoinInput("");
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <Grid className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Join Squares Board
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Enter the 5-character code or full share link.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowJoinModal(false);
+                  setJoinError("");
+                  setJoinInput("");
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {joinError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{joinError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleJoinSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                  5-Digit Code or Share URL
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. K3M9Z or https://.../squares?id=sb-k3m9z"
+                  value={joinInput}
+                  onChange={(e) => {
+                    setJoinInput(e.target.value.toUpperCase());
+                    setJoinError("");
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors uppercase tracking-widest placeholder:tracking-normal placeholder:font-sans placeholder:font-normal placeholder:lowercase placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowJoinModal(false);
+                    setJoinError("");
+                    setJoinInput("");
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isJoining || !joinInput.trim()}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Joining...</span>
+                    </>
+                  ) : (
+                    <span>Join Board</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE / INVITE MODAL */}
+      {showShareModal && poolId && (
+        <div
+          onClick={() => setShowShareModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Share Squares Board
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Invite friends to view or add this board to their account.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 5-Digit Board Code Box */}
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  5-Digit Board Code
+                </span>
+                <span className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-medium">
+                  For PocketPicks users
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-xl px-4 py-2.5 border border-amber-300 dark:border-amber-800/80">
+                <span className="font-mono text-xl font-black tracking-widest text-slate-900 dark:text-white">
+                  {currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const code = currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase();
+                    try {
+                      await navigator.clipboard.writeText(code);
+                      showToast(`Code ${code} copied!`);
+                    } catch {
+                      showToast("Could not copy code");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Code</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Friends with an account can click <strong>Join Board with Code</strong> and enter this code to save it to their profile.
+              </p>
+            </div>
+
+            {/* Direct Web Link Box */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                  Public Direct Link
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  View-only for party guests
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+                  {typeof window !== "undefined" ? `${window.location.origin}/squares?id=${poolId}&view=1` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = `${window.location.origin}/squares?id=${poolId}&view=1`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      showToast("Link copied to clipboard!");
+                    } catch {
+                      showToast("Could not copy link");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition shrink-0 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

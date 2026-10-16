@@ -35,9 +35,36 @@ export async function GET(
       safeBoard = rawBoard;
     }
 
+    // If caller is authenticated, automatically associate this pool with their account
+    const joinCode = data?.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+    try {
+      const caller = await requireUser(request);
+      if (caller && caller.uid) {
+        const isCreator = data?.creatorUserId === caller.uid;
+        const membershipRef = db.collection("squares_memberships").doc(`${caller.uid}_${poolId}`);
+        await membershipRef.set(
+          {
+            userId: caller.uid,
+            userEmail: caller.email || "",
+            poolId,
+            joinCode,
+            poolTitle: rawBoard?.title || "Super Bowl Squares",
+            topTeam: rawBoard?.topTeam || "Team 1",
+            leftTeam: rawBoard?.leftTeam || "Team 2",
+            role: isCreator ? "commissioner" : "member",
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }
+    } catch {
+      // Unauthenticated viewers are permitted
+    }
+
     return NextResponse.json({
       success: true,
       id: poolId,
+      joinCode,
       board: safeBoard,
       creatorUserId: data?.creatorUserId || null,
       creatorName: data?.creatorName || null,
