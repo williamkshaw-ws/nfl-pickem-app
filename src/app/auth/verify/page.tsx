@@ -54,8 +54,14 @@ function VerifyHandler() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      window.location.href = "/";
-} catch (err: any) {
+      const pendingRedirect = typeof window !== "undefined" ? localStorage.getItem("pending_redirect_after_auth") : null;
+      if (pendingRedirect && pendingRedirect.startsWith("/")) {
+        localStorage.removeItem("pending_redirect_after_auth");
+        window.location.href = pendingRedirect;
+      } else {
+        window.location.href = "/";
+      }
+    } catch (err: any) {
       if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
         setLoginError("Invalid email or password. Please try again.");
       } else {

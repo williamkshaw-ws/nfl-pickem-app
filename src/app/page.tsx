@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings } from "lucide-react";
+import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings, ArrowRight } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
@@ -87,6 +88,14 @@ export default function Home() {
     if (hasLandingParam) {
       setLeagueChecked(true);
       setIsRedirecting(false);
+      return;
+    }
+
+    const pendingRedirect = typeof window !== "undefined" ? localStorage.getItem("pending_redirect_after_auth") : null;
+    if (pendingRedirect && pendingRedirect.startsWith("/")) {
+      localStorage.removeItem("pending_redirect_after_auth");
+      setIsRedirecting(true);
+      router.replace(pendingRedirect);
       return;
     }
 
@@ -272,8 +281,8 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
-            <Trophy className="w-10 h-10" />
+          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+            <Trophy className="w-8 h-8" />
           </div>
 
           <div>
@@ -281,28 +290,75 @@ export default function Home() {
               Welcome{user?.name ? `, ${user.name}` : ""}!
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
-              You aren&apos;t in any leagues yet. Create your first league or join an existing one to get started making picks.
+              Choose a game mode below to get started.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => setShowCreate(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              Create League
-            </button>
-            <button
-              onClick={() => setShowJoin(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500 dark:hover:border-emerald-500 font-bold text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
-            >
-              <LogIn className="w-4 h-4" />
-              Join League
-            </button>
+          <div className="space-y-3 pt-1 text-left">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-slate-900 dark:text-white leading-tight">NFL Pick&apos;em &amp; Survivor</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Weekly confidence picks &amp; knockout leagues</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  Create League
+                </button>
+                <button
+                  onClick={() => setShowJoin(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500 dark:hover:border-emerald-500 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  Join League
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Link
+                href="/bracket"
+                className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 rounded-2xl p-4 shadow-xs transition-all flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-slate-900 dark:text-white truncate">Playoff Bracket</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">14-team tournament</div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+              </Link>
+
+              <Link
+                href="/squares"
+                className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 rounded-2xl p-4 shadow-xs transition-all flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-slate-900 dark:text-white truncate">Super Bowl Squares</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">10x10 party grid</div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+              </Link>
+            </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-1">
             <button
               type="button"
               onClick={() => setShowSettings(true)}

@@ -49,8 +49,11 @@ export default function Login() {
 
   const navigateToLeagueOrHome = async (uid: string) => {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const redirect = params?.get("redirect");
+    const redirect = params?.get("redirect") || (typeof window !== "undefined" ? localStorage.getItem("pending_redirect_after_auth") : null);
     if (redirect && redirect.startsWith("/")) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("pending_redirect_after_auth");
+      }
       router.replace(redirect);
       return;
     }

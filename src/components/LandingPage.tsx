@@ -15,7 +15,7 @@ import {
   Check,
   Smartphone,
   Zap,
-  Sliders,
+  Printer,
   X,
   XCircle,
   PlusCircle,
@@ -28,6 +28,7 @@ import {
   EyeOff,
   Loader2,
   Settings,
+  Share2,
 } from "lucide-react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { auth, db } from "@/lib/firebase";
@@ -36,6 +37,8 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+
+type PoolModeTab = "pickem" | "bracket" | "squares";
 
 export function LandingPage() {
   const router = useRouter();
@@ -46,7 +49,10 @@ export function LandingPage() {
   const [modalCode, setModalCode] = useState("");
   const [modalError, setModalError] = useState("");
 
+  // Interactive Hero Preview Tab & Create Modal Pool Type
+  const [previewTab, setPreviewTab] = useState<PoolModeTab>("pickem");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createPoolType, setCreatePoolType] = useState<PoolModeTab>("pickem");
   const [createLeagueName, setCreateLeagueName] = useState("");
   const [createFormat, setCreateFormat] = useState<"both" | "pickem" | "survivor">("both");
 
@@ -75,6 +81,21 @@ export function LandingPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showJoinModal, showCreateModal, showLoginModal]);
 
+  const openStartPoolModal = (defaultType: PoolModeTab = "pickem") => {
+    if (user) {
+      if (defaultType === "bracket") {
+        router.push("/bracket");
+        return;
+      }
+      if (defaultType === "squares") {
+        router.push("/squares");
+        return;
+      }
+    }
+    setCreatePoolType(defaultType);
+    setShowCreateModal(true);
+  };
+
   const handleQuickJoin = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = inviteCode.trim().toUpperCase();
@@ -93,11 +114,18 @@ export function LandingPage() {
     }
     setModalError("");
     setShowJoinModal(false);
+    try {
+      localStorage.removeItem("pending_redirect_after_auth");
+    } catch {
+      // Ignore storage errors
+    }
     if (action === "register") {
       router.push(`/auth/register?join=${clean}`);
     } else {
-      if (typeof window !== "undefined") {
+      try {
         localStorage.setItem("pending_join_code", clean);
+      } catch {
+        // Ignore storage errors
       }
       setLoginError("");
       setShowLoginModal(true);
@@ -105,17 +133,42 @@ export function LandingPage() {
   };
 
   const handleCreateModalSubmit = (action: "register" | "login") => {
-    const cleanName = createLeagueName.trim();
-    if (typeof window !== "undefined" && cleanName) {
-      localStorage.setItem("pending_create_league_name", cleanName);
-      localStorage.setItem("pending_create_league_format", createFormat);
-    }
     setShowCreateModal(false);
+
+    // Standalone Playoff Bracket or Super Bowl Squares flow (no Pick'em league required)
+    if (createPoolType === "bracket" || createPoolType === "squares") {
+      const targetPath = createPoolType === "bracket" ? "/bracket" : "/squares";
+      try {
+        localStorage.setItem("pending_redirect_after_auth", targetPath);
+        localStorage.removeItem("pending_create_league_name");
+      } catch {
+        // Ignore storage errors
+      }
+      if (action === "register") {
+        router.push(`/auth/register?redirect=${encodeURIComponent(targetPath)}`);
+      } else {
+        setLoginError("");
+        setShowLoginModal(true);
+      }
+      return;
+    }
+
+    // Pick'em & Survivor League flow
+    const cleanName = createLeagueName.trim();
+    try {
+      localStorage.removeItem("pending_redirect_after_auth");
+      if (cleanName) {
+        localStorage.setItem("pending_create_league_name", cleanName);
+        localStorage.setItem("pending_create_league_format", createFormat);
+      }
+    } catch {
+      // Ignore storage errors
+    }
     if (action === "register") {
-      const query = cleanName
+      const queryStr = cleanName
         ? `?create=true&name=${encodeURIComponent(cleanName)}`
         : "?create=true";
-      router.push(`/auth/register${query}`);
+      router.push(`/auth/register${queryStr}`);
     } else {
       setLoginError("");
       setShowLoginModal(true);
@@ -156,14 +209,33 @@ export function LandingPage() {
 
       setShowLoginModal(false);
 
-      const pendingJoin = typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null;
+      let pendingRedirect: string | null = null;
+      let pendingJoin: string | null = null;
+      let pendingCreate: string | null = null;
+      try {
+        pendingRedirect = localStorage.getItem("pending_redirect_after_auth");
+        pendingJoin = localStorage.getItem("pending_join_code");
+        pendingCreate = localStorage.getItem("pending_create_league_name");
+      } catch {
+        // Ignore storage errors
+      }
+
+      if (pendingRedirect && pendingRedirect.startsWith("/")) {
+        try {
+          localStorage.removeItem("pending_redirect_after_auth");
+        } catch {}
+        window.location.href = pendingRedirect;
+        return;
+      }
+
       if (pendingJoin && pendingJoin.length === 5) {
-        localStorage.removeItem("pending_join_code");
+        try {
+          localStorage.removeItem("pending_join_code");
+        } catch {}
         window.location.href = `/?join=${pendingJoin.toUpperCase()}`;
         return;
       }
 
-      const pendingCreate = typeof window !== "undefined" ? localStorage.getItem("pending_create_league_name") : null;
       if (pendingCreate) {
         window.location.href = `/?create=true&name=${encodeURIComponent(pendingCreate)}`;
         return;
@@ -173,12 +245,15 @@ export function LandingPage() {
         const q = query(collection(db, "memberships"), where("userId", "==", userCredential.user.uid));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-          const lastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
+          let lastLeague: string | null = null;
+          try {
+            lastLeague = localStorage.getItem("last_active_league");
+          } catch {}
           const matchingDoc = snapshot.docs.find((d) => d.data().leagueId === lastLeague);
           const targetLeagueId = matchingDoc ? matchingDoc.data().leagueId : snapshot.docs[0].data().leagueId;
-          if (typeof window !== "undefined") {
+          try {
             localStorage.setItem("last_active_league", targetLeagueId);
-          }
+          } catch {}
           window.location.href = `/league/${targetLeagueId}`;
           return;
         }
@@ -245,38 +320,34 @@ export function LandingPage() {
 
   const faqs = [
     {
-      q: "Is PocketPicks free to use?",
-      a: "Yes, 100% free! There are no entry fees, subscription paywalls, or limits on how many friends or coworkers you can invite to your league.",
+      q: "Can I create just a Super Bowl Squares board or Playoff Bracket without a Pick'em league?",
+      a: "Yes! All three games work independently. You can create a standalone Super Bowl Squares board, run a Playoff Bracket challenge, or host a full season-long Weekly Pick'em & Survivor league — whatever fits your group.",
     },
     {
-      q: "How does the Eliminator / Survivor pool work?",
-      a: "Each week, pick one NFL team to win their game. If they win, you advance to the next week; if they lose or tie, you are eliminated. The catch? You can only select each team once per season, so strategic planning is key!",
+      q: "Do players need an account to view a Super Bowl Squares board?",
+      a: "No! Only the commissioner needs an account to set up and manage the Squares grid. Once published, you get a shareable view-only link that anyone can open on their phone or computer without logging in.",
     },
     {
-      q: "Can we run both Pick'em and Survivor in the same league?",
-      a: "Absolutely! Commissioners can enable Pick'em, Survivor, or both. When both are enabled, members can make their weekly game picks and their survivor lock in one streamlined view.",
+      q: "Can we run both Weekly Pick'em and Survivor in the same league?",
+      a: "Absolutely. Commissioners can enable Weekly Pick'em, Eliminator/Survivor, or both together so players make their weekly game picks and their Survivor lock on one screen.",
     },
     {
-      q: "How do tiebreakers work for Weekly Pick'em?",
-      a: "We use a fair 3-tier tiebreaker on the final game of the week (usually Monday Night Football). Tiebreakers evaluate: (1) Closest to the total combined game score, (2) Closest to the home team's actual score, and (3) Closest to the away team's score.",
+      q: "How do anti-peeking locks and tiebreakers work?",
+      a: "Other players' picks remain strictly hidden until kickoff so nobody can copy selections early. Ties are broken automatically using a 3-tier tiebreaker on Monday Night Football (or the Super Bowl): closest to combined total points, then home score, then away score.",
     },
     {
-      q: "Can other players see my picks before games start?",
-      a: "Never. Anti-peeking game locks keep everyone's picks strictly hidden until the respective game kicks off. Once kickoff occurs, selections are unveiled in the live League Picks board.",
-    },
-    {
-      q: "Do commissioners need to enter scores manually?",
-      a: "No! PocketPicks automatically syncs live scores, statuses, and final results directly from ESPN every 45 seconds during game days.",
+      q: "Is PocketPicks free and do scores update automatically?",
+      a: "PocketPicks is 100% free with no ads or player limits, and live scores, quarter payouts, and standings sync automatically from ESPN.",
     },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-emerald-500 selection:text-white scroll-smooth overflow-x-clip">
       {/* ─────────────────────────────────────────────────────────────
-          1. NAVIGATION BAR (Permanently Fixed on Scroll)
+          1. NAVIGATION BAR
       ───────────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Logo & Game Switcher */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <GameSwitcherDropdown currentGame="pickem" />
@@ -287,11 +358,11 @@ export function LandingPage() {
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <a href="#modes" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              3 Ways to Play
+            </a>
             <a href="#features" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
               Features
-            </a>
-            <a href="#modes" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-              Game Modes
             </a>
             <a href="#how-it-works" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
               How It Works
@@ -301,17 +372,17 @@ export function LandingPage() {
             </a>
           </div>
 
-          {/* Right Controls: Single line on mobile */}
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          {/* Right Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
             {user ? (
               <>
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
-                  className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
+                  className="px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
                 >
                   <div className={`w-4 h-4 rounded ${user.avatarColor || "bg-emerald-600"} text-white font-black flex items-center justify-center text-[9px] shrink-0`}>
-                    {user.name?.charAt(0).toUpperCase() || "U"}
+                    {((user.name || user.username || user.email || "U").charAt(0) || "U").toUpperCase()}
                   </div>
                   <span>Settings</span>
                   <Settings className="w-3.5 h-3.5 text-slate-400" />
@@ -319,9 +390,9 @@ export function LandingPage() {
 
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap"
+                  className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap"
                 >
-                  <span>My Leagues</span>
+                  <span>My Pools</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </>
@@ -330,20 +401,23 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    try {
+                      localStorage.removeItem("pending_redirect_after_auth");
+                    } catch {}
                     setLoginError("");
                     setShowLoginModal(true);
                   }}
-                  className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
+                  className="px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
                 >
                   Sign In
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap"
+                  onClick={() => openStartPoolModal("pickem")}
+                  className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap cursor-pointer"
                 >
-                  <span>Create League</span>
+                  <span>Start a Pool</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </>
@@ -352,44 +426,55 @@ export function LandingPage() {
         </div>
       </nav>
 
-      {/* Header spacer to prevent hero section jumping underneath fixed nav */}
-      <div className="h-16 shrink-0" aria-hidden="true" />
+      {/* Header spacer */}
+      <div className="h-14 sm:h-16 shrink-0" aria-hidden="true" />
 
       {/* ─────────────────────────────────────────────────────────────
-          2. HERO SECTION
+          2. HERO SECTION + INTERACTIVE 3-GAME PREVIEW
       ───────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-12 pb-16 sm:pt-20 sm:pb-24">
-        {/* Subtle decorative background gradient glows */}
+      <section className="relative overflow-hidden pt-8 pb-10 sm:pt-16 sm:pb-20">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-emerald-400/10 dark:bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none -z-10" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-bold mb-6 animate-fade-in shadow-xs">
-            <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>The Modern NFL Pick&apos;em &amp; Survivor Pool Platform</span>
+          {/* Pill Badge */}
+          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-[11px] sm:text-xs font-bold mb-5 shadow-2xs">
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Pick&apos;em &amp; Survivor
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              Playoff Bracket
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              Super Bowl Squares
+            </span>
           </div>
 
           {/* Heading */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 dark:text-white max-w-4xl mx-auto leading-[1.08]">
-            Run your NFL pool without the{" "}
+          <h1 className="text-3xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 dark:text-white max-w-4xl mx-auto leading-[1.08]">
+            Run your NFL pools without the{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400">
               headaches.
             </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-6 text-base sm:text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-            Automated ESPN live scores, anti-peeking game locks, 3-tier tiebreakers, and real-time league picks boards. Built for friends, family, and office leagues.
+          <p className="mt-4 sm:mt-6 text-sm sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
+            Host a season-long Pick&apos;em &amp; Survivor league, a postseason Playoff Bracket, or a 100-Square Super Bowl board. Automated live ESPN scores, zero spreadsheets.
           </p>
 
           {/* Call to action buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-md mx-auto">
+          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 max-w-md mx-auto">
             <button
               type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2"
+              onClick={() => openStartPoolModal(previewTab)}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Create Free League</span>
+              <span>Start a Free Pool</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -399,490 +484,516 @@ export function LandingPage() {
                 setModalError("");
                 setShowJoinModal(true);
               }}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Join with Code</span>
+              <span>Join League with Code</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
           </div>
 
-          <p className="mt-3.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
-            100% Free • No credit card • Instant 30-second setup
+          <p className="mt-3 text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 font-medium">
+            100% Free • Use any pool type independently • 30-second setup
           </p>
 
           {/* ─────────────────────────────────────────────────────────────
-              3. AUTHENTIC APP INTERACTIVE PREVIEW
+              3. INTERACTIVE 3-TAB PREVIEW SHOWCASE
           ───────────────────────────────────────────────────────────── */}
-          <div className="mt-8 sm:mt-14 max-w-5xl mx-auto text-left">
-            <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
-              {/* Authentic App Header Strip (Matches Header.tsx exactly) */}
-              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 dark:bg-emerald-600 flex items-center justify-center flex-shrink-0">
-                    <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex items-center min-w-0 gap-2">
-                    <h3 className="font-extrabold text-sm sm:text-lg tracking-tight text-slate-900 dark:text-white truncate flex items-center gap-1 sm:gap-1.5">
-                      Sunday Gridiron Club <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;26</span>
-                    </h3>
+          <div className="mt-7 sm:mt-12 max-w-5xl mx-auto">
+            {/* Mode Switcher Pills */}
+            <div className="inline-flex p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-4 max-w-full overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setPreviewTab("pickem")}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  previewTab === "pickem"
+                    ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <span>Pick&apos;em &amp; Survivor</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewTab("bracket")}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  previewTab === "bracket"
+                    ? "bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
+                <span>Playoff Bracket</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewTab("squares")}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                  previewTab === "squares"
+                    ? "bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <span>Super Bowl Squares</span>
+              </button>
+            </div>
 
-                    <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-800 mx-1" />
-
-                    <div className="relative flex items-center flex-shrink-0 bg-slate-100/80 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm py-1 sm:py-1.5 pl-2.5 sm:pl-3 pr-7 sm:pr-8 rounded-md sm:rounded-lg border border-slate-200/80 dark:border-slate-700">
-                      <span>Week 5</span>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 absolute right-2 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                    J
-                  </div>
-                  <div className="hidden sm:flex flex-col text-left">
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">Jimmy</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Account</span>
-                  </div>
-                  <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-slate-400 ml-1" />
-                </div>
-              </div>
-
-              {/* Authentic App Navigation Tabs Bar (Static Showcase) */}
-              <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 flex items-center gap-4 sm:gap-8 overflow-x-auto text-xs sm:text-sm font-bold no-scrollbar select-none">
-                <div className="py-2.5 sm:py-3.5 border-b-2 border-slate-900 text-slate-900 dark:border-white dark:text-white flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>My Picks</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md inline-block min-w-[36px] text-center bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                    15/15
-                  </span>
-                </div>
-
-                <div className="py-2.5 sm:py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
-                  <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>League Picks</span>
-                </div>
-
-                <div className="py-2.5 sm:py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
-                  <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Survivor</span>
-                </div>
-
-                <div className="py-2.5 sm:py-3.5 border-b-2 border-transparent text-slate-400 dark:text-slate-500 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
-                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Season Standings</span>
-                </div>
-              </div>
-
-              {/* Authentic Content Area - Static My Picks Screen */}
-              <div className="p-3 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
-                <div className="space-y-3 sm:space-y-4">
-                    {/* Week Subheader (Matches WeeklyPicks.tsx) */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 gap-2">
-                      <div>
-                        <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                          Week 5 Picks
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Picking as <strong className="text-slate-800 dark:text-slate-200">Jimmy</strong>
-                        </p>
+            {/* Preview Frame */}
+            <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-xl overflow-hidden text-left">
+              {previewTab === "pickem" && (
+                <div>
+                  {/* Header Strip */}
+                  <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
                       </div>
-                    </div>
-
-                    {/* Survivor Pool Health & Status Banner (Matches WeeklyPicks.tsx) */}
-                    <div className="rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-colors bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border-emerald-200/80 dark:border-emerald-800/60">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-slate-800 text-white shadow-xs">
-                            <Target className="w-3.5 h-3.5 text-rose-400" />
-                            Survivor
-                          </span>
-
-                          <div className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>You are Alive</span>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 px-2.5 py-1 rounded-full">
-                            <Shield className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                            <span>
-                              <strong className="text-slate-900 dark:text-white">3</strong> of 4 survivors alive
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium bg-white/60 dark:bg-slate-800/60 sm:bg-transparent px-2 sm:px-0 py-1 sm:py-0 rounded-lg sm:rounded-none">
-                            <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                            <span>
-                              Next kickoff: <strong className="text-slate-800 dark:text-slate-200">Sun 1:00 PM</strong>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Matchup Card 1: Live Game (KC @ BUF) */}
-                    <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex flex-col border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-300/30 dark:ring-emerald-700/30">
-                      <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Sun 1:00 PM</span>
-                          <span className="text-slate-300 dark:text-slate-600">|</span>
-                          <span>KC -2.5</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>4th 2:14</span>
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Chiefs (Away - Selected + Survivor Pick) */}
-                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <TeamLogo
-                              src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
-                              alt="KC"
-                              width={28}
-                              height={28}
-                              className="w-7 h-7 object-contain shrink-0"
-                            />
-                            <div className="text-left min-w-0">
-                              <div className="text-sm font-bold leading-tight truncate text-emerald-900 dark:text-emerald-200">
-                                Kansas City Chiefs
-                              </div>
-                              <div className="text-[10px] text-slate-500 dark:text-slate-400">4-0 • Away</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-black text-slate-900 dark:text-white">28</span>
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold bg-rose-500 text-white shadow-xs whitespace-nowrap">
-                              <Target className="w-3 h-3" />
-                              <span>Survivor</span>
-                            </div>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          </div>
-                        </div>
-
-                        {/* Bills (Home) */}
-                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <TeamLogo
-                              src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
-                              alt="BUF"
-                              width={28}
-                              height={28}
-                              className="w-7 h-7 object-contain shrink-0"
-                            />
-                            <div className="text-left min-w-0">
-                              <div className="text-sm font-bold leading-tight truncate text-slate-900 dark:text-white">
-                                Buffalo Bills
-                              </div>
-                              <div className="text-[10px] text-slate-500 dark:text-slate-400">3-1 • Home</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-black text-slate-400 dark:text-slate-500">24</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Matchup Card 2: Final Game (DET @ BAL) */}
-                    <div className="hidden sm:flex bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs flex-col border-rose-300 dark:border-rose-900 bg-rose-50/10 dark:bg-rose-950/10">
-                      <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Sun 4:25 PM</span>
-                          <span className="text-slate-300 dark:text-slate-600">|</span>
-                          <span>BAL -3.0</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">Final</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        {/* Lions (Away - Selected) */}
-                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <TeamLogo
-                              src="https://a.espncdn.com/i/teamlogos/nfl/500/det.png"
-                              alt="DET"
-                              width={28}
-                              height={28}
-                              className="w-7 h-7 object-contain shrink-0"
-                            />
-                            <div className="text-left min-w-0">
-                              <div className="text-sm font-bold leading-tight truncate text-emerald-900 dark:text-emerald-200">
-                                Detroit Lions
-                              </div>
-                              <div className="text-[10px] text-slate-500 dark:text-slate-400">4-1 • Away</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-black text-slate-400 dark:text-slate-500">21</span>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          </div>
-                        </div>
-
-                        {/* Ravens (Home - Winner) */}
-                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <TeamLogo
-                              src="https://a.espncdn.com/i/teamlogos/nfl/500/bal.png"
-                              alt="BAL"
-                              width={28}
-                              height={28}
-                              className="w-7 h-7 object-contain shrink-0"
-                            />
-                            <div className="text-left min-w-0">
-                              <div className="text-sm font-bold leading-tight truncate text-slate-900 dark:text-white">
-                                Baltimore Ravens
-                              </div>
-                              <div className="text-[10px] text-slate-500 dark:text-slate-400">3-2 • Home</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-black text-slate-900 dark:text-white">24</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center text-xs">
-                        <span className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-400">
-                          <XCircle className="w-3.5 h-3.5" /> Incorrect
+                      <div className="flex items-center min-w-0 gap-2">
+                        <h3 className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
+                          Sunday Gridiron Club <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;26</span>
+                        </h3>
+                        <span className="text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+                          Week 6
                         </span>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                        14/14 Saved
+                      </span>
+                    </div>
+                  </div>
 
-                    {/* Tiebreaker Section (Pick'em only - 100% matches WeeklyPicks.tsx) */}
-                    <div className="hidden sm:block bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 shadow-xs mt-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                            <h3 className="font-bold text-sm text-amber-900 dark:text-amber-200">Tiebreaker Prediction</h3>
+                  {/* Body */}
+                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50 space-y-3">
+                    {/* Survivor Status Bar */}
+                    <div className="rounded-2xl border p-3 bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border-emerald-200/80 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-slate-900 dark:bg-slate-800 text-white">
+                          <Target className="w-3 h-3 text-rose-400" />
+                          Survivor
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Alive (9 of 15 left)
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        Anti-peeking active until kickoff
+                      </span>
+                    </div>
+
+                    {/* Live Matchup Card */}
+                    <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs border-emerald-300 dark:border-emerald-700">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-500">
+                        <span>Sun 4:25 PM • KC -2.5</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          4th 2:14
+                        </span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
+                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png" alt="KC" width={26} height={26} className="w-6.5 h-6.5 object-contain shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-bold truncate text-emerald-900 dark:text-emerald-200">Kansas City Chiefs</div>
+                              <div className="text-[10px] text-slate-500">4-1 • Your Pick</div>
+                            </div>
                           </div>
-                          <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
-                            Tampa Bay Buccaneers @ Atlanta Falcons
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">28</span>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500 text-white">Survivor</span>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          </div>
                         </div>
-
-                        <div className="flex flex-col sm:flex-row items-center gap-3">
-                          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-900/60 shadow-xs">
-                            <div className="flex items-center gap-2">
-                              <TeamLogo
-                                src="https://a.espncdn.com/i/teamlogos/nfl/500/tb.png"
-                                alt="TB"
-                                width={22}
-                                height={22}
-                                className="w-5.5 h-5.5 object-contain shrink-0"
-                              />
-                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-8 text-right">TB</span>
-                              <div className="w-12 h-8 flex items-center justify-center text-sm font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-md">
-                                27
-                              </div>
-                            </div>
-                            <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
-                            <div className="flex items-center gap-2">
-                              <div className="w-12 h-8 flex items-center justify-center text-sm font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-md">
-                                24
-                              </div>
-                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 w-8">ATL</span>
-                              <TeamLogo
-                                src="https://a.espncdn.com/i/teamlogos/nfl/500/atl.png"
-                                alt="ATL"
-                                width={22}
-                                height={22}
-                                className="w-5.5 h-5.5 object-contain shrink-0"
-                              />
-                            </div>
-                            <div className="border-l border-slate-100 dark:border-slate-800 pl-3 ml-1 flex flex-col items-center justify-center min-w-[40px]">
-                              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</span>
-                              <span className="text-sm font-black text-slate-700 dark:text-slate-200">51</span>
+                        <div className="flex-1 p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={26} height={26} className="w-6.5 h-6.5 object-contain shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">Buffalo Bills</div>
+                              <div className="text-[10px] text-slate-500">4-1 • Home</div>
                             </div>
                           </div>
+                          <span className="text-base sm:text-lg font-black text-slate-400">24</span>
                         </div>
                       </div>
                     </div>
                   </div>
-              </div>
+                </div>
+              )}
+
+              {previewTab === "bracket" && (
+                <div>
+                  {/* Header Strip */}
+                  <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
+                      </div>
+                      <h3 className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
+                        NFL Playoff Bracket Challenge
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 shrink-0">
+                      13 / 13 Picks
+                    </span>
+                  </div>
+
+                  {/* Bracket Preview Body */}
+                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                      {/* AFC Championship */}
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 space-y-2">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                          AFC Championship
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
+                          <span className="flex items-center gap-2">
+                            <span className="text-[10px] opacity-80">#1</span> Buffalo Bills
+                          </span>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                          <span className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400">#2</span> Kansas City Chiefs
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Super Bowl Centerpiece */}
+                      <div className="bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-3.5 text-center space-y-2">
+                        <Trophy className="w-6 h-6 text-amber-500 mx-auto" />
+                        <div className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+                          Super Bowl Champion
+                        </div>
+                        <div className="p-2 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs">
+                          <span>Buffalo Bills</span>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                          Tiebreaker: BUF 27 – DET 24
+                        </div>
+                      </div>
+
+                      {/* NFC Championship */}
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 space-y-2">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                          NFC Championship
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
+                          <span className="flex items-center gap-2">
+                            <span className="text-[10px] opacity-80">#1</span> Detroit Lions
+                          </span>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                          <span className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400">#2</span> San Francisco 49ers
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {previewTab === "squares" && (
+                <div>
+                  {/* Header Strip */}
+                  <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
+                      </div>
+                      <h3 className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
+                        Super Bowl Squares Pool
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
+                      100 / 100 Claimed
+                    </span>
+                  </div>
+
+                  {/* Squares Preview Body */}
+                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50 space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-amber-600">Q1 Winner</div>
+                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Sarah J.</div>
+                        </div>
+                        <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-sky-300 dark:border-sky-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-sky-600">Halftime</div>
+                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Jimmy</div>
+                        </div>
+                        <span className="text-xs font-mono font-black text-emerald-600">+$250</span>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-purple-300 dark:border-purple-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-purple-600">Q3 Winner</div>
+                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Marcus</div>
+                        </div>
+                        <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-emerald-400 dark:border-emerald-700 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-emerald-600">Final Score</div>
+                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Coach Tom</div>
+                        </div>
+                        <span className="text-xs font-mono font-black text-emerald-600">+$450</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <Share2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>Shareable public link — players view live without logging in</span>
+                      </span>
+                      <span className="hidden sm:inline text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                        Live ESPN Sync
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          4. TWO GAME MODES (PICK'EM & SURVIVOR)
+          4. THREE WAYS TO PLAY (ALL 3 SITE OPTIONS)
       ───────────────────────────────────────────────────────────── */}
-      <section id="modes" className="scroll-mt-20 py-10 sm:py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60">
+      <section id="modes" className="scroll-mt-16 py-10 sm:py-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
+          <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-12">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
-              Dual Formats
+              3 Ways to Play
             </span>
-            <h2 className="mt-2 text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-              Two iconic formats. One unified league.
+            <h2 className="mt-1.5 text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+              Play one pool or run all three.
             </h2>
-            <p className="mt-2 sm:mt-3 text-slate-600 dark:text-slate-400 text-xs sm:text-base">
-              Run both games in parallel or choose your league&apos;s favorite format with one switch.
+            <p className="mt-2 text-slate-600 dark:text-slate-400 text-xs sm:text-base">
+              Each game mode works completely on its own — create just a Squares board, a Playoff Bracket, or a full weekly league.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 max-w-5xl mx-auto">
-            {/* Mode 1: Weekly Pick'em */}
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* Option 1: Weekly Pick'em & Survivor */}
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
               <div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 sm:mb-6">
-                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-500/20">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 tracking-wider">
+                    Full Season League
+                  </span>
                 </div>
-                <div className="inline-block text-[10px] sm:text-[11px] font-black uppercase px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-100/80 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 mb-2 sm:mb-3 tracking-wider">
-                  Weekly Leaderboards
-                </div>
-                <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white">
-                  Weekly NFL Pick&apos;em
+
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  NFL Pick&apos;em &amp; Survivor
                 </h3>
-                <p className="mt-2 sm:mt-3 text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
-                  Predict every matchup of the NFL week straight up or with point spreads. Tally points, climb season standings, and chase weekly winner titles.
+                <p className="mt-2 text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                  Pick weekly game winners straight up and run a high-stakes Eliminator / Survivor pool side-by-side.
                 </p>
 
-                <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-2.5 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
+                <ul className="mt-4 space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
                   <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Run Pick&apos;em, Survivor, or both</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Anti-peeking locks until game kickoff</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
                     <span>3-tier Monday Night Football tiebreaker</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
-                    <span>Live League Picks unveiling right at kickoff</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 flex-shrink-0" />
-                    <span>Season rankings with games back (GB) &amp; rank moves</span>
-                  </li>
                 </ul>
               </div>
+
+              <button
+                type="button"
+                onClick={() => openStartPoolModal("pickem")}
+                className="mt-6 w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <span>Create Pick&apos;em League</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
-            {/* Mode 2: Survivor Pool */}
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-9 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between">
+            {/* Option 2: Playoff Bracket */}
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
               <div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 sm:mb-6">
-                  <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm shadow-purple-500/20">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 tracking-wider">
+                    Postseason Challenge
+                  </span>
                 </div>
-                <div className="inline-block text-[10px] sm:text-[11px] font-black uppercase px-2 sm:px-2.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 mb-2 sm:mb-3 tracking-wider">
-                  High-Stakes Survival
-                </div>
-                <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white">
-                  Eliminator / Survivor
+
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  Playoff Bracket
                 </h3>
-                <p className="mt-2 sm:mt-3 text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
-                  Pick one winning team each week. If they triumph, you survive to next week. If they stumble or tie, you are eliminated.
+                <p className="mt-2 text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                  Predict every NFL playoff matchup from Wild Card weekend through the Super Bowl Champion — no weekly league required.
                 </p>
 
-                <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-2.5 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
+                <ul className="mt-4 space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
                   <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 flex-shrink-0" />
-                    <span>Can only pick each team once all season</span>
+                    <Check className="w-4 h-4 text-purple-500 shrink-0" />
+                    <span>Interactive AFC &amp; NFC bracket tree</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 flex-shrink-0" />
-                    <span>Opponent locks kept strictly hidden until game start</span>
+                    <Check className="w-4 h-4 text-purple-500 shrink-0" />
+                    <span>Auto-advancing seeds &amp; round scoring</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 flex-shrink-0" />
-                    <span>Sole Survivor crowning or longest-survival tiebreaks</span>
+                    <Check className="w-4 h-4 text-purple-500 shrink-0" />
+                    <span>Super Bowl score tiebreaker &amp; PDF print</span>
                   </li>
                 </ul>
               </div>
+
+              <button
+                type="button"
+                onClick={() => openStartPoolModal("bracket")}
+                className="mt-6 w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <span>Start Playoff Bracket</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Option 3: Super Bowl Squares */}
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-500/20">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 tracking-wider">
+                    100-Square Grid
+                  </span>
+                </div>
+
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  Super Bowl Squares
+                </h3>
+                <p className="mt-2 text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                  Build a 10x10 Squares pool in seconds, randomize numbers with one click, and share a live link with your party.
+                </p>
+
+                <ul className="mt-4 space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>Public view-only link (no login for players)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>Live ESPN Q1, Half, Q3 &amp; Final winners</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>Single-page landscape PDF printout</span>
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => openStartPoolModal("squares")}
+                className="mt-6 w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <span>Create Squares Board</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          5. KEY FEATURES / COMMISSIONER PERKS
+          5. KEY FEATURES (COMPACT 2x3 MOBILE GRID)
       ───────────────────────────────────────────────────────────── */}
-      <section id="features" className="scroll-mt-20 py-10 sm:py-20 bg-slate-50 dark:bg-slate-950">
+      <section id="features" className="scroll-mt-16 py-10 sm:py-16 bg-slate-50 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
+          <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-12">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
-              Built for Real Leagues
+              Built for Commissioners &amp; Players
             </span>
-            <h2 className="mt-2 text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-              Features commissioners &amp; players rave about
+            <h2 className="mt-1.5 text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+              Everything automated. Zero spreadsheets.
             </h2>
-            <p className="mt-2 sm:mt-3 text-slate-600 dark:text-slate-400 text-xs sm:text-base">
-              Everything you need for clean competition without wrestling with spreadsheets.
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            {/* Feature 1 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-start">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2.5 sm:mb-4">
-                <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-100 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-2.5">
+                <Zap className="w-4 h-4" />
+              </div>
+              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Live ESPN Sync</h4>
+              <p className="mt-1 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                Game scores, standings, and quarter winners update automatically in real time.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2.5">
+                <Lock className="w-4 h-4" />
               </div>
               <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Anti-Peeking Locks</h4>
-              <p className="mt-1 sm:mt-2 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug sm:leading-relaxed">
-                Picks are completely masked until kickoff. Opponents can never spy before kickoff.
+              <p className="mt-1 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                Picks stay hidden until kickoff so nobody can copy selections ahead of time.
               </p>
             </div>
 
-            {/* Feature 2 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-start">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-cyan-100 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-2.5 sm:mb-4">
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2.5">
+                <Share2 className="w-4 h-4" />
               </div>
-              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Live ESPN Scores</h4>
-              <p className="mt-1 sm:mt-2 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug sm:leading-relaxed">
-                Scores and winner decisions update automatically in real-time. No manual entry.
+              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Easy Sharing</h4>
+              <p className="mt-1 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                Invite friends with a 5-digit league code or a view-only Squares link.
               </p>
             </div>
 
-            {/* Feature 3 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-start">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2.5 sm:mb-4">
-                <Grid className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2.5">
+                <Sparkles className="w-4 h-4" />
               </div>
-              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">League Picks Grid</h4>
-              <p className="mt-1 sm:mt-2 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug sm:leading-relaxed">
-                A live birds-eye board showing all league members, selections, and win rates side-by-side.
+              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">3-Tier Tiebreakers</h4>
+              <p className="mt-1 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                Fair combined-score tiebreakers settle weekly and Super Bowl ties automatically.
               </p>
             </div>
 
-            {/* Feature 4 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-start">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2.5 sm:mb-4">
-                <Sliders className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2.5">
+                <Printer className="w-4 h-4" />
               </div>
-              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Commissioner Hub</h4>
-              <p className="mt-1 sm:mt-2 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug sm:leading-relaxed">
-                Override picks, adjust tiebreakers, and manage league rosters with full audit control.
+              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Print &amp; PDF Ready</h4>
+              <p className="mt-1 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                1-page printable Squares grids and Playoff Brackets ready for game day parties.
               </p>
             </div>
 
-            {/* Feature 5 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-start">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-2.5 sm:mb-4">
-                <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-2.5">
+                <Smartphone className="w-4 h-4" />
               </div>
               <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Mobile-First UI</h4>
-              <p className="mt-1 sm:mt-2 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug sm:leading-relaxed">
-                Engineered for quick thumb taps on your phone browser while you watch the game.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-start">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-2.5 sm:mb-4">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <h4 className="font-black text-xs sm:text-base text-slate-900 dark:text-white">Instant 5-Digit Codes</h4>
-              <p className="mt-1 sm:mt-2 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug sm:leading-relaxed">
-                Invite friends via a short 5-character code or direct link with optional password lock.
+              <p className="mt-1 text-[11px] sm:text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                Designed for quick thumb taps on your phone while watching Sunday kickoff.
               </p>
             </div>
           </div>
@@ -890,114 +1001,76 @@ export function LandingPage() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          6. HOW IT WORKS (3 SIMPLE STEPS)
+          6. HOW IT WORKS (3 COMPACT STEPS)
       ───────────────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="scroll-mt-20 py-10 sm:py-20 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/40">
+      <section id="how-it-works" className="scroll-mt-16 py-9 sm:py-14 border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
-            <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
-              Quick Setup
-            </span>
-            <h2 className="mt-2 text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-              Up and running in 30 seconds
-            </h2>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8 max-w-5xl mx-auto">
-            <div className="text-center sm:text-left space-y-1.5 sm:space-y-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-emerald-600 text-white font-black text-sm sm:text-base flex items-center justify-center mx-auto sm:mx-0 shadow-sm shadow-emerald-600/30">
+            <div className="flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                 1
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Create or Join a League</h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Start a new league in one click, or enter your commissioner&apos;s 5-character invite code to join.
-              </p>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">Pick Your Pool Type</h3>
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Start a Pick&apos;em &amp; Survivor league, a Playoff Bracket, or a Super Bowl Squares board.
+                </p>
+              </div>
             </div>
 
-            <div className="text-center sm:text-left space-y-1.5 sm:space-y-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-emerald-600 text-white font-black text-sm sm:text-base flex items-center justify-center mx-auto sm:mx-0 shadow-sm shadow-emerald-600/30">
+            <div className="flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                 2
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Make Your Weekly Picks</h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Tap your predicted game winners and survivor lock before kickoff. Picks stay locked and hidden until game time.
-              </p>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">Invite Your Group</h3>
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Share your 5-digit league code or send out a public view-only Squares link.
+                </p>
+              </div>
             </div>
 
-            <div className="text-center sm:text-left space-y-1.5 sm:space-y-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-emerald-600 text-white font-black text-sm sm:text-base flex items-center justify-center mx-auto sm:mx-0 shadow-sm shadow-emerald-600/30">
+            <div className="flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                 3
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Track the Drama Live</h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Watch the League Picks board update in real-time on Sunday and Monday as final scores roll in.
-              </p>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">Track Live on Game Day</h3>
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Watch live ESPN scores automatically update standings, brackets, and quarter payouts.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          7. QUICK JOIN WITH CODE BANNER (DESKTOP ONLY)
+          7. FAQ ACCORDION SECTION
       ───────────────────────────────────────────────────────────── */}
-      <section className="hidden sm:block py-12 bg-emerald-600 text-white relative overflow-hidden">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Have an invite code from your commissioner?
-          </h3>
-          <p className="mt-2 text-emerald-100 text-xs sm:text-sm max-w-md mx-auto">
-            Enter the 5-character league code below to jump straight into your league.
-          </p>
-
-          <form onSubmit={handleQuickJoin} className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2 max-w-sm mx-auto">
-            <input
-              type="text"
-              maxLength={5}
-              inputMode="numeric"
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="e.g. 84920"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              className="w-full sm:w-auto flex-1 uppercase tracking-widest text-center sm:text-left font-black px-4 py-3 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 text-sm outline-none shadow-md border border-white"
-            />
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm shadow-md transition-all active:scale-95"
-            >
-              Join League
-            </button>
-          </form>
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────
-          8. FAQ ACCORDION SECTION
-      ───────────────────────────────────────────────────────────── */}
-      <section id="faq" className="scroll-mt-20 py-10 sm:py-20 bg-white dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800/80">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-xl mx-auto mb-6 sm:mb-12">
+      <section id="faq" className="scroll-mt-16 py-10 sm:py-16 bg-slate-50 dark:bg-slate-950 border-t border-slate-200/80 dark:border-slate-800/80">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-6 sm:mb-10">
             <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
-              Answers
+              FAQ
             </span>
-            <h2 className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              Frequently Asked Questions
+            <h2 className="mt-1.5 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              Common Questions
             </h2>
           </div>
 
-          <div className="space-y-2.5 sm:space-y-3">
+          <div className="space-y-2.5">
             {faqs.map((faq, idx) => {
               const isOpen = openFaq === idx;
               return (
                 <div
                   key={idx}
-                  className="rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 overflow-hidden transition-colors"
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden transition-colors"
                 >
                   <button
                     type="button"
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full p-3.5 sm:p-5 text-left flex items-center justify-between gap-3 sm:gap-4 font-bold text-xs sm:text-base text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                    className="w-full p-3.5 sm:p-4 text-left flex items-center justify-between gap-3 font-bold text-xs sm:text-sm text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
                   >
                     <span>{faq.q}</span>
                     <ChevronDown
@@ -1007,7 +1080,7 @@ export function LandingPage() {
                     />
                   </button>
                   {isOpen && (
-                    <div className="px-3.5 pb-3.5 pt-1 sm:px-5 sm:pb-5 sm:pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-200/60 dark:border-slate-800/60 animate-fade-in">
+                    <div className="px-3.5 pb-3.5 pt-1 sm:px-4 sm:pb-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800">
                       {faq.a}
                     </div>
                   )}
@@ -1019,28 +1092,24 @@ export function LandingPage() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          9. BOTTOM CALL TO ACTION
+          8. BOTTOM CALL TO ACTION
       ───────────────────────────────────────────────────────────── */}
-      <section className="py-10 sm:py-20 bg-slate-50 dark:bg-slate-950 text-center">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/25 mb-3 sm:mb-6">
-            <Trophy className="w-5 h-5 sm:w-7 sm:h-7" />
-          </div>
-
-          <h2 className="text-2xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight max-w-xl mx-auto">
-            Ready for Sunday kickoff?
+      <section className="py-10 sm:py-16 bg-white dark:bg-slate-900/60 border-t border-slate-200/80 dark:border-slate-800/80 text-center">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+            Ready for kickoff?
           </h2>
-          <p className="mt-2 sm:mt-4 text-slate-600 dark:text-slate-400 text-xs sm:text-base max-w-md mx-auto">
-            Create your league in seconds, share your 5-digit code with friends, and start making your picks.
+          <p className="mt-2 text-slate-600 dark:text-slate-400 text-xs sm:text-sm max-w-md mx-auto">
+            Start a Pick&apos;em league, Playoff Bracket, or Super Bowl Squares board in seconds.
           </p>
 
-          <div className="mt-5 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md mx-auto">
             <button
               type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="w-full sm:w-auto px-7 sm:px-8 py-3 sm:py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2"
+              onClick={() => openStartPoolModal("pickem")}
+              className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Get Started Free</span>
+              <span>Start a Free Pool</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
@@ -1049,7 +1118,7 @@ export function LandingPage() {
                 setModalError("");
                 setShowJoinModal(true);
               }}
-              className="w-full sm:w-auto px-6 sm:px-7 py-3 sm:py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
             >
               <span>Join with Code</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -1059,7 +1128,7 @@ export function LandingPage() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          10. DEDICATED JOIN WITH CODE MODAL
+          9. JOIN WITH CODE MODAL
       ───────────────────────────────────────────────────────────── */}
       {showJoinModal && (
         <div
@@ -1086,7 +1155,7 @@ export function LandingPage() {
               Join a League
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-              Enter the 5-digit invite code provided by your commissioner.
+              Enter the 5-digit invite code provided by your league commissioner.
             </p>
 
             <form
@@ -1125,7 +1194,7 @@ export function LandingPage() {
                 <button
                   type="submit"
                   disabled={modalCode.trim().length !== 5}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Continue to Register &amp; Join</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1135,7 +1204,7 @@ export function LandingPage() {
                   type="button"
                   onClick={() => handleModalSubmit("login")}
                   disabled={modalCode.trim().length !== 5}
-                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
                 >
                   Already have an account? Sign in and join →
                 </button>
@@ -1146,7 +1215,7 @@ export function LandingPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          11. DEDICATED CREATE LEAGUE MODAL
+          10. UNIFIED START A POOL MODAL (ALL 3 OPTIONS)
       ───────────────────────────────────────────────────────────── */}
       {showCreateModal && (
         <div
@@ -1165,106 +1234,213 @@ export function LandingPage() {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
-              <PlusCircle className="w-6 h-6" />
+            <div
+              className={`w-12 h-12 rounded-2xl text-white flex items-center justify-center mb-4 shadow-sm ${
+                createPoolType === "pickem"
+                  ? "bg-gradient-to-br from-emerald-500 to-emerald-600"
+                  : createPoolType === "bracket"
+                  ? "bg-gradient-to-br from-purple-500 to-purple-600"
+                  : "bg-gradient-to-br from-amber-500 to-amber-600"
+              }`}
+            >
+              <Trophy className="w-6 h-6" />
             </div>
 
             <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Create a League
+              Start a Free Pool
             </h3>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-              Start your free NFL Pick&apos;em and Survivor pool in seconds.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+              Choose which game you&apos;d like to set up — no other leagues required.
             </p>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleCreateModalSubmit("register");
-              }}
-              className="mt-6 space-y-4"
-            >
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  League Name
-                </label>
-                <input
-                  type="text"
-                  autoFocus
-                  required
-                  maxLength={50}
-                  placeholder="e.g. Sunday Gridiron Club"
-                  value={createLeagueName}
-                  onChange={(e) => setCreateLeagueName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-colors"
-                />
-              </div>
+            {/* 3-Option Selector inside Modal */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 mt-5">
+              <button
+                type="button"
+                onClick={() => setCreatePoolType("pickem")}
+                className={`py-2 px-2 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                  createPoolType === "pickem"
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Pick&apos;em
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatePoolType("bracket")}
+                className={`py-2 px-2 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                  createPoolType === "bracket"
+                    ? "bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Bracket
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatePoolType("squares")}
+                className={`py-2 px-2 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                  createPoolType === "squares"
+                    ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Squares
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  Pool Format
-                </label>
-                <div className="grid grid-cols-3 gap-2">
+            {createPoolType === "pickem" ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleCreateModalSubmit("register");
+                }}
+                className="mt-5 space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    League Name
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    required
+                    maxLength={50}
+                    placeholder="e.g. Sunday Gridiron Club"
+                    value={createLeagueName}
+                    onChange={(e) => setCreateLeagueName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    League Format
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCreateFormat("both")}
+                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
+                        createFormat === "both"
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
+                          : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      Both Pools
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreateFormat("pickem")}
+                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
+                        createFormat === "pickem"
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
+                          : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      Pick&apos;em Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreateFormat("survivor")}
+                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
+                        createFormat === "survivor"
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
+                          : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      Survivor Only
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col gap-2.5">
                   <button
-                    type="button"
-                    onClick={() => setCreateFormat("both")}
-                    className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
-                      createFormat === "both"
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
-                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
+                    type="submit"
+                    disabled={!createLeagueName.trim()}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    Both Pools
+                    <span>Continue to Register &amp; Create</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setCreateFormat("pickem")}
-                    className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
-                      createFormat === "pickem"
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
-                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
+                    onClick={() => handleCreateModalSubmit("login")}
+                    className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
-                    Pick&apos;em Only
+                    Already have an account? Sign in to create →
                   </button>
+                </div>
+              </form>
+            ) : createPoolType === "bracket" ? (
+              <div className="mt-5 space-y-4">
+                <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800/60 text-xs text-slate-700 dark:text-slate-300 space-y-1.5">
+                  <div className="font-black text-purple-900 dark:text-purple-200 text-sm">
+                    Standalone Playoff Bracket
+                  </div>
+                  <p className="leading-relaxed">
+                    Fill out your AFC &amp; NFC postseason bracket, set your Super Bowl score tiebreaker, and compete on the leaderboard — no weekly Pick&apos;em league needed.
+                  </p>
+                </div>
+
+                <div className="pt-1 flex flex-col gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setCreateFormat("survivor")}
-                    className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
-                      createFormat === "survivor"
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500"
-                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
+                    onClick={() => handleCreateModalSubmit("register")}
+                    className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    Survivor Only
+                    <span>Register &amp; Open Playoff Bracket</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCreateModalSubmit("login")}
+                    className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition cursor-pointer"
+                  >
+                    Already have an account? Sign in to Bracket →
                   </button>
                 </div>
               </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs text-slate-700 dark:text-slate-300 space-y-1.5">
+                  <div className="font-black text-amber-900 dark:text-amber-200 text-sm">
+                    Standalone Super Bowl Squares
+                  </div>
+                  <p className="leading-relaxed">
+                    Create a 10x10 Squares board, randomize row &amp; column numbers, and share a view-only link with friends (players don&apos;t need an account to view).
+                  </p>
+                </div>
 
-              <div className="pt-2 flex flex-col gap-2.5">
-                <button
-                  type="submit"
-                  disabled={!createLeagueName.trim()}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <span>Continue to Register &amp; Create</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                <div className="pt-1 flex flex-col gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCreateModalSubmit("register")}
+                    className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>Register &amp; Open Squares Board</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleCreateModalSubmit("login")}
-                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Already have an account? Sign in to create →
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCreateModalSubmit("login")}
+                    className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer"
+                  >
+                    Already have an account? Sign in to Squares →
+                  </button>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          12. DEDICATED SIGN IN MODAL
+          11. DEDICATED SIGN IN MODAL
       ───────────────────────────────────────────────────────────── */}
       {showLoginModal && (
         <div
@@ -1291,7 +1467,7 @@ export function LandingPage() {
               Sign In
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
-              Enter your username or email to access your leagues and picks.
+              Enter your username or email to access your leagues, brackets, and squares boards.
             </p>
 
             {loginError && (
@@ -1375,7 +1551,7 @@ export function LandingPage() {
                 <button
                   type="submit"
                   disabled={loginLoading || !loginIdentifier.trim() || !loginPassword.trim()}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {loginLoading ? (
                     <>
@@ -1397,19 +1573,21 @@ export function LandingPage() {
                       setShowLoginModal(false);
                       setShowCreateModal(true);
                     }}
-                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
-                    Create Free League →
+                    Start a Pool →
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
                       setShowLoginModal(false);
+                      setModalError("");
                       setShowJoinModal(true);
                     }}
-                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                    className="font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
-                    Join with Code →
+                    Join with 5-Digit Code →
                   </button>
                 </div>
               </div>
