@@ -42,20 +42,10 @@ export async function generateMetadata({
             url: `https://pocketpicks.app/squares?id=${cleanId}`,
             siteName: "PocketPicks",
             type: "website",
-            images: [
-              {
-                url: "/icon-512.png",
-                width: 512,
-                height: 512,
-                alt: boardTitle,
-              },
-            ],
           },
           twitter: {
-            card: "summary",
             title,
             description,
-            images: ["/icon-512.png"],
           },
         };
       }
@@ -77,20 +67,10 @@ export async function generateMetadata({
       url: "https://pocketpicks.app/squares",
       siteName: "PocketPicks",
       type: "website",
-      images: [
-        {
-          url: "/icon-512.png",
-          width: 512,
-          height: 512,
-          alt: "PocketPicks Super Bowl Squares",
-        },
-      ],
     },
     twitter: {
-      card: "summary",
       title: defaultTitle,
       description: defaultDesc,
-      images: ["/icon-512.png"],
     },
   };
 }
