@@ -437,20 +437,20 @@ export function LandingPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           {/* Pill Badge */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-[11px] sm:text-xs font-bold mb-5 shadow-2xs">
+          <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-[10px] sm:text-xs font-bold mb-5 shadow-2xs whitespace-nowrap">
             <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Pick&apos;em &amp; Survivor
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span>Pick&apos;em<span className="hidden sm:inline"> &amp; Survivor</span></span>
             </span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
             <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
-              <span className="w-2 h-2 rounded-full bg-purple-500" />
-              Playoff Bracket
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500 shrink-0" />
+              <span><span className="hidden sm:inline">Playoff </span>Bracket</span>
             </span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
             <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              Super Bowl Squares
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-500 shrink-0" />
+              <span><span className="hidden sm:inline">Super Bowl </span>Squares</span>
             </span>
           </div>
 
@@ -468,14 +468,14 @@ export function LandingPage() {
           </p>
 
           {/* Call to action buttons */}
-          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 max-w-md mx-auto">
+          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md sm:max-w-none mx-auto">
             <button
               type="button"
               onClick={() => openStartPoolModal(previewTab)}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
             >
               <span>Start a Free Pool</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
 
             <button
@@ -484,10 +484,10 @@ export function LandingPage() {
                 setModalError("");
                 setShowJoinModal(true);
               }}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm sm:text-base border border-slate-200 dark:border-slate-800 shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm border border-slate-200 dark:border-slate-800 shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
             >
               <span>Join League with Code</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
             </button>
           </div>
 
@@ -499,43 +499,46 @@ export function LandingPage() {
               3. INTERACTIVE 3-TAB PREVIEW SHOWCASE
           ───────────────────────────────────────────────────────────── */}
           <div className="mt-7 sm:mt-12 max-w-5xl mx-auto">
-            {/* Mode Switcher Pills */}
-            <div className="inline-flex p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-4 max-w-full overflow-x-auto no-scrollbar">
+            {/* Mode Switcher Pills (Fits 100% on mobile without scrolling) */}
+            <div className="grid grid-cols-3 sm:inline-flex p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-4 w-full sm:w-auto max-w-md sm:max-w-none mx-auto">
               <button
                 type="button"
                 onClick={() => setPreviewTab("pickem")}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
                   previewTab === "pickem"
                     ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                <span>Pick&apos;em &amp; Survivor</span>
+                <span className="sm:hidden">Pick&apos;em</span>
+                <span className="hidden sm:inline">Pick&apos;em &amp; Survivor</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPreviewTab("bracket")}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
                   previewTab === "bracket"
                     ? "bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
-                <span>Playoff Bracket</span>
+                <span className="sm:hidden">Bracket</span>
+                <span className="hidden sm:inline">Playoff Bracket</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPreviewTab("squares")}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
                   previewTab === "squares"
                     ? "bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <span>Super Bowl Squares</span>
+                <span className="sm:hidden">Squares</span>
+                <span className="hidden sm:inline">Super Bowl Squares</span>
               </button>
             </div>
 
@@ -566,9 +569,9 @@ export function LandingPage() {
                   </div>
 
                   {/* Body */}
-                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50 space-y-3">
+                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50 space-y-2.5 sm:space-y-3">
                     {/* Survivor Status Bar */}
-                    <div className="rounded-2xl border p-3 bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border-emerald-200/80 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2">
+                    <div className="rounded-2xl border p-2.5 sm:p-3 bg-gradient-to-r from-emerald-50/70 via-white to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border-emerald-200/80 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-slate-900 dark:bg-slate-800 text-white">
                           <Target className="w-3 h-3 text-rose-400" />
@@ -579,44 +582,78 @@ export function LandingPage() {
                           Alive (9 of 15 left)
                         </span>
                       </div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hidden sm:inline">
                         Anti-peeking active until kickoff
                       </span>
                     </div>
 
-                    {/* Live Matchup Card */}
+                    {/* Game 1: Bills (27) over Chiefs (24) */}
                     <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs border-emerald-300 dark:border-emerald-700">
                       <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-500">
-                        <span>Sun 4:25 PM • KC -2.5</span>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          4th 2:14
+                        <span>Sun 4:25 PM • BUF -2.5</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                          Final
                         </span>
                       </div>
                       <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
-                        <div className="flex-1 p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
+                        <div className="flex-1 p-2.5 sm:p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png" alt="KC" width={26} height={26} className="w-6.5 h-6.5 object-contain shrink-0" />
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={26} height={26} className="w-6 h-6 object-contain shrink-0" />
                             <div className="min-w-0">
-                              <div className="text-xs sm:text-sm font-bold truncate text-emerald-900 dark:text-emerald-200">Kansas City Chiefs</div>
-                              <div className="text-[10px] text-slate-500">4-1 • Your Pick</div>
+                              <div className="text-xs sm:text-sm font-bold truncate text-emerald-900 dark:text-emerald-200">Buffalo Bills</div>
+                              <div className="text-[10px] text-slate-500">5-1 • Your Pick</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">28</span>
+                            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">27</span>
                             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500 text-white">Survivor</span>
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           </div>
                         </div>
-                        <div className="flex-1 p-3 flex items-center justify-between">
+                        <div className="flex-1 p-2.5 sm:p-3 flex items-center justify-between">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={26} height={26} className="w-6.5 h-6.5 object-contain shrink-0" />
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/kc.png" alt="KC" width={26} height={26} className="w-6 h-6 object-contain shrink-0" />
                             <div className="min-w-0">
-                              <div className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">Buffalo Bills</div>
-                              <div className="text-[10px] text-slate-500">4-1 • Home</div>
+                              <div className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">Kansas City Chiefs</div>
+                              <div className="text-[10px] text-slate-500">4-2 • Away</div>
                             </div>
                           </div>
                           <span className="text-base sm:text-lg font-black text-slate-400">24</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Game 2: 49ers (31) over Lions (28) */}
+                    <div className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs border-emerald-300 dark:border-emerald-700">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-500">
+                        <span>Sun 8:20 PM • SF -3.0</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                          Final
+                        </span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
+                        <div className="flex-1 p-2.5 sm:p-3 flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" alt="SF" width={26} height={26} className="w-6 h-6 object-contain shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-bold truncate text-emerald-900 dark:text-emerald-200">San Francisco 49ers</div>
+                              <div className="text-[10px] text-slate-500">5-1 • Your Pick</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">31</span>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          </div>
+                        </div>
+                        <div className="flex-1 p-2.5 sm:p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/det.png" alt="DET" width={26} height={26} className="w-6 h-6 object-contain shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">Detroit Lions</div>
+                              <div className="text-[10px] text-slate-500">4-2 • Away</div>
+                            </div>
+                          </div>
+                          <span className="text-base sm:text-lg font-black text-slate-400">28</span>
                         </div>
                       </div>
                     </div>
@@ -643,55 +680,93 @@ export function LandingPage() {
 
                   {/* Bracket Preview Body */}
                   <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
                       {/* AFC Championship */}
-                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 space-y-2">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                          AFC Championship
-                        </div>
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
-                          <span className="flex items-center gap-2">
-                            <span className="text-[10px] opacity-80">#1</span> Buffalo Bills
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                            AFC Championship
                           </span>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold text-slate-400">Final</span>
                         </div>
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                          <span className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400">#2</span> Kansas City Chiefs
-                          </span>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-2xs">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] opacity-80">#1</span>
+                              <span className="truncate">Buffalo Bills</span>
+                            </span>
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-black">27</span>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-slate-400">#2</span>
+                              <span className="truncate">Kansas City Chiefs</span>
+                            </span>
+                            <span className="font-bold text-slate-400">24</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Super Bowl Centerpiece */}
-                      <div className="bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-3.5 text-center space-y-2">
-                        <Trophy className="w-6 h-6 text-amber-500 mx-auto" />
-                        <div className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
-                          Super Bowl Champion
+                      {/* Super Bowl Matchup & Champion Centerpiece */}
+                      <div className="bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-3 text-center flex flex-col justify-between space-y-2">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+                            Super Bowl Matchup
+                          </span>
                         </div>
-                        <div className="p-2 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs">
-                          <span>Buffalo Bills</span>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        <div className="space-y-1.5 text-left">
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xs">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] opacity-80">NFC</span>
+                              <span className="truncate">San Francisco 49ers</span>
+                            </span>
+                            <span className="flex items-center gap-1 shrink-0">
+                              <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">Champ</span>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-purple-200/60 dark:border-purple-800/50 text-slate-700 dark:text-slate-300 text-xs font-bold">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-slate-400">AFC</span>
+                              <span className="truncate">Buffalo Bills</span>
+                            </span>
+                          </div>
                         </div>
                         <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                          Tiebreaker: BUF 27 – DET 24
+                          Tiebreaker: SF 34 – BUF 27
                         </div>
                       </div>
 
                       {/* NFC Championship */}
-                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 space-y-2">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                          NFC Championship
-                        </div>
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
-                          <span className="flex items-center gap-2">
-                            <span className="text-[10px] opacity-80">#1</span> Detroit Lions
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                            NFC Championship
                           </span>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold text-slate-400">Final</span>
                         </div>
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                          <span className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400">#2</span> San Francisco 49ers
-                          </span>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-2xs">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] opacity-80">#1</span>
+                              <span className="truncate">San Francisco 49ers</span>
+                            </span>
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-black">31</span>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-slate-400">#2</span>
+                              <span className="truncate">Detroit Lions</span>
+                            </span>
+                            <span className="font-bold text-slate-400">28</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -707,56 +782,133 @@ export function LandingPage() {
                       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-xs">
                         <Trophy className="w-3.5 h-3.5 sm:w-4 h-4 text-white" />
                       </div>
-                      <h3 className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
-                        Super Bowl Squares Pool
-                      </h3>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
+                          Super Bowl Squares
+                        </h3>
+                        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                          SF 34 – BUF 27
+                        </span>
+                      </div>
                     </div>
                     <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
                       100 / 100 Claimed
                     </span>
                   </div>
 
-                  {/* Squares Preview Body */}
-                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50 space-y-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 flex items-center justify-between">
-                        <div>
-                          <div className="text-[10px] font-black uppercase text-amber-600">Q1 Winner</div>
-                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Sarah J.</div>
+                  {/* Squares Preview Body: Grid Slice + Quarter Winners */}
+                  <div className="p-3.5 sm:p-6 bg-slate-50/60 dark:bg-slate-950/50">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-center">
+                      {/* Visual Chunk of Squares Grid (SF 49ers vs BUF Bills) */}
+                      <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-2.5 sm:p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                        {/* Top Team Banner (NFC: San Francisco 49ers) */}
+                        <div className="flex items-center justify-center gap-1.5 pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                          <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" alt="SF" width={18} height={18} className="w-4.5 h-4.5 object-contain" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                            San Francisco 49ers (34)
+                          </span>
                         </div>
-                        <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-sky-300 dark:border-sky-800 flex items-center justify-between">
-                        <div>
-                          <div className="text-[10px] font-black uppercase text-sky-600">Halftime</div>
-                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Jimmy</div>
-                        </div>
-                        <span className="text-xs font-mono font-black text-emerald-600">+$250</span>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-purple-300 dark:border-purple-800 flex items-center justify-between">
-                        <div>
-                          <div className="text-[10px] font-black uppercase text-purple-600">Q3 Winner</div>
-                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Marcus</div>
-                        </div>
-                        <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-emerald-400 dark:border-emerald-700 flex items-center justify-between">
-                        <div>
-                          <div className="text-[10px] font-black uppercase text-emerald-600">Final Score</div>
-                          <div className="text-xs font-extrabold text-slate-900 dark:text-white">Coach Tom</div>
-                        </div>
-                        <span className="text-xs font-mono font-black text-emerald-600">+$450</span>
-                      </div>
-                    </div>
 
-                    <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <Share2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span>Shareable public link — players view live without logging in</span>
-                      </span>
-                      <span className="hidden sm:inline text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                        Live ESPN Sync
-                      </span>
+                        <div className="flex items-stretch gap-1.5">
+                          {/* Left Team Vertical Label (AFC: Buffalo Bills) */}
+                          <div className="flex flex-col items-center justify-center px-1 py-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 shrink-0">
+                            <TeamLogo src="https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" alt="BUF" width={16} height={16} className="w-4 h-4 object-contain mb-1" />
+                            <span className="text-[9px] font-black uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
+                              Bills (27)
+                            </span>
+                          </div>
+
+                          {/* 4x3 Grid Slice */}
+                          <div className="flex-1 grid grid-cols-5 gap-1 text-center">
+                            {/* Corner + Column Digit Headers (SF last digit: 4, 7, 0, 3) */}
+                            <div className="rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[9px] font-black text-slate-400 p-1">
+                              BUF\SF
+                            </div>
+                            <div className="rounded-lg bg-rose-600 text-white font-black text-xs py-1 flex items-center justify-center shadow-2xs">
+                              4
+                            </div>
+                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-1 flex items-center justify-center">
+                              7
+                            </div>
+                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-1 flex items-center justify-center">
+                              0
+                            </div>
+                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-1 flex items-center justify-center">
+                              3
+                            </div>
+
+                            {/* Row 1 (BUF 7) — Contains Final Winner at SF 4, BUF 7 */}
+                            <div className="rounded-lg bg-sky-600 text-white font-black text-xs py-2 flex items-center justify-center shadow-2xs">
+                              7
+                            </div>
+                            <div className="rounded-lg bg-emerald-500/15 dark:bg-emerald-500/25 border-2 border-emerald-500 p-1 flex flex-col items-center justify-center relative">
+                              <span className="text-[8px] font-black uppercase text-emerald-700 dark:text-emerald-300 leading-none">Final</span>
+                              <span className="text-[10px] font-black text-slate-900 dark:text-white truncate max-w-full">Coach Tom</span>
+                            </div>
+                            <div className="rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-400/80 p-1 flex flex-col items-center justify-center">
+                              <span className="text-[8px] font-black uppercase text-amber-700 dark:text-amber-300 leading-none">Q1</span>
+                              <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">Sarah J.</span>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
+                              Alex M.
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
+                              Dave K.
+                            </div>
+
+                            {/* Row 2 (BUF 0) — Contains Halftime Winner at SF 4, BUF 0 */}
+                            <div className="rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-2 flex items-center justify-center">
+                              0
+                            </div>
+                            <div className="rounded-lg bg-sky-500/15 dark:bg-sky-500/20 border border-sky-400/80 p-1 flex flex-col items-center justify-center">
+                              <span className="text-[8px] font-black uppercase text-sky-700 dark:text-sky-300 leading-none">Half</span>
+                              <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">Jimmy</span>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
+                              Chris P.
+                            </div>
+                            <div className="rounded-lg bg-purple-500/15 dark:bg-purple-500/20 border border-purple-400/80 p-1 flex flex-col items-center justify-center">
+                              <span className="text-[8px] font-black uppercase text-purple-700 dark:text-purple-300 leading-none">Q3</span>
+                              <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">Marcus</span>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-1 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
+                               Nina R.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quarter Payout Summary */}
+                      <div className="lg:col-span-5 grid grid-cols-2 gap-2">
+                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-amber-600">Q1 (SF 7 - BUF 7)</div>
+                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Sarah J.</div>
+                          </div>
+                          <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-sky-300 dark:border-sky-800 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-sky-600">Half (SF 14 - BUF 10)</div>
+                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Jimmy</div>
+                          </div>
+                          <span className="text-xs font-mono font-black text-emerald-600">+$250</span>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-purple-300 dark:border-purple-800 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-purple-600">Q3 (SF 20 - BUF 20)</div>
+                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Marcus</div>
+                          </div>
+                          <span className="text-xs font-mono font-black text-emerald-600">+$150</span>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border-2 border-emerald-500 dark:border-emerald-600 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-emerald-600">Final (SF 34 - BUF 27)</div>
+                            <div className="text-xs font-extrabold text-slate-900 dark:text-white">Coach Tom</div>
+                          </div>
+                          <span className="text-xs font-mono font-black text-emerald-600">+$450</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1103,14 +1255,14 @@ export function LandingPage() {
             Start a Pick&apos;em league, Playoff Bracket, or Super Bowl Squares board in seconds.
           </p>
 
-          <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md mx-auto">
+          <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md sm:max-w-none mx-auto">
             <button
               type="button"
               onClick={() => openStartPoolModal("pickem")}
-              className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
             >
               <span>Start a Free Pool</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
             <button
               type="button"
@@ -1118,10 +1270,10 @@ export function LandingPage() {
                 setModalError("");
                 setShowJoinModal(true);
               }}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap cursor-pointer"
             >
               <span>Join with Code</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
             </button>
           </div>
         </div>
