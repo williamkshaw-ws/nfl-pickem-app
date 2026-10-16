@@ -334,6 +334,7 @@ function SquaresPoolApp() {
   const [newBoardTopTeam, setNewBoardTopTeam] = useState("Buffalo Bills");
   const [newBoardLeftTeam, setNewBoardLeftTeam] = useState("San Francisco 49ers");
   const [createSelectedGameId, setCreateSelectedGameId] = useState("");
+  const [hasManualTitle, setHasManualTitle] = useState(false);
   const [newBoardCost, setNewBoardCost] = useState(10);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [createBoardError, setCreateBoardError] = useState("");
@@ -407,11 +408,16 @@ function SquaresPoolApp() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
+  const userPoolsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setUserDropdownOpen(false);
+      }
+      if (userPoolsMenuRef.current && !userPoolsMenuRef.current.contains(target)) {
+        setShowUserPoolsMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -777,6 +783,7 @@ function SquaresPoolApp() {
     }
     setNewBoardCost(10);
     setCreateBoardError("");
+    setHasManualTitle(false);
     setShowCreateBoardModal(true);
   }, [availableGames]);
 
@@ -1243,18 +1250,22 @@ function SquaresPoolApp() {
   };
 
   // Delete board permanently (Owner only)
-  const handleDeleteBoard = () => {
-    if (!poolId || !isOwner) return;
+  const handleDeleteBoard = (targetId?: string | React.MouseEvent) => {
+    const idToDelete = typeof targetId === "string" ? targetId : poolId;
+    if (!idToDelete) return;
+    const targetPool = userPools.find((p) => p.id === idToDelete || p.joinCode === idToDelete);
+    const title = targetPool?.title || board.title || "this board";
+
     setConfirmModal({
       isOpen: true,
       title: "Delete Squares Board?",
-      message: `Are you sure you want to permanently delete "${board.title || "this board"}"? All picks, scores, and board data will be deleted for everyone. This cannot be undone.`,
+      message: `Are you sure you want to permanently delete "${title}"? All picks, scores, and board data will be deleted for everyone. This cannot be undone.`,
       actionLabel: "Delete Board",
       actionVariant: "danger",
       onConfirm: async () => {
         try {
           const token = await getAuthToken();
-          const res = await fetch(`/api/squares/${encodeURIComponent(poolId)}`, {
+          const res = await fetch(`/api/squares/${encodeURIComponent(idToDelete)}`, {
             method: "DELETE",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
@@ -1264,15 +1275,26 @@ function SquaresPoolApp() {
             return;
           }
           if (typeof window !== "undefined") {
-            localStorage.removeItem(`pocketpicks_squares_board_${poolId}`);
-            localStorage.removeItem(`squares_owner_${poolId}`);
-            localStorage.removeItem(`squares_owner_key_${poolId}`);
-            localStorage.removeItem("last_active_squares_board");
+            localStorage.removeItem(`pocketpicks_squares_board_${idToDelete}`);
+            localStorage.removeItem(`squares_owner_${idToDelete}`);
+            localStorage.removeItem(`squares_owner_key_${idToDelete}`);
+            if (localStorage.getItem("last_active_squares_board") === idToDelete) {
+              localStorage.removeItem("last_active_squares_board");
+            }
           }
           setConfirmModal((prev) => ({ ...prev, isOpen: false }));
-          showToast("Board permanently deleted");
-          setUserPools((prev) => prev.filter((p) => p.id !== poolId && p.joinCode !== poolId));
-          router.push("/squares");
+          showToast(`Board "${title}" permanently deleted`);
+          setUserPools((prev) => prev.filter((p) => p.id !== idToDelete && p.joinCode !== idToDelete));
+          if (typeof targetId !== "string" || targetId === poolId) {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            setPublishedPoolId(null);
+            setCurrentJoinCode("");
+            setServerIsOwner(null);
+            setPoolCreatorId(null);
+            setBoard(INITIAL_STATE);
+            setIsAuthDenied(false);
+            router.push("/squares");
+          }
         } catch (err) {
           console.error("Delete pool error:", err);
           showToast("Failed to delete board");
@@ -1282,8 +1304,8 @@ function SquaresPoolApp() {
   };
 
   // Leave board (Member only)
-  const handleLeaveBoard = (targetId?: string) => {
-    const idToLeave = targetId || poolId;
+  const handleLeaveBoard = (targetId?: string | React.MouseEvent) => {
+    const idToLeave = typeof targetId === "string" ? targetId : poolId;
     if (!idToLeave) return;
     const targetPool = userPools.find((p) => p.id === idToLeave || p.joinCode === idToLeave);
     const title = targetPool?.title || board.title || "this board";
@@ -1314,7 +1336,14 @@ function SquaresPoolApp() {
           setConfirmModal((prev) => ({ ...prev, isOpen: false }));
           showToast(`Left "${title}"`);
           setUserPools((prev) => prev.filter((p) => p.id !== idToLeave && p.joinCode !== idToLeave));
-          if (!targetId || targetId === poolId) {
+          if (typeof targetId !== "string" || targetId === poolId) {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            setPublishedPoolId(null);
+            setCurrentJoinCode("");
+            setServerIsOwner(null);
+            setPoolCreatorId(null);
+            setBoard(INITIAL_STATE);
+            setIsAuthDenied(false);
             router.push("/squares");
           }
         } catch (err) {
@@ -1542,7 +1571,7 @@ function SquaresPoolApp() {
 
             {/* Squares Boards Dropdown */}
             {user ? (
-              <div className="relative">
+              <div ref={userPoolsMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setShowUserPoolsMenu((prev) => !prev)}
@@ -1579,15 +1608,17 @@ function SquaresPoolApp() {
                                   const currentNorm = (poolId || "").replace(/^sb-/, "").toUpperCase();
                                   const isCurrent = currentNorm === cleanCode;
                                   return (
-                                    <Link
+                                    <div
                                       key={p.id}
-                                      href={`/squares?id=${cleanCode}`}
-                                      onClick={() => setShowUserPoolsMenu(false)}
                                       className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
                                         isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
                                       }`}
                                     >
-                                      <div className="min-w-0 pr-2">
+                                      <Link
+                                        href={`/squares?id=${cleanCode}`}
+                                        onClick={() => setShowUserPoolsMenu(false)}
+                                        className="min-w-0 pr-2 flex-1"
+                                      >
                                         <div className="font-bold truncate flex items-center gap-1.5">
                                           <span className="truncate">{p.title}</span>
                                           {cleanCode && (
@@ -1599,9 +1630,22 @@ function SquaresPoolApp() {
                                         <div className="text-[10px] text-slate-400 truncate">
                                           {p.topTeam} vs {p.leftTeam}
                                         </div>
+                                      </Link>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteBoard(p.id);
+                                          }}
+                                          title="Delete this board"
+                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
                                       </div>
-                                      {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
-                                    </Link>
+                                    </div>
                                   );
                                 })}
                             </div>
@@ -2158,7 +2202,7 @@ function SquaresPoolApp() {
                   {poolId && isOwner && (
                     <button
                       type="button"
-                      onClick={handleDeleteBoard}
+                      onClick={() => handleDeleteBoard()}
                       className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition cursor-pointer shrink-0 ml-auto sm:ml-0"
                       title="Permanently delete this board"
                     >
@@ -2494,7 +2538,7 @@ function SquaresPoolApp() {
                 {poolId && isOwner && (
                   <button
                     type="button"
-                    onClick={handleDeleteBoard}
+                    onClick={() => handleDeleteBoard()}
                     className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
                     title="Permanently delete this board"
                   >
@@ -3174,7 +3218,10 @@ function SquaresPoolApp() {
                   autoFocus
                   placeholder="e.g. Super Bowl LIX Squares"
                   value={newBoardTitle}
-                  onChange={(e) => setNewBoardTitle(e.target.value)}
+                  onChange={(e) => {
+                    setNewBoardTitle(e.target.value);
+                    setHasManualTitle(true);
+                  }}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
@@ -3193,7 +3240,9 @@ function SquaresPoolApp() {
                         setCreateSelectedGameId(game.id);
                         setNewBoardTopTeam(game.awayTeam);
                         setNewBoardLeftTeam(game.homeTeam);
-                        setNewBoardTitle(`${game.awayTeam} vs ${game.homeTeam} Squares`);
+                        if (!hasManualTitle) {
+                          setNewBoardTitle(`${game.awayTeam} vs ${game.homeTeam} Squares`);
+                        }
                       }
                     }}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
