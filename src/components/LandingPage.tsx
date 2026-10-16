@@ -202,17 +202,6 @@ export function LandingPage() {
         email = lookupData.email;
       }
 
-      const userCredential = await signInWithEmailAndPassword(auth, email, loginPassword);
-
-      if (!userCredential.user.emailVerified) {
-        await auth.signOut();
-        setLoginError("Please verify your email before logging in.");
-        setLoginLoading(false);
-        return;
-      }
-
-      setShowLoginModal(false);
-
       let pendingRedirect: string | null = null;
       let pendingJoin: string | null = null;
       let pendingCreate: string | null = null;
@@ -224,21 +213,14 @@ export function LandingPage() {
         // Ignore storage errors
       }
 
-      if (pendingRedirect && pendingRedirect.startsWith("/")) {
-        try {
-          localStorage.removeItem("pending_redirect_after_auth");
-        } catch {}
-        window.location.href = pendingRedirect;
-        return;
-      }
-
+      // Pre-resolve target join code BEFORE authentication to prevent race conditions
+      // with page.tsx immediately redirecting to existing Pick'em leagues
       const targetJoinCode = loginJoinCode.trim() || pendingJoin;
+      let resolvedSquaresCode: string | null = null;
+      let resolvedLeagueCode: string | null = null;
+
       if (targetJoinCode) {
         const cleanJoin = extractSquaresCode(targetJoinCode);
-        try {
-          localStorage.removeItem("pending_join_code");
-        } catch {}
-
         try {
           const res = await fetch("/api/auth/resolve-code", {
             method: "POST",
@@ -247,28 +229,79 @@ export function LandingPage() {
           });
           const data = await res.json();
           if (data.found && data.type === "squares") {
-            const token = await userCredential.user.getIdToken();
-            if (token) {
-              await fetch("/api/squares/join", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ code: data.code || cleanJoin }),
-              }).catch(() => null);
-            }
-            window.location.href = `/squares?id=${encodeURIComponent(data.code || cleanJoin)}`;
-            return;
+            const finalCode = String(data.code || cleanJoin);
+            resolvedSquaresCode = finalCode;
+            try {
+              localStorage.setItem("pending_redirect_after_auth", `/squares?id=${encodeURIComponent(finalCode)}`);
+              localStorage.setItem("pending_squares_code", finalCode);
+              localStorage.removeItem("pending_join_code");
+            } catch {}
+          } else {
+            const finalCode = String(data.code || cleanJoin);
+            resolvedLeagueCode = finalCode;
+            try {
+              localStorage.setItem("pending_redirect_after_auth", `/?join=${encodeURIComponent(finalCode)}`);
+              localStorage.setItem("pending_join_code", finalCode);
+              localStorage.removeItem("pending_squares_code");
+            } catch {}
           }
         } catch (err) {
           console.error("Resolve code error:", err);
+          try {
+            localStorage.setItem("pending_redirect_after_auth", `/?join=${encodeURIComponent(cleanJoin)}`);
+            localStorage.setItem("pending_join_code", cleanJoin);
+          } catch {}
         }
+      }
 
-        window.location.href = `/?join=${encodeURIComponent(cleanJoin)}`;
+      const userCredential = await signInWithEmailAndPassword(auth, email, loginPassword);
+
+      if (!userCredential.user.emailVerified) {
+        await auth.signOut();
+        setLoginError("Please verify your email before logging in.");
+        setLoginLoading(false);
         return;
       }
 
+      setShowLoginModal(false);
+
+      // 1. If resolved as a Squares board, join it and direct the user straight to the board
+      if (resolvedSquaresCode) {
+        try {
+          const token = await userCredential.user.getIdToken();
+          if (token) {
+            await fetch("/api/squares/join", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ code: resolvedSquaresCode }),
+            }).catch(() => null);
+          }
+        } catch (err) {
+          console.error("Error joining squares board:", err);
+        }
+        window.location.href = `/squares?id=${encodeURIComponent(resolvedSquaresCode)}`;
+        return;
+      }
+
+      // 2. If resolved as a Pick'em league code, redirect to join flow
+      if (resolvedLeagueCode) {
+        window.location.href = `/?join=${encodeURIComponent(resolvedLeagueCode)}`;
+        return;
+      }
+
+      // 3. Stored redirect (e.g. from bracket or squares create flow)
+      if (pendingRedirect && pendingRedirect.startsWith("/")) {
+        try {
+          localStorage.removeItem("pending_redirect_after_auth");
+        } catch {}
+        window.location.href = pendingRedirect;
+        return;
+      }
+
+      // 4. Pending create league
       if (pendingCreate) {
         window.location.href = `/?create=true&name=${encodeURIComponent(pendingCreate)}`;
         return;

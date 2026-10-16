@@ -177,6 +177,38 @@ export default function Login() {
         loginEmail = lookupData.email;
       }
 
+      // Pre-resolve any join code before sign-in to guarantee redirect priorities
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const codeToJoin = manualJoinCode.trim() || joinCode || params?.get("join");
+      if (codeToJoin) {
+        const cleanCode = extractSquaresCode(codeToJoin);
+        try {
+          const res = await fetch("/api/auth/resolve-code", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: cleanCode }),
+          });
+          const data = await res.json();
+          if (data.found && data.type === "squares") {
+            const resolvedSquaresCode = String(data.code || cleanCode);
+            try {
+              localStorage.setItem("pending_redirect_after_auth", `/squares?id=${encodeURIComponent(resolvedSquaresCode)}`);
+              localStorage.setItem("pending_squares_code", resolvedSquaresCode);
+              localStorage.removeItem("pending_join_code");
+            } catch {}
+          } else {
+            const resolvedLeagueCode = String(data.code || cleanCode);
+            try {
+              localStorage.setItem("pending_redirect_after_auth", `/?join=${encodeURIComponent(resolvedLeagueCode)}`);
+              localStorage.setItem("pending_join_code", resolvedLeagueCode);
+              localStorage.removeItem("pending_squares_code");
+            } catch {}
+          }
+        } catch (err) {
+          console.error("Resolve code error:", err);
+        }
+      }
+
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail, password);
 
       if (!userCredential.user.emailVerified) {

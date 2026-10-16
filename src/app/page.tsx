@@ -128,6 +128,15 @@ export default function Home() {
       return;
     }
 
+    const pendingSquaresCode = typeof window !== "undefined" ? localStorage.getItem("pending_squares_code") : null;
+    if (pendingSquaresCode) {
+      localStorage.removeItem("pending_squares_code");
+      setIsRedirecting(true);
+      router.replace(`/squares?id=${encodeURIComponent(pendingSquaresCode)}`);
+      return;
+    }
+
+    const pendingJoinCode = typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null;
     const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
     const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
 
@@ -147,8 +156,8 @@ export default function Home() {
           });
         });
 
-        // If user already belongs to leagues and didn't come via a specific ?join= or ?create= invite
-        if (m.length > 0 && !hasJoinParam && !hasCreateParam) {
+        // If user already belongs to leagues and didn't come via a specific ?join= or ?create= invite or pending code
+        if (m.length > 0 && !hasJoinParam && !hasCreateParam && !pendingJoinCode && !pendingSquaresCode) {
           const lastLeagueId = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
           const matchingLeague = m.find((l) => l.leagueId === lastLeagueId);
           const targetLeagueId = matchingLeague ? matchingLeague.leagueId : m[0].leagueId;
@@ -159,6 +168,13 @@ export default function Home() {
 
           setIsRedirecting(true);
           router.replace(`/league/${targetLeagueId}`);
+          return;
+        }
+
+        if (pendingJoinCode) {
+          localStorage.removeItem("pending_join_code");
+          setIsRedirecting(true);
+          router.replace(`/?join=${encodeURIComponent(pendingJoinCode)}`);
           return;
         }
 
