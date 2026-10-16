@@ -218,12 +218,12 @@ function BracketApp() {
   // Bracket Picks and Simulation state
   const [picks, setPicks] = useState<BracketPicks>({});
   const [tiebreaker, setTiebreaker] = useState<TiebreakerPrediction>({
-    homeScore: 24,
-    awayScore: 21,
-    totalScore: 45,
+    homeScore: 0,
+    awayScore: 0,
+    totalScore: 0,
   });
-  const [homeScoreInput, setHomeScoreInput] = useState<string>("24");
-  const [awayScoreInput, setAwayScoreInput] = useState<string>("21");
+  const [homeScoreInput, setHomeScoreInput] = useState<string>("");
+  const [awayScoreInput, setAwayScoreInput] = useState<string>("");
   const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [results, setResults] = useState<SimulationResults>({});
@@ -311,14 +311,18 @@ function BracketApp() {
               setPicks({});
             }
 
-            if (data.currentUserEntry?.tiebreaker) {
+            if (
+              data.currentUserEntry?.tiebreaker &&
+              (Number(data.currentUserEntry.tiebreaker.homeScore) > 0 ||
+                Number(data.currentUserEntry.tiebreaker.awayScore) > 0)
+            ) {
               setTiebreaker(data.currentUserEntry.tiebreaker);
-              setHomeScoreInput(String(data.currentUserEntry.tiebreaker.homeScore ?? 24));
-              setAwayScoreInput(String(data.currentUserEntry.tiebreaker.awayScore ?? 21));
+              setHomeScoreInput(String(data.currentUserEntry.tiebreaker.homeScore));
+              setAwayScoreInput(String(data.currentUserEntry.tiebreaker.awayScore));
             } else {
-              setTiebreaker({ homeScore: 24, awayScore: 21, totalScore: 45 });
-              setHomeScoreInput("24");
-              setAwayScoreInput("21");
+              setTiebreaker({ homeScore: 0, awayScore: 0, totalScore: 0 });
+              setHomeScoreInput("");
+              setAwayScoreInput("");
             }
           } else {
             // No specific pool loaded: if user has pools, auto-forward to the first one
@@ -483,8 +487,22 @@ function BracketApp() {
       setAwayScoreInput(cleanStr);
     }
 
-    const homeVal = field === "home" ? (cleanStr === "" ? 0 : parseInt(cleanStr, 10)) : tiebreaker.homeScore;
-    const awayVal = field === "away" ? (cleanStr === "" ? 0 : parseInt(cleanStr, 10)) : tiebreaker.awayScore;
+    const homeVal =
+      field === "home"
+        ? cleanStr === ""
+          ? 0
+          : parseInt(cleanStr, 10)
+        : homeScoreInput === ""
+        ? 0
+        : parseInt(homeScoreInput, 10);
+    const awayVal =
+      field === "away"
+        ? cleanStr === ""
+          ? 0
+          : parseInt(cleanStr, 10)
+        : awayScoreInput === ""
+        ? 0
+        : parseInt(awayScoreInput, 10);
 
     const nextTb: TiebreakerPrediction = {
       homeScore: homeVal,
@@ -495,12 +513,8 @@ function BracketApp() {
     debouncedSavePicksToBackend(picks, nextTb, 600);
   };
 
-  const handleTiebreakerBlur = (field: "home" | "away") => {
-    if (field === "home" && homeScoreInput === "") {
-      setHomeScoreInput("0");
-    } else if (field === "away" && awayScoreInput === "") {
-      setAwayScoreInput("0");
-    }
+  const handleTiebreakerBlur = () => {
+    // Keep inputs empty if left empty
   };
 
   // Simulate outcomes button handler (commissioner only)
@@ -749,14 +763,19 @@ function BracketApp() {
     }
   }, [poolId, poolData, showToast]);
 
-  // Clear user picks via modal
+  // Clear user picks and tiebreaker via modal
   const handleConfirmClearPicks = () => {
     setPicks({});
+    const emptyTb: TiebreakerPrediction = { homeScore: 0, awayScore: 0, totalScore: 0 };
+    setTiebreaker(emptyTb);
+    setHomeScoreInput("");
+    setAwayScoreInput("");
     try {
       localStorage.removeItem(STORAGE_PICKS_KEY);
     } catch {}
-    savePicksToBackend({}, tiebreaker);
+    savePicksToBackend({}, emptyTb);
     setShowClearModal(false);
+    showToast("All picks and tiebreaker scores cleared");
   };
 
   // Matchup resolvers: User Projected Picks vs Actual Tournament Field
@@ -933,27 +952,27 @@ function BracketApp() {
 
   // Super Bowl Champion Center Card
   const renderSuperBowlCenterCard = () => (
-    <div className="w-full max-w-[280px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-3xl p-4 flex flex-col items-center gap-3 text-center shadow-md">
-      <Trophy className="w-8 h-8 text-amber-500" />
-      <div className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
+    <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex flex-col items-center gap-2 text-center shadow-md">
+      <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500 shrink-0" />
+      <div className="font-black text-[10px] sm:text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
         Super Bowl Champion
       </div>
       {renderMatchupCard("super_bowl")}
 
       {/* Super Bowl Tiebreaker Prediction Card */}
-      <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs flex flex-col gap-2 mt-1">
+      <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col gap-1.5 mt-0.5">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-400">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-400">
             Tiebreaker: Final Score
           </span>
           <span className="text-[10px] text-slate-400 font-bold">
-            Total: {tiebreaker.totalScore ?? (tiebreaker.homeScore + tiebreaker.awayScore)}
+            Total: {homeScoreInput || awayScoreInput ? (Number(homeScoreInput || 0) + Number(awayScoreInput || 0)) : "—"}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-left">
+        <div className="grid grid-cols-2 gap-1.5 text-left">
           <div>
-            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
+            <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
               {sbAwayName}
             </label>
             <input
@@ -963,13 +982,12 @@ function BracketApp() {
               disabled={isLocked}
               value={awayScoreInput}
               onChange={(e) => handleTiebreakerInputChange("away", e.target.value)}
-              onBlur={() => handleTiebreakerBlur("away")}
               placeholder="0"
-              className="w-full font-mono text-center font-bold text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
+              className="w-full font-mono text-center font-bold text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 py-1 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
             />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
+            <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
               {sbHomeName}
             </label>
             <input
@@ -979,9 +997,8 @@ function BracketApp() {
               disabled={isLocked}
               value={homeScoreInput}
               onChange={(e) => handleTiebreakerInputChange("home", e.target.value)}
-              onBlur={() => handleTiebreakerBlur("home")}
               placeholder="0"
-              className="w-full font-mono text-center font-bold text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
+              className="w-full font-mono text-center font-bold text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 py-1 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
             />
           </div>
         </div>
@@ -1726,8 +1743,8 @@ function BracketApp() {
                 </div>
 
                 {/* Desktop 7-Column Balanced Interactive Bracket Canvas */}
-                <div className="hidden xl:block w-full overflow-x-auto pb-4">
-                  <div className="min-w-[1240px] xl:min-w-[1300px] grid grid-cols-7 gap-3 items-stretch py-2">
+                <div className="hidden xl:block w-full pb-4">
+                  <div className="w-full grid grid-cols-7 gap-1.5 2xl:gap-2.5 items-stretch py-2">
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">

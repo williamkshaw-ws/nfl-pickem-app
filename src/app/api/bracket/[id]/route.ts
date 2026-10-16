@@ -226,16 +226,18 @@ export async function POST(
 
     const results = poolData.results || {};
 
-    // Validate tiebreaker if provided
+    // Validate tiebreaker if provided (only save non-zero scores)
     let cleanTiebreaker: TiebreakerPrediction | null = null;
     if (tiebreaker && typeof tiebreaker.homeScore === "number" && typeof tiebreaker.awayScore === "number") {
       const h = Math.max(0, Math.min(99, Math.round(tiebreaker.homeScore)));
       const a = Math.max(0, Math.min(99, Math.round(tiebreaker.awayScore)));
-      cleanTiebreaker = {
-        homeScore: h,
-        awayScore: a,
-        totalScore: h + a,
-      };
+      if (h > 0 || a > 0) {
+        cleanTiebreaker = {
+          homeScore: h,
+          awayScore: a,
+          totalScore: h + a,
+        };
+      }
     }
 
     // Calculate score
