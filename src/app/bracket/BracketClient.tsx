@@ -161,6 +161,37 @@ function BracketApp() {
   const [mobileRoundTab, setMobileRoundTab] = useState<"wc" | "div" | "conf" | "sb">("wc");
   const [bracketViewMode, setBracketViewMode] = useState<"actual" | "projected">("actual");
 
+  // Mobile swipe gesture between rounds
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const ROUND_TABS: ("wc" | "div" | "conf" | "sb")[] = ["wc", "div", "conf", "sb"];
+
+  const handleMobileTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleMobileTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = touchStartXRef.current - e.changedTouches[0].clientX;
+    const diffY = touchStartYRef.current - e.changedTouches[0].clientY;
+
+    // Minimum swipe threshold (45px) and ensure horizontal gesture is dominant
+    if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+      const currentIdx = ROUND_TABS.indexOf(mobileRoundTab);
+      if (diffX > 0 && currentIdx < ROUND_TABS.length - 1) {
+        // Swiped left -> advance to next round
+        setMobileRoundTab(ROUND_TABS[currentIdx + 1]);
+      } else if (diffX < 0 && currentIdx > 0) {
+        // Swiped right -> go to previous round
+        setMobileRoundTab(ROUND_TABS[currentIdx - 1]);
+      }
+    }
+
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
+
   // Modals state
   const [showClearModal, setShowClearModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
@@ -1591,87 +1622,109 @@ function BracketApp() {
             {/* TAB 1: BRACKET CANVAS VIEW */}
             {activeTab === "bracket" && (
               <div className="w-full flex flex-col gap-4 animate-in fade-in duration-200">
-                {/* Mobile View Mode & Round Tabs */}
-                <div className="xl:hidden flex flex-col gap-2.5">
-                  {isSimulated && (
-                    <div className="flex items-center justify-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold mx-auto max-w-xs w-full">
+                {/* Mobile View with swipe gesture support between rounds */}
+                <div
+                  className="xl:hidden flex flex-col gap-4 w-full touch-pan-y"
+                  onTouchStart={handleMobileTouchStart}
+                  onTouchEnd={handleMobileTouchEnd}
+                >
+                  <div className="flex flex-col gap-2.5">
+                    {isSimulated && (
+                      <div className="flex items-center justify-center gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold mx-auto max-w-xs w-full">
+                        <button
+                          type="button"
+                          onClick={() => setBracketViewMode("actual")}
+                          className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
+                            bracketViewMode === "actual"
+                              ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                              : "text-slate-500 dark:text-slate-400"
+                          }`}
+                        >
+                          Actual Field
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBracketViewMode("projected")}
+                          className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
+                            bracketViewMode === "projected"
+                              ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
+                              : "text-slate-500 dark:text-slate-400"
+                          }`}
+                        >
+                          My Picks Tree
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Mobile Round Selection Tabs */}
+                    <div className="flex items-center justify-between gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold">
                       <button
                         type="button"
-                        onClick={() => setBracketViewMode("actual")}
-                        className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
-                          bracketViewMode === "actual"
-                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
-                            : "text-slate-500 dark:text-slate-400"
+                        onClick={() => setMobileRoundTab("wc")}
+                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                          mobileRoundTab === "wc"
+                            ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                            : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
                         }`}
                       >
-                        Actual Field
+                        Wild Card
                       </button>
                       <button
                         type="button"
-                        onClick={() => setBracketViewMode("projected")}
-                        className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
-                          bracketViewMode === "projected"
-                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-black shadow-2xs"
-                            : "text-slate-500 dark:text-slate-400"
+                        onClick={() => setMobileRoundTab("div")}
+                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                          mobileRoundTab === "div"
+                            ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                            : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
                         }`}
                       >
-                        My Picks Tree
+                        Divisional
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMobileRoundTab("conf")}
+                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                          mobileRoundTab === "conf"
+                            ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                            : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                        }`}
+                      >
+                        Conference
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMobileRoundTab("sb")}
+                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                          mobileRoundTab === "sb"
+                            ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
+                            : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                        }`}
+                      >
+                        Super Bowl
                       </button>
                     </div>
-                  )}
 
-                  {/* Mobile Round Selection Tabs */}
-                  <div className="flex items-center justify-between gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold">
-                    <button
-                      type="button"
-                      onClick={() => setMobileRoundTab("wc")}
-                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
-                        mobileRoundTab === "wc"
-                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
-                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
-                      }`}
-                    >
-                      Wild Card
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMobileRoundTab("div")}
-                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
-                        mobileRoundTab === "div"
-                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
-                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
-                      }`}
-                    >
-                      Divisional
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMobileRoundTab("conf")}
-                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
-                        mobileRoundTab === "conf"
-                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
-                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
-                      }`}
-                    >
-                      Conference
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMobileRoundTab("sb")}
-                      className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
-                        mobileRoundTab === "sb"
-                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
-                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
-                      }`}
-                    >
-                      Super Bowl
-                    </button>
+                    {/* Subtle round indicator dots */}
+                    <div className="flex items-center justify-center gap-1.5 pt-0.5">
+                      {ROUND_TABS.map((tab, idx) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setMobileRoundTab(tab)}
+                          aria-label={`Go to round ${idx + 1}`}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            mobileRoundTab === tab
+                              ? "w-5 bg-emerald-500"
+                              : "w-1.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400"
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Mobile Round Content */}
-                <div className="xl:hidden flex flex-col items-center gap-4">
-                  {mobileRoundTab === "wc" && (
+                  {/* Mobile Round Content */}
+                  <div className="flex flex-col items-center gap-4 w-full">
+                    {mobileRoundTab === "wc" && (
                     <div className="w-full flex flex-col gap-4">
                       <div className="flex flex-col items-center gap-3 w-full">
                         <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
@@ -1740,6 +1793,7 @@ function BracketApp() {
                       {renderSuperBowlCenterCard()}
                     </div>
                   )}
+                  </div>
                 </div>
 
                 {/* Desktop 7-Column Balanced Interactive Bracket Canvas */}
