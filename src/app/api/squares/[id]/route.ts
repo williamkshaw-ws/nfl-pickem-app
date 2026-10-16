@@ -55,30 +55,35 @@ export async function GET(
     // If caller is authenticated, automatically associate this pool with their account
     const joinCode = data?.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
     const headerKey = request.headers.get("x-owner-key") || "";
+    let isCreator = false;
+    let callerUser = null;
     try {
-      const caller = await requireUser(request);
-      if (caller && caller.uid) {
-        const isOwnerByStorageKey = Boolean(data?.ownerKey && headerKey && headerKey === data.ownerKey);
-        const isOwnerByEmail = Boolean(data?.creatorEmail && caller.email && data.creatorEmail === caller.email);
-        const isCreator = data?.creatorUserId === caller.uid || isOwnerByStorageKey || isOwnerByEmail;
-
-        // If pool is missing creatorUserId and caller has the ownerKey or matching email, claim it
-        if (!data?.creatorUserId && (isOwnerByStorageKey || isOwnerByEmail)) {
-          await docSnap.ref.set(
-            {
-              creatorUserId: caller.uid,
-              creatorEmail: caller.email || data?.creatorEmail || "",
-              joinCode,
-            },
-            { merge: true }
-          );
+      callerUser = await requireUser(request);
+      if (callerUser && callerUser.uid) {
+        if (data?.creatorUserId) {
+          isCreator = data.creatorUserId === callerUser.uid;
+        } else {
+          // Legacy pool fallback
+          const isOwnerByStorageKey = Boolean(data?.ownerKey && headerKey && headerKey === data.ownerKey);
+          const isOwnerByEmail = Boolean(data?.creatorEmail && callerUser.email && data.creatorEmail === callerUser.email);
+          isCreator = isOwnerByStorageKey || isOwnerByEmail;
+          if (isCreator) {
+            await docSnap.ref.set(
+              {
+                creatorUserId: callerUser.uid,
+                creatorEmail: callerUser.email || data?.creatorEmail || "",
+                joinCode,
+              },
+              { merge: true }
+            );
+          }
         }
 
-        const membershipRef = db.collection("squares_memberships").doc(`${caller.uid}_${poolId}`);
+        const membershipRef = db.collection("squares_memberships").doc(`${callerUser.uid}_${poolId}`);
         await membershipRef.set(
           {
-            userId: caller.uid,
-            userEmail: caller.email || "",
+            userId: callerUser.uid,
+            userEmail: callerUser.email || "",
             poolId,
             joinCode,
             poolTitle: rawBoard?.title || "Super Bowl Squares",
@@ -92,6 +97,9 @@ export async function GET(
       }
     } catch {
       // Unauthenticated viewers are permitted
+      if (!data?.creatorUserId && data?.ownerKey && headerKey && headerKey === data.ownerKey) {
+        isCreator = true;
+      }
     }
 
     return NextResponse.json({
@@ -101,6 +109,8 @@ export async function GET(
       board: safeBoard,
       creatorUserId: data?.creatorUserId || null,
       creatorName: data?.creatorName || null,
+      isOwner: isCreator,
+      role: isCreator ? "commissioner" : (callerUser ? "member" : "viewer"),
       updatedAt: data?.updatedAt,
     });
   } catch (err: unknown) {

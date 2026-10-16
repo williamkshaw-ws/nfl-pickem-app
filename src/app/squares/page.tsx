@@ -412,6 +412,7 @@ function SquaresPoolApp() {
   const { user, loading: authLoading } = useAuth();
   const [poolCreatorId, setPoolCreatorId] = useState<string | null>(null);
   const [poolCreatorName, setPoolCreatorName] = useState<string | null>(null);
+  const [serverIsOwner, setServerIsOwner] = useState<boolean | null>(null);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
@@ -514,52 +515,46 @@ function SquaresPoolApp() {
   const isOwner = useMemo(() => {
     if (isAuthDenied) return false;
     if (searchParams.get("create") === "1" && user) return true;
-    // When no pool ID is in the URL, commissioner must be signed in to create/edit
     if (!poolId) return Boolean(user);
     if (publishedPoolId && publishedPoolId === poolId) return true;
-    if (user && poolCreatorId && user.id === poolCreatorId) return true;
-    if (typeof window !== "undefined") {
+
+    // 1. Authoritative server check if loaded
+    if (serverIsOwner !== null) {
+      return serverIsOwner;
+    }
+
+    // 2. Check userPools membership role for logged-in user
+    if (user) {
+      const membership = userPools.find((p) => p.id === poolId || p.joinCode === poolId);
+      if (membership) {
+        return membership.role === "commissioner";
+      }
+      if (poolCreatorId) {
+        return poolCreatorId === user.id;
+      }
+    }
+
+    // 3. Fallback for unauthenticated legacy commissioner
+    if (!user && !poolCreatorId && typeof window !== "undefined") {
       try {
         const storedKey = localStorage.getItem(`squares_owner_key_${poolId}`);
         const legacyOwner = localStorage.getItem(`squares_owner_${poolId}`) === "true";
-        const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
-        if (storedKey || legacyOwner || editParam) {
+        if (storedKey || legacyOwner) {
           return true;
         }
       } catch {
         // Ignore storage errors
       }
     }
-    if (poolCreatorId && (!user || user.id !== poolCreatorId)) {
-      return false;
-    }
+
     return false;
-  }, [isAuthDenied, poolId, publishedPoolId, user, poolCreatorId, searchParams]);
+  }, [isAuthDenied, poolId, publishedPoolId, user, serverIsOwner, userPools, poolCreatorId, searchParams]);
 
   const [isViewerPreview, setIsViewerPreview] = useState<boolean>(false);
 
   useEffect(() => {
     const viewParam = searchParams.get("view") === "1" || searchParams.get("mode") === "view";
-    const editParam = searchParams.get("edit") === "1" || searchParams.get("edit") === "true";
-    if (editParam) {
-      setIsViewerPreview(false);
-      return;
-    }
-    const idParam = searchParams.get("id");
-    if (!idParam) {
-      setIsViewerPreview(false);
-      return;
-    }
-    if (typeof window !== "undefined") {
-      try {
-        const storedKey = localStorage.getItem(`squares_owner_key_${idParam}`);
-        const legacyOwner = localStorage.getItem(`squares_owner_${idParam}`) === "true";
-        const hasOwnership = Boolean(storedKey || legacyOwner);
-        setIsViewerPreview(hasOwnership ? viewParam : true);
-      } catch {
-        setIsViewerPreview(true);
-      }
-    }
+    setIsViewerPreview(viewParam);
   }, [searchParams]);
 
   // Computed read-only status
@@ -620,6 +615,9 @@ function SquaresPoolApp() {
             });
             if (data.creatorUserId) {
               setPoolCreatorId(data.creatorUserId);
+            }
+            if (typeof data.isOwner === "boolean") {
+              setServerIsOwner(data.isOwner);
             }
             if (data.creatorName) {
               setPoolCreatorName(data.creatorName);
@@ -1399,7 +1397,7 @@ function SquaresPoolApp() {
                     <button
                       type="button"
                       onClick={() => setShowShareModal(true)}
-                      className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
+                      className="hidden sm:inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
                       title="Click to view share code and link"
                     >
                       <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
@@ -1846,9 +1844,21 @@ function SquaresPoolApp() {
             <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="min-w-0">
-                  <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white truncate">
-                    {board.title || "Super Bowl Squares Pool"}
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white truncate">
+                      {board.title || "Super Bowl Squares Pool"}
+                    </h2>
+                    {poolId && (
+                      <button
+                        type="button"
+                        onClick={() => setShowShareModal(true)}
+                        className="inline-flex items-center text-[10px] font-mono font-black tracking-wider px-2 py-0.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
+                        title="Click to view share code and link"
+                      >
+                        <span>Code: {currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
+                      </button>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     100 Squares Pool &bull; {poolCreatorName ? `Commissioner: ${poolCreatorName}` : "View-only board"}
                   </p>
@@ -1932,10 +1942,29 @@ function SquaresPoolApp() {
                   </div>
 
                   {/* Status / Quarter clock */}
-                  <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2 py-0.5">
-                    <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                      {liveGame.status.shortDetail || "VS"}
-                    </span>
+                  <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2 py-0.5 text-center min-w-[50px] sm:min-w-[80px]">
+                    {(() => {
+                      const detail = liveGame.status.shortDetail || "VS";
+                      if (detail.includes(" - ")) {
+                        const [dDate, ...dRest] = detail.split(" - ");
+                        const dTime = dRest.join(" - ");
+                        return (
+                          <div className="flex flex-col items-center leading-tight">
+                            <span className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                              {dDate}
+                            </span>
+                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                              {dTime}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                          {detail}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* NFC Team */}
@@ -1976,9 +2005,14 @@ function SquaresPoolApp() {
                     Pool Title
                   </label>
                   {poolId && (
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      ID: {poolId}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowShareModal(true)}
+                      className="inline-flex items-center text-[10px] font-mono font-black tracking-wider px-2 py-0.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
+                      title="Click to view share code and link"
+                    >
+                      <span>Code: {currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
+                    </button>
                   )}
                 </div>
                 <input
@@ -2036,63 +2070,64 @@ function SquaresPoolApp() {
 
             {/* Row 2: Matchup & Scoreboard & Games Selector */}
             <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 space-y-2.5">
-              {/* Header of matchup: Live state & Controls */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {liveGame?.status?.state === "in" ? (
-                    <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black">
+                    <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black shrink-0 whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                       LIVE &bull; {liveGame.status.detail || "In Progress"}
                     </span>
                   ) : liveGame?.status?.completed || liveGame?.status?.state === "post" ? (
-                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black">
+                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black shrink-0 whitespace-nowrap">
                       <Check className="w-3 h-3" />
                       FINAL
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-[10px] sm:text-xs font-bold">
+                    <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-[10px] sm:text-xs font-bold shrink-0 whitespace-nowrap">
                       <Radio className="w-3 h-3 text-slate-400" />
-                      <span>{liveGame ? (liveGame.status?.shortDetail || "Scheduled") : "NFL Game Matchup"}</span>
+                      <span>{liveGame ? (liveGame.status?.shortDetail || "Scheduled") : "NFL Game"}</span>
                     </span>
                   )}
                 </div>
 
                 {/* Action Controls: Auto-sync, Sync, and Change Game button */}
-                <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                   <label
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none"
+                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none shrink-0 whitespace-nowrap"
                     title="Auto-fill quarter scores from ESPN"
                   >
                     <input
                       type="checkbox"
                       checked={autoSyncScores}
                       onChange={(e) => setAutoSyncScores(e.target.checked)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3 h-3"
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3 h-3 shrink-0"
                     />
-                    <span>Auto-Scores</span>
+                    <span className="hidden sm:inline">Auto-Scores</span>
+                    <span className="sm:hidden">Auto</span>
                   </label>
 
                   <button
                     type="button"
                     onClick={() => fetchLiveScore()}
                     disabled={isFetchingScore}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 text-[10px] sm:text-[11px] font-bold transition disabled:opacity-50"
+                    className="inline-flex items-center justify-center p-1 sm:px-2 sm:py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 text-[10px] sm:text-[11px] font-bold transition disabled:opacity-50 shrink-0"
                     title="Sync score from ESPN"
                   >
                     <RefreshCw className={`w-3 h-3 ${isFetchingScore ? "animate-spin text-emerald-500" : ""}`} />
-                    <span className="hidden sm:inline">Sync</span>
+                    <span className="hidden sm:inline ml-1">Sync</span>
                   </button>
 
                   {availableGames.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setShowGamePicker(!showGamePicker)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-bold transition shadow-2xs"
+                      className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] sm:text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap"
                       title="Choose NFL game to automatically set board teams"
                     >
-                      <Tv className="w-3.5 h-3.5" />
-                      <span>Change Game</span>
-                      <ChevronDown className={`w-3 h-3 transition-transform ${showGamePicker ? "rotate-180" : ""}`} />
+                      <Tv className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                      <span className="hidden sm:inline">Change Game</span>
+                      <span className="sm:hidden">Game</span>
+                      <ChevronDown className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform shrink-0 ${showGamePicker ? "rotate-180" : ""}`} />
                     </button>
                   )}
                 </div>
@@ -2129,11 +2164,29 @@ function SquaresPoolApp() {
                 </div>
 
                 {/* Center Divider / Clock */}
-                <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2">
-                  <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                    {liveGame?.status?.shortDetail || "VS"}
-                  </span>
-
+                <div className="flex flex-col items-center justify-center shrink-0 px-1 sm:px-2 text-center min-w-[50px] sm:min-w-[80px]">
+                  {(() => {
+                    const detail = liveGame?.status?.shortDetail || "VS";
+                    if (detail.includes(" - ")) {
+                      const [dDate, ...dRest] = detail.split(" - ");
+                      const dTime = dRest.join(" - ");
+                      return (
+                        <div className="flex flex-col items-center leading-tight">
+                          <span className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                            {dDate}
+                          </span>
+                          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                            {dTime}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                        {detail}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* NFC Team */}
