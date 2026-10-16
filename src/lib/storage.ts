@@ -431,43 +431,44 @@ export async function syncWeekFromEspn(
 }
 
 /**
- * Automatically detects the current NFL week by finding the first week
- * that has games currently live or scheduled in the future.
- * 
- * Once Tuesday arrives and all games of the previous week are concluded,
- * it automatically advances to the upcoming week (e.g. Week 5).
+ * Automatically detects the current NFL week.
+ * Each NFL week runs through Monday Night Football and rolls over to the
+ * next week starting on Tuesday morning (2:00 AM ET / 06:00 UTC).
  */
 export function detectCurrentWeek(gamesByWeek: Record<number, Game[]>): number {
   const now = Date.now();
+  // Week 1 Monday Night Football concludes Monday Sep 14, 2026 night;
+  // Tuesday Sep 15, 2026 at 2:00 AM ET (06:00 UTC) starts Week 2.
+  const week1TuesdayRollover = new Date("2026-09-15T06:00:00Z").getTime();
+  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
 
   for (let w = 1; w <= 18; w++) {
+    const calendarTuesdayRollover = week1TuesdayRollover + (w - 1) * oneWeekMs;
     const games = gamesByWeek[w] || [];
-    if (games.length === 0) continue;
 
-    // 1. If any game in this week is currently in progress, this is the active week
-    const hasLiveGame = games.some((g) => g.status.state === "in");
-    if (hasLiveGame) return w;
-
-    // 2. If all games in this week are completed, this week is over
-    const allCompleted = games.every((g) => g.status.completed);
-    if (allCompleted) {
-      continue;
+    // 1. If any game in this week is currently live, this is the active week
+    if (games.some((g) => g.status?.state === "in")) {
+      return w;
     }
 
-    // 3. If every game in this week started in the past (> 8 hours ago),
-    // this week is concluded even if scores are awaiting final wrap-up
-    const allInPast = games.every((g) => {
-      const gameTime = new Date(g.date).getTime();
-      return !isNaN(gameTime) && gameTime + 8 * 60 * 60 * 1000 < now;
-    });
-
-    if (allInPast) {
-      continue;
+    // 2. Determine the Tuesday rollover timestamp for week w
+    let rolloverTime = calendarTuesdayRollover;
+    const realGames = games.filter((g) => g.id && !/^w\d+-g\d+$/.test(g.id));
+    if (realGames.length > 0) {
+      const latestKickoff = Math.max(
+        ...realGames.map((g) => new Date(g.date).getTime()).filter((t) => !isNaN(t))
+      );
+      if (Number.isFinite(latestKickoff)) {
+        // Ensure rollover is at least 5 hours after the final game kicks off (Tuesday morning ET)
+        rolloverTime = Math.max(calendarTuesdayRollover, latestKickoff + 5 * 60 * 60 * 1000);
+      }
     }
 
-    // This week has upcoming future games scheduled, so it is the active week!
-    return w;
+    // If we have not yet reached Tuesday morning after week w's games, week w is current
+    if (now < rolloverTime) {
+      return w;
+    }
   }
 
-  return 1;
+  return 18;
 }

@@ -63,11 +63,11 @@ export async function GET(
     const detectedWeek = detectCurrentWeek(gamesByWeek);
 
     const rawSettings = league.settings || {};
-    // Automatically advance to the detected current NFL week as weeks complete
-    const effectiveCurrentWeek = Math.max(detectedWeek, rawSettings.currentWeek || 1);
+    // Always default to the detected current NFL week (rolling over every Tuesday)
+    const effectiveCurrentWeek = detectedWeek;
 
-    // If the week has naturally rolled forward, update Firestore settings in background
-    if (detectedWeek > (rawSettings.currentWeek || 1)) {
+    // Keep Firestore settings.currentWeek synced with the Tuesday-detected week
+    if (detectedWeek !== (rawSettings.currentWeek || 1)) {
       adminDb().collection("leagues").doc(leagueId).update({
         "settings.currentWeek": detectedWeek,
       }).catch((err) => console.warn("Auto-update currentWeek warning:", err));

@@ -56,11 +56,29 @@ export function GameSwitcherDropdown({ currentGame, className = "" }: GameSwitch
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [lastLeagueId, setLastLeagueId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const saved = localStorage.getItem("last_active_league");
+      if (saved) setLastLeagueId(saved);
+    } catch {
+      // Ignore storage errors
+    }
   }, []);
+
+  // Refresh last_active_league when opening dropdown in case user switched leagues in this session
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const saved = localStorage.getItem("last_active_league");
+      setLastLeagueId(saved || null);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [isOpen]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -143,11 +161,15 @@ export function GameSwitcherDropdown({ currentGame, className = "" }: GameSwitch
           <div className="space-y-1">
             {GAMES.map((game) => {
               const isCurrent = game.key === currentGame;
+              const targetHref =
+                game.key === "pickem" && lastLeagueId
+                  ? `/league/${encodeURIComponent(lastLeagueId)}`
+                  : game.href;
 
               return (
                 <Link
                   key={game.key}
-                  href={game.href}
+                  href={targetHref}
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer ${
                     isCurrent

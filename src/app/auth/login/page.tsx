@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,6 +15,8 @@ export default function Login() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetSending, setResetSending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
@@ -147,6 +149,42 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError("");
+    setResetMessage("");
+    const raw = identifier.trim();
+    if (!raw) {
+      setError("Please enter your email or username above first, then click Forgot password.");
+      return;
+    }
+
+    setResetSending(true);
+    try {
+      let email = raw;
+      if (!email.includes("@")) {
+        const lookupRes = await fetch("/api/auth/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: email }),
+        });
+        const lookupData = await lookupRes.json();
+        if (!lookupRes.ok || !lookupData.email) {
+          setError(lookupData.error || "No account found with that username.");
+          setResetSending(false);
+          return;
+        }
+        email = lookupData.email;
+      }
+
+      await sendPasswordResetEmail(auth, email);
+      setResetMessage(`Password reset link sent to ${email}! Check your inbox.`);
+    } catch (err: any) {
+      setError(err.message ? err.message.replace("Firebase: ", "") : "Failed to send reset email.");
+    } finally {
+      setResetSending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
@@ -156,6 +194,12 @@ export default function Login() {
         {error && (
           <div className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-sm p-3 rounded-lg mb-6 border border-rose-100 dark:border-rose-900/50">
             {error}
+          </div>
+        )}
+
+        {resetMessage && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-sm p-3 rounded-lg mb-6 border border-emerald-200 dark:border-emerald-800/50">
+            {resetMessage}
           </div>
         )}
 
@@ -185,13 +229,27 @@ export default function Login() {
               autoCapitalize="none"
               autoCorrect="off"
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                if (error) setError("");
+                if (resetMessage) setResetMessage("");
+              }}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
               placeholder="you@example.com or username"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Password</label>
+              <button
+                type="button"
+                disabled={resetSending}
+                onClick={handleForgotPassword}
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 cursor-pointer"
+              >
+                {resetSending ? "Sending reset link..." : "Forgot password?"}
+              </button>
+            </div>
             <div className="relative">
               <input
                 required

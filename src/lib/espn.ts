@@ -336,13 +336,16 @@ export function getFallbackWeekGames(
     },
   ];
 
+  const weekOffsetMs = (week - 4) * 7 * 24 * 60 * 60 * 1000;
+
   const games: Game[] = sampleMatchups.map((m) => {
+    const shiftedDate = new Date(new Date(m.date).getTime() + weekOffsetMs).toISOString();
     return {
       id: m.id,
       week,
       season,
       seasonType: 2,
-      date: m.date,
+      date: shiftedDate,
       name: `${m.away.full} at ${m.home.full}`,
       shortName: `${m.away.abbr} @ ${m.home.abbr}`,
       homeTeam: {

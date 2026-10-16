@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { auth, db } from "@/lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
@@ -55,6 +55,8 @@ export function LandingPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginShowPassword, setLoginShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginResetMessage, setLoginResetMessage] = useState("");
+  const [loginResetSending, setLoginResetSending] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -202,6 +204,42 @@ export function LandingPage() {
         setLoginError(err.message || "Failed to sign in.");
       }
       setLoginLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setLoginError("");
+    setLoginResetMessage("");
+    const raw = loginIdentifier.trim();
+    if (!raw) {
+      setLoginError("Please enter your username or email above first, then click Forgot password.");
+      return;
+    }
+
+    setLoginResetSending(true);
+    try {
+      let email = raw;
+      if (!email.includes("@")) {
+        const lookupRes = await fetch("/api/auth/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: email }),
+        });
+        const lookupData = await lookupRes.json();
+        if (!lookupRes.ok || !lookupData.email) {
+          setLoginError(lookupData.error || "No account found with that username.");
+          setLoginResetSending(false);
+          return;
+        }
+        email = lookupData.email;
+      }
+
+      await sendPasswordResetEmail(auth, email);
+      setLoginResetMessage(`Password reset link sent to ${email}! Check your inbox.`);
+    } catch (err: any) {
+      setLoginError(err.message ? err.message.replace("Firebase: ", "") : "Failed to send reset email.");
+    } finally {
+      setLoginResetSending(false);
     }
   };
 
@@ -1263,6 +1301,13 @@ export function LandingPage() {
               </div>
             )}
 
+            {loginResetMessage && (
+              <div className="mt-4 p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <span>{loginResetMessage}</span>
+              </div>
+            )}
+
             <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -1280,6 +1325,7 @@ export function LandingPage() {
                   onChange={(e) => {
                     setLoginIdentifier(e.target.value);
                     if (loginError) setLoginError("");
+                    if (loginResetMessage) setLoginResetMessage("");
                   }}
                   className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                 />
@@ -1290,13 +1336,14 @@ export function LandingPage() {
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
                     Password
                   </label>
-                  <Link
-                    href="/auth/forgot-password"
-                    onClick={() => setShowLoginModal(false)}
-                    className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                  <button
+                    type="button"
+                    disabled={loginResetSending}
+                    onClick={handleForgotPassword}
+                    className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 cursor-pointer"
                   >
-                    Forgot password?
-                  </Link>
+                    {loginResetSending ? "Sending reset link..." : "Forgot password?"}
+                  </button>
                 </div>
                 <div className="relative">
                   <input

@@ -1323,15 +1323,15 @@ function SquaresPoolApp() {
 
             {/* Print / PDF with Dropdown (only for active board or signed in commissioner) */}
             {(poolId || user) && (
-              <div className="relative">
+              <div className="relative hidden sm:block">
                 <button
                   type="button"
                   onClick={() => setShowPrintMenu((prev) => !prev)}
-                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
                   title="Print or Save PDF"
                 >
                   <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="hidden sm:inline">Print / PDF</span>
+                  <span>Print / PDF</span>
                   <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showPrintMenu ? "rotate-180" : ""}`} />
                 </button>
 
