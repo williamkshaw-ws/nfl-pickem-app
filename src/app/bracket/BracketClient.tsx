@@ -840,7 +840,7 @@ function BracketApp() {
     return (
       <div
         key={slot.gameId}
-        className={`w-full bg-white dark:bg-slate-900 border rounded-2xl p-2 sm:p-2.5 transition-all shadow-xs flex flex-col gap-1.5 ${
+        className={`w-full bg-white dark:bg-slate-900 border rounded-2xl p-2 sm:p-2.5 2xl:p-3 transition-all shadow-xs flex flex-col gap-1.5 2xl:gap-2 ${
           isCorrect
             ? "border-emerald-500/80 dark:border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-950/20"
             : isWrong
@@ -848,11 +848,11 @@ function BracketApp() {
             : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
         }`}
       >
-        <div className="flex items-center justify-between gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
+        <div className="flex items-center justify-between gap-1.5 text-[11px] 2xl:text-xs font-bold text-slate-500 dark:text-slate-400 px-1">
           <span className="truncate min-w-0 flex-1">{slot.title}</span>
           {isGameDone && (
             <span
-              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap inline-flex items-center gap-0.5 ${
+              className={`text-[10px] 2xl:text-[11px] font-extrabold px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap inline-flex items-center gap-0.5 ${
                 isCorrect
                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : isWrong
@@ -873,20 +873,20 @@ function BracketApp() {
 
         {/* Sub-line if predicted pick was eliminated */}
         {isPickEliminated && eliminatedTeam && (
-          <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] px-1">
+          <div className="pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] 2xl:text-xs px-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Pick:</span>
               <TeamLogo
                 alt={eliminatedTeam.abbr}
-                width={14}
-                height={14}
-                className="w-3.5 h-3.5 shrink-0 object-contain"
+                width={16}
+                height={16}
+                className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 shrink-0 object-contain"
               />
               <span className="truncate font-bold text-slate-700 dark:text-slate-300">
                 {eliminatedTeam.name}
               </span>
             </div>
-            <span className="inline-flex items-center text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 shrink-0 ml-1.5">
+            <span className="inline-flex items-center text-[9px] 2xl:text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 shrink-0 ml-1.5">
               Out
             </span>
           </div>
@@ -905,9 +905,9 @@ function BracketApp() {
   ) => {
     if (!team) {
       return (
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 text-xs font-semibold">
+        <div className="flex items-center justify-between px-2.5 sm:px-3 py-2 2xl:py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 text-xs 2xl:text-sm font-semibold">
           <span>TBD</span>
-          <span className="text-[10px] text-slate-400">awaiting round</span>
+          <span className="text-[10px] 2xl:text-xs text-slate-400">awaiting round</span>
         </div>
       );
     }
@@ -922,7 +922,7 @@ function BracketApp() {
         type="button"
         disabled={isLocked}
         onClick={() => handleSelectTeam(gameId, team.abbr)}
-        className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-xl text-left font-bold text-xs transition-all ${
+        className={`w-full flex items-center justify-between px-2 sm:px-2.5 2xl:px-3 py-1.5 sm:py-2 2xl:py-2.5 rounded-xl text-left font-bold text-xs 2xl:text-[13px] transition-all ${
           isPickCorrect
             ? "bg-emerald-600 text-white shadow-xs"
             : isPickWrong
@@ -932,9 +932,9 @@ function BracketApp() {
             : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/70 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200"
         } ${isLocked ? "cursor-default opacity-90" : "cursor-pointer"}`}
       >
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 2xl:gap-2 min-w-0 flex-1">
           <span
-            className={`w-4 h-4 sm:w-4.5 sm:h-4.5 flex items-center justify-center rounded-md text-[9px] sm:text-[10px] font-black shrink-0 ${
+            className={`w-4 h-4 sm:w-4.5 sm:h-4.5 2xl:w-5 2xl:h-5 flex items-center justify-center rounded-md text-[9px] sm:text-[10px] 2xl:text-xs font-black shrink-0 ${
               isPickCorrect || isPickWrong || isSelected
                 ? "bg-white/20 text-white"
                 : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
@@ -942,14 +942,14 @@ function BracketApp() {
           >
             {team.seed}
           </span>
-          <TeamLogo alt={team.abbr} width={18} height={18} className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 object-contain" />
+          <TeamLogo alt={team.abbr} width={20} height={20} className="w-4 h-4 sm:w-4.5 sm:h-4.5 2xl:w-5 2xl:h-5 shrink-0 object-contain" />
           <span className="truncate">{team.name}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+        <div className="flex items-center gap-1.5 shrink-0 ml-1.5 2xl:ml-2">
           {score !== undefined && (
             <span
-              className={`font-mono text-xs font-extrabold ${
+              className={`font-mono text-xs 2xl:text-sm font-extrabold ${
                 isPickCorrect || (isSelected && !isPickWrong)
                   ? "text-emerald-100"
                   : isPickWrong
@@ -984,27 +984,27 @@ function BracketApp() {
 
   // Super Bowl Champion Center Card
   const renderSuperBowlCenterCard = () => (
-    <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex flex-col items-center gap-2 text-center shadow-md">
-      <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500 shrink-0" />
-      <div className="font-black text-[10px] sm:text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 whitespace-nowrap">
+    <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 2xl:p-4 flex flex-col items-center gap-2 2xl:gap-2.5 text-center shadow-md">
+      <Trophy className="w-6 h-6 sm:w-7 sm:h-7 2xl:w-8 2xl:h-8 text-amber-500 shrink-0" />
+      <div className="font-black text-[10px] sm:text-xs 2xl:text-sm uppercase tracking-wider text-slate-800 dark:text-slate-200 whitespace-nowrap">
         Super Bowl Champion
       </div>
       {renderMatchupCard("super_bowl")}
 
       {/* Super Bowl Tiebreaker Prediction Card */}
-      <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col gap-1.5 mt-0.5">
+      <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 2xl:p-3 shadow-xs flex flex-col gap-1.5 2xl:gap-2 mt-0.5">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-400">
+          <span className="text-[10px] sm:text-[11px] 2xl:text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-400">
             Tiebreaker: Final Score
           </span>
-          <span className="text-[10px] text-slate-400 font-bold">
+          <span className="text-[10px] 2xl:text-xs text-slate-400 font-bold">
             Total: {homeScoreInput || awayScoreInput ? (Number(homeScoreInput || 0) + Number(awayScoreInput || 0)) : "—"}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 text-left">
+        <div className="grid grid-cols-2 gap-1.5 2xl:gap-2 text-left">
           <div>
-            <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
+            <label className="text-[9px] sm:text-[10px] 2xl:text-xs font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
               {sbAwayName}
             </label>
             <input
@@ -1015,11 +1015,11 @@ function BracketApp() {
               value={awayScoreInput}
               onChange={(e) => handleTiebreakerInputChange("away", e.target.value)}
               placeholder="0"
-              className="w-full font-mono text-center font-bold text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 py-1 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
+              className="w-full font-mono text-center font-bold text-xs sm:text-sm 2xl:text-base bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 py-1 2xl:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
             />
           </div>
           <div>
-            <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
+            <label className="text-[9px] sm:text-[10px] 2xl:text-xs font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
               {sbHomeName}
             </label>
             <input
@@ -1030,7 +1030,7 @@ function BracketApp() {
               value={homeScoreInput}
               onChange={(e) => handleTiebreakerInputChange("home", e.target.value)}
               placeholder="0"
-              className="w-full font-mono text-center font-bold text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 py-1 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
+              className="w-full font-mono text-center font-bold text-xs sm:text-sm 2xl:text-base bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2 py-1 2xl:py-1.5 focus:outline-hidden focus:ring-2 focus:ring-purple-500 disabled:opacity-80"
             />
           </div>
         </div>
@@ -1053,7 +1053,7 @@ function BracketApp() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Branding & Game Switcher & Bracket Title */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown currentGame="bracket" />
@@ -1403,7 +1403,7 @@ function BracketApp() {
         {/* Sub-header Navigation Tabs */}
         {poolData && (
           <div className="border-t border-slate-100 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 sm:py-2.5">
+            <div className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 sm:py-2.5">
               {/* Left: Tabs */}
               <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
                 <button
@@ -1528,7 +1528,7 @@ function BracketApp() {
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
+      <main className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto w-full px-3 sm:px-6 lg:px-8 py-3 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
         {/* Zero State: No Pools Found */}
         {user && poolsFetched && userPools.length === 0 && !poolId ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-lg mx-auto my-auto py-12">
@@ -1780,14 +1780,14 @@ function BracketApp() {
 
                 {/* Desktop 7-Column Balanced Interactive Bracket Canvas */}
                 <div className="hidden xl:block w-full pb-4">
-                  <div className="w-full grid grid-cols-7 gap-1.5 2xl:gap-2.5 items-stretch py-2">
+                  <div className="w-full grid grid-cols-7 gap-2 xl:gap-3 2xl:gap-4 items-stretch py-2">
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">
                         <span className="w-2 h-2 rounded-full bg-rose-500" />
                         AFC Wild Card
                       </div>
-                      <div className="flex-1 flex flex-col justify-between py-2 gap-3">
+                      <div className="flex-1 flex flex-col justify-between py-2 gap-3 xl:gap-4 2xl:gap-5">
                         {renderMatchupCard("afc_wc_1")}
                         {renderMatchupCard("afc_wc_2")}
                         {renderMatchupCard("afc_wc_3")}
@@ -1796,10 +1796,10 @@ function BracketApp() {
 
                     {/* Col 2: AFC Divisional */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-2">
                         AFC Divisional
                       </div>
-                      <div className="flex-1 flex flex-col justify-around py-4">
+                      <div className="flex-1 flex flex-col justify-around py-4 xl:py-6 2xl:py-8">
                         {renderMatchupCard("afc_div_1")}
                         {renderMatchupCard("afc_div_2")}
                       </div>
@@ -1807,41 +1807,41 @@ function BracketApp() {
 
                     {/* Col 3: AFC Championship */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-2">
                         AFC Championship
                       </div>
-                      <div className="flex-1 flex flex-col justify-center py-4">
+                      <div className="flex-1 flex flex-col justify-center py-4 xl:py-6 2xl:py-8">
                         {renderMatchupCard("afc_champ")}
                       </div>
                     </div>
 
                     {/* Col 4: Super Bowl (Center of bracket) */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1.5 py-1 mb-2">
-                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                        <Trophy className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 text-amber-500" />
                         Super Bowl
                       </div>
-                      <div className="flex-1 flex flex-col justify-center items-center py-2">
+                      <div className="flex-1 flex flex-col justify-center items-center py-2 xl:py-3 2xl:py-4">
                         {renderSuperBowlCenterCard()}
                       </div>
                     </div>
 
                     {/* Col 5: NFC Championship */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-2">
                         NFC Championship
                       </div>
-                      <div className="flex-1 flex flex-col justify-center py-4">
+                      <div className="flex-1 flex flex-col justify-center py-4 xl:py-6 2xl:py-8">
                         {renderMatchupCard("nfc_champ")}
                       </div>
                     </div>
 
                     {/* Col 6: NFC Divisional */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-2">
                         NFC Divisional
                       </div>
-                      <div className="flex-1 flex flex-col justify-around py-4">
+                      <div className="flex-1 flex flex-col justify-around py-4 xl:py-6 2xl:py-8">
                         {renderMatchupCard("nfc_div_1")}
                         {renderMatchupCard("nfc_div_2")}
                       </div>
@@ -1849,11 +1849,11 @@ function BracketApp() {
 
                     {/* Col 7: NFC Wild Card */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5 py-1 mb-2">
                         <span className="w-2 h-2 rounded-full bg-sky-500" />
                         NFC Wild Card
                       </div>
-                      <div className="flex-1 flex flex-col justify-between py-2 gap-3">
+                      <div className="flex-1 flex flex-col justify-between py-2 gap-3 xl:gap-4 2xl:gap-5">
                         {renderMatchupCard("nfc_wc_1")}
                         {renderMatchupCard("nfc_wc_2")}
                         {renderMatchupCard("nfc_wc_3")}
@@ -2164,7 +2164,7 @@ function BracketApp() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-6xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-2xl relative my-auto max-h-[94vh] flex flex-col"
+              className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1700px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-2xl relative my-auto max-h-[94vh] flex flex-col"
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
