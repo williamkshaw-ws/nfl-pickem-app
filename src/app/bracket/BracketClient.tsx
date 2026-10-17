@@ -30,6 +30,7 @@ import {
   Copy,
   Share2,
   Plus,
+  PlusCircle,
   Shield,
   ExternalLink,
 } from "lucide-react";
@@ -1049,7 +1050,7 @@ function BracketApp() {
   const cleanDisplayCode = poolId ? (poolData?.joinCode || poolId).toUpperCase() : "";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
@@ -1143,6 +1144,40 @@ function BracketApp() {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
                     <div className="absolute right-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
+                      {/* Header with quick Join & Create buttons */}
+                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          My Playoff Brackets
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowUserPoolsMenu(false);
+                              setJoinPoolCode("");
+                              setJoinError("");
+                              setShowJoinPoolModal(true);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer"
+                          >
+                            <LogIn className="w-2.5 h-2.5" />
+                            Join
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowUserPoolsMenu(false);
+                              setCreatePoolName("");
+                              setShowCreatePoolModal(true);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-[10px] font-bold transition cursor-pointer shadow-2xs"
+                          >
+                            <PlusCircle className="w-2.5 h-2.5" />
+                            New
+                          </button>
+                        </div>
+                      </div>
+
                       {userPools.length === 0 ? (
                         <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
                           You haven&apos;t created or joined any bracket pools yet.
@@ -1267,34 +1302,6 @@ function BracketApp() {
                         </>
                       )}
 
-                      {/* Dropdown Action Buttons */}
-                      <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1 px-1 space-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUserPoolsMenu(false);
-                            setCreatePoolName("");
-                            setShowCreatePoolModal(true);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Create New Bracket</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUserPoolsMenu(false);
-                            setJoinPoolCode("");
-                            setJoinError("");
-                            setShowJoinPoolModal(true);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                        >
-                          <Users className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Join With Code</span>
-                        </button>
-                      </div>
                     </div>
                   </>
                 )}
@@ -1341,59 +1348,34 @@ function BracketApp() {
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
-                      <div
-                        className={`w-10 h-10 ${
-                          user.avatarColor || "bg-emerald-600"
-                        } text-white rounded-xl flex items-center justify-center text-lg font-black shrink-0 shadow-xs transition-colors`}
-                      >
-                        {((user.name || user.username || user.email || "U").charAt(0) || "U").toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">
-                          {user.name || user.username || "User"}
-                        </h4>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
-                          @{user.username || (user.name || "user").toLowerCase().replace(/\s+/g, "")}
-                        </span>
-                      </div>
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name || user.username}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                     </div>
-
-                    <div className="space-y-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setShowSettings(true);
-                        }}
-                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                            <Settings className="w-4 h-4" />
-                          </div>
-                          <div className="text-left">
-                            <span className="text-xs font-bold block text-slate-900 dark:text-white">Settings</span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                              Name, username, password &amp; account
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors font-bold text-xs cursor-pointer"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                          <LogOut className="w-4 h-4" />
-                        </div>
-                        <span>Sign Out</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        setShowSettings(true);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-slate-400" />
+                        Settings
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
                   </div>
                 )}
               </div>

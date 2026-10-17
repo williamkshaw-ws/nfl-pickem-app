@@ -562,77 +562,35 @@ export function Header({
               </button>
 
               {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-3 sm:p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    
-                    {/* User Profile Header */}
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-2">
-                      <div className={`w-10 h-10 ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} text-white rounded-xl flex items-center justify-center text-lg font-black flex-shrink-0 shadow-xs transition-colors`}>
-                        {((user?.name || activeUser?.name || user?.username || user?.email || "U").charAt(0) || "U").toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight truncate">{user?.name || activeUser?.name}</h4>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">@{user?.username || activeUser?.name?.toLowerCase().replace(/\s+/g, "")}</span>
-                      </div>
-                    </div>
-
-                    {/* Quick Link to My Leagues */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        setLeaguesMenuOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group mb-1 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                          <Trophy className="w-4 h-4" />
-                        </div>
-                        <div className="text-left">
-                          <span className="text-xs font-bold block text-slate-900 dark:text-white">My Leagues</span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                            {memberships.length} {memberships.length === 1 ? "league" : "leagues"} enrolled
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
-                    </button>
-
-                    {/* Bottom Actions: Settings link & Sign Out */}
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setShowSettings(true);
-                        }}
-                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                            <Settings className="w-4 h-4" />
-                          </div>
-                          <div className="text-left">
-                            <span className="text-xs font-bold block text-slate-900 dark:text-white">Settings</span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500">Name, username, password &amp; account</span>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors font-bold text-xs cursor-pointer"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                          <LogOut className="w-4 h-4" />
-                        </div>
-                        <span>Sign Out</span>
-                      </button>
-                    </div>
-
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name || user.username || activeUser?.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                      setShowSettings(true);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      Settings
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                  <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
               )}
             </div>
             )}
