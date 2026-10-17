@@ -986,7 +986,7 @@ function BracketApp() {
   const renderSuperBowlCenterCard = () => (
     <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex flex-col items-center gap-2 text-center shadow-md">
       <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500 shrink-0" />
-      <div className="font-black text-[10px] sm:text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
+      <div className="font-black text-[10px] sm:text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 whitespace-nowrap">
         Super Bowl Champion
       </div>
       {renderMatchupCard("super_bowl")}
@@ -1106,20 +1106,20 @@ function BracketApp() {
                     <span className="hidden sm:inline">Simulate Scores</span>
                   </button>
                 )}
-
-                {/* Clear Picks Button */}
-                {!isLocked && completedPicksCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowClearModal(true)}
-                    className="inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer shrink-0"
-                    title="Clear your picks"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Clear</span>
-                  </button>
-                )}
               </>
+            )}
+
+            {/* Clear Picks Button (available to all users who have active picks when bracket is not locked) */}
+            {!isLocked && completedPicksCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowClearModal(true)}
+                className="inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer shrink-0"
+                title="Clear your picks"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Clear</span>
+              </button>
             )}
 
             {/* Brackets Dropdown (Created vs Joined) */}
@@ -1639,11 +1639,11 @@ function BracketApp() {
                     )}
 
                     {/* Mobile Round Selection Tabs */}
-                    <div className="flex items-center justify-between gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold">
+                    <div className="flex items-center justify-between gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] sm:text-xs font-bold">
                       <button
                         type="button"
                         onClick={() => setMobileRoundTab("wc")}
-                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        className={`flex-1 py-1.5 px-1 sm:px-2 rounded-xl transition text-center whitespace-nowrap ${
                           mobileRoundTab === "wc"
                             ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
                             : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
@@ -1654,7 +1654,7 @@ function BracketApp() {
                       <button
                         type="button"
                         onClick={() => setMobileRoundTab("div")}
-                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        className={`flex-1 py-1.5 px-1 sm:px-2 rounded-xl transition text-center whitespace-nowrap ${
                           mobileRoundTab === "div"
                             ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
                             : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
@@ -1665,7 +1665,7 @@ function BracketApp() {
                       <button
                         type="button"
                         onClick={() => setMobileRoundTab("conf")}
-                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        className={`flex-1 py-1.5 px-1 sm:px-2 rounded-xl transition text-center whitespace-nowrap ${
                           mobileRoundTab === "conf"
                             ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
                             : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
@@ -1676,7 +1676,7 @@ function BracketApp() {
                       <button
                         type="button"
                         onClick={() => setMobileRoundTab("sb")}
-                        className={`flex-1 py-1.5 px-2 rounded-xl transition text-center ${
+                        className={`flex-1 py-1.5 px-1 sm:px-2 rounded-xl transition text-center whitespace-nowrap ${
                           mobileRoundTab === "sb"
                             ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black shadow-2xs"
                             : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
