@@ -409,16 +409,12 @@ function SquaresPoolApp() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
-  const userPoolsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setUserDropdownOpen(false);
-      }
-      if (userPoolsMenuRef.current && !userPoolsMenuRef.current.contains(target)) {
-        setShowUserPoolsMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -448,7 +444,6 @@ function SquaresPoolApp() {
     role: "commissioner" | "member";
   }
   const [userPools, setUserPools] = useState<UserPoolItem[]>([]);
-  const [showUserPoolsMenu, setShowUserPoolsMenu] = useState(false);
 
   const getAuthToken = useCallback(async () => {
     try {
@@ -1530,9 +1525,13 @@ function SquaresPoolApp() {
 
       {/* Top Header & Navigation */}
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 transition-colors no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <GameSwitcherDropdown currentGame="squares" />
+            <GameSwitcherDropdown
+              currentGame="squares"
+              onJoin={() => setShowJoinModal(true)}
+              onCreate={openCreateModal}
+            />
             <div className="min-w-0 flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-black tracking-tight leading-none text-slate-900 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">
                 <span className="truncate">{poolId ? (board.title || "Super Bowl Squares") : user ? (board.title || "Super Bowl Squares") : "Super Bowl Squares"}</span>
@@ -1585,197 +1584,6 @@ function SquaresPoolApp() {
                 ) : null}
               </span>
             )}
-
-            {/* Squares Boards Dropdown */}
-            {user ? (
-              <div ref={userPoolsMenuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowUserPoolsMenu((prev) => !prev)}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
-                  title="Switch between your squares boards"
-                >
-                  <Grid className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span className="hidden sm:inline">{userPools.length > 0 ? `My Boards (${userPools.length})` : "Boards"}</span>
-                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showUserPoolsMenu ? "rotate-180" : ""}`} />
-                </button>
-
-                {showUserPoolsMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
-                    <div className="absolute right-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
-                      {/* Header with quick Join & Create buttons */}
-                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          My Squares Boards
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowUserPoolsMenu(false);
-                              setShowJoinModal(true);
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer"
-                          >
-                            <LogIn className="w-2.5 h-2.5" />
-                            Join
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowUserPoolsMenu(false);
-                              openCreateModal();
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-[10px] font-bold transition cursor-pointer shadow-2xs"
-                          >
-                            <PlusCircle className="w-2.5 h-2.5" />
-                            New
-                          </button>
-                        </div>
-                      </div>
-
-                      {userPools.length === 0 ? (
-                        <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
-                          You haven&apos;t created or joined any squares boards yet.
-                        </div>
-                      ) : (
-                        <>
-                          {userPools.filter((p) => p.role === "commissioner").length > 0 && (
-                            <div>
-                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                                <span>Boards You Run</span>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
-                                  {userPools.filter((p) => p.role === "commissioner").length}
-                                </span>
-                              </div>
-                              {userPools
-                                .filter((p) => p.role === "commissioner")
-                                .map((p) => {
-                                  const cleanCode = (p.joinCode || p.id).replace(/^sb-/, "").toUpperCase();
-                                  const currentNorm = (poolId || "").replace(/^sb-/, "").toUpperCase();
-                                  const isCurrent = currentNorm === cleanCode;
-                                  return (
-                                    <div
-                                      key={p.id}
-                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
-                                        isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
-                                      }`}
-                                    >
-                                      <Link
-                                        href={`/squares?id=${cleanCode}`}
-                                        onClick={() => setShowUserPoolsMenu(false)}
-                                        className="min-w-0 pr-2 flex-1"
-                                      >
-                                        <div className="font-bold truncate flex items-center gap-1.5">
-                                          <span className="truncate">{p.title}</span>
-                                          {cleanCode && (
-                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                                              {cleanCode}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 truncate">
-                                          {p.topTeam} vs {p.leftTeam}
-                                        </div>
-                                      </Link>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteBoard(p.id);
-                                          }}
-                                          title="Delete this board"
-                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          )}
-
-                          {userPools.filter((p) => p.role === "member").length > 0 && (
-                            <div className={userPools.filter((p) => p.role === "commissioner").length > 0 ? "border-t border-slate-100 dark:border-slate-800 mt-1 pt-1" : ""}>
-                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                                <span>Joined Boards</span>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
-                                  {userPools.filter((p) => p.role === "member").length}
-                                </span>
-                              </div>
-                              {userPools
-                                .filter((p) => p.role === "member")
-                                .map((p) => {
-                                  const cleanCode = (p.joinCode || p.id).replace(/^sb-/, "").toUpperCase();
-                                  const currentNorm = (poolId || "").replace(/^sb-/, "").toUpperCase();
-                                  const isCurrent = currentNorm === cleanCode;
-                                  return (
-                                    <div
-                                      key={p.id}
-                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
-                                        isCurrent ? "bg-amber-500/10 font-bold text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
-                                      }`}
-                                    >
-                                      <Link
-                                        href={`/squares?id=${cleanCode}`}
-                                        onClick={() => setShowUserPoolsMenu(false)}
-                                        className="min-w-0 pr-2 flex-1"
-                                      >
-                                        <div className="font-bold truncate flex items-center gap-1.5">
-                                          <span className="truncate">{p.title}</span>
-                                          {cleanCode && (
-                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                                              {cleanCode}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 truncate">
-                                          {p.topTeam} vs {p.leftTeam}
-                                        </div>
-                                      </Link>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        {isCurrent && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleLeaveBoard(p.id);
-                                          }}
-                                          title="Leave this board"
-                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                                        >
-                                          <LogOut className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowJoinModal(true)}
-                className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
-                title="Join a board with code"
-              >
-                <LogIn className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span className="hidden sm:inline">Join Board</span>
-              </button>
-            )}
-
-
 
             <button
               type="button"

@@ -84,23 +84,18 @@ function BracketApp() {
 
   // Dropdown menus
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [showUserPoolsMenu, setShowUserPoolsMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const userDropdownRef = useRef<HTMLDivElement>(null);
-  const userPoolsMenuRef = useRef<HTMLDivElement>(null);
 
   // Close menus on click outside
   useEffect(() => {
-    if (!userDropdownOpen && !showUserPoolsMenu) return;
+    if (!userDropdownOpen) return;
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
       if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setUserDropdownOpen(false);
-      }
-      if (userPoolsMenuRef.current && !userPoolsMenuRef.current.contains(target)) {
-        setShowUserPoolsMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -109,7 +104,7 @@ function BracketApp() {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [userDropdownOpen, showUserPoolsMenu]);
+  }, [userDropdownOpen]);
 
   // Clean up pending storage on mount
   useEffect(() => {
@@ -1083,13 +1078,24 @@ function BracketApp() {
   const cleanDisplayCode = poolId ? (poolData?.joinCode || poolId).toUpperCase() : "";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors flex flex-col font-sans w-full max-w-full">
+    <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors font-sans w-full max-w-full">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors w-full">
-        <div className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Branding & Game Switcher & Bracket Title */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <GameSwitcherDropdown currentGame="bracket" />
+            <GameSwitcherDropdown
+              currentGame="bracket"
+              onJoin={() => {
+                setJoinPoolCode("");
+                setJoinError("");
+                setShowJoinPoolModal(true);
+              }}
+              onCreate={() => {
+                setCreatePoolName("");
+                setShowCreatePoolModal(true);
+              }}
+            />
 
             {/* Bracket Title & 5-Character Code Pill */}
             {poolData ? (
@@ -1155,191 +1161,6 @@ function BracketApp() {
               </button>
             )}
 
-            {/* Brackets Dropdown (Created vs Joined) */}
-            {user ? (
-              <div ref={userPoolsMenuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowUserPoolsMenu((prev) => !prev)}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
-                  title="Switch between your bracket pools"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                  <span className="hidden sm:inline">
-                    {userPools.length > 0 ? `My Brackets (${userPools.length})` : "Brackets"}
-                  </span>
-                  <ChevronDown
-                    className={`w-3 h-3 text-slate-400 transition-transform ${showUserPoolsMenu ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {showUserPoolsMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowUserPoolsMenu(false)} />
-                    <div className="absolute right-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
-                      {/* Header with quick Join & Create buttons */}
-                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          My Playoff Brackets
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowUserPoolsMenu(false);
-                              setJoinPoolCode("");
-                              setJoinError("");
-                              setShowJoinPoolModal(true);
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer"
-                          >
-                            <LogIn className="w-2.5 h-2.5" />
-                            Join
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowUserPoolsMenu(false);
-                              setCreatePoolName("");
-                              setShowCreatePoolModal(true);
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-[10px] font-bold transition cursor-pointer shadow-2xs"
-                          >
-                            <PlusCircle className="w-2.5 h-2.5" />
-                            New
-                          </button>
-                        </div>
-                      </div>
-
-                      {userPools.length === 0 ? (
-                        <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
-                          You haven&apos;t created or joined any bracket pools yet.
-                        </div>
-                      ) : (
-                        <>
-                          {userPools.filter((p) => p.role === "commissioner").length > 0 && (
-                            <div>
-                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                                <span>Brackets You Run</span>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold">
-                                  {userPools.filter((p) => p.role === "commissioner").length}
-                                </span>
-                              </div>
-                              {userPools
-                                .filter((p) => p.role === "commissioner")
-                                .map((p) => {
-                                  const cCode = (p.joinCode || p.id).toUpperCase();
-                                  const isCurrent = cleanDisplayCode === cCode;
-                                  return (
-                                    <div
-                                      key={p.id}
-                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
-                                        isCurrent
-                                          ? "bg-purple-500/10 font-bold text-purple-700 dark:text-purple-400"
-                                          : "text-slate-700 dark:text-slate-300"
-                                      }`}
-                                    >
-                                      <Link
-                                        href={`/bracket?id=${cCode}`}
-                                        onClick={() => setShowUserPoolsMenu(false)}
-                                        className="min-w-0 pr-2 flex-1"
-                                      >
-                                        <div className="font-bold truncate flex items-center gap-1.5">
-                                          <span className="truncate">{p.name}</span>
-                                          {cCode && (
-                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                                              {cCode}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </Link>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        {isCurrent && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setPoolToDelete(p.id);
-                                            setShowDeleteModal(true);
-                                            setShowUserPoolsMenu(false);
-                                          }}
-                                          title="Delete this bracket pool"
-                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          )}
-
-                          {userPools.filter((p) => p.role === "member").length > 0 && (
-                            <div className={userPools.filter((p) => p.role === "commissioner").length > 0 ? "border-t border-slate-100 dark:border-slate-800 mt-1 pt-1" : ""}>
-                              <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                                <span>Joined Brackets</span>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
-                                  {userPools.filter((p) => p.role === "member").length}
-                                </span>
-                              </div>
-                              {userPools
-                                .filter((p) => p.role === "member")
-                                .map((p) => {
-                                  const cCode = (p.joinCode || p.id).toUpperCase();
-                                  const isCurrent = cleanDisplayCode === cCode;
-                                  return (
-                                    <div
-                                      key={p.id}
-                                      className={`px-3.5 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
-                                        isCurrent
-                                          ? "bg-purple-500/10 font-bold text-purple-700 dark:text-purple-400"
-                                          : "text-slate-700 dark:text-slate-300"
-                                      }`}
-                                    >
-                                      <Link
-                                        href={`/bracket?id=${cCode}`}
-                                        onClick={() => setShowUserPoolsMenu(false)}
-                                        className="min-w-0 pr-2 flex-1"
-                                      >
-                                        <div className="font-bold truncate flex items-center gap-1.5">
-                                          <span className="truncate">{p.name}</span>
-                                          {cCode && (
-                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                                              {cCode}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </Link>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        {isCurrent && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setPoolToLeave(p.id);
-                                            setShowLeaveModal(true);
-                                            setShowUserPoolsMenu(false);
-                                          }}
-                                          title="Leave this bracket pool"
-                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                                        >
-                                          <LogOut className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
 
             {/* Theme Toggle */}
             <button
@@ -1561,7 +1382,7 @@ function BracketApp() {
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto w-full px-3 sm:px-6 lg:px-8 py-3 sm:py-6 flex-1 flex flex-col overflow-x-hidden">
+      <main className="max-w-[1920px] 2xl:max-w-[2200px] mx-auto w-full px-3 sm:px-6 lg:px-8 py-2 sm:py-3 flex-1 flex flex-col overflow-x-hidden">
         {/* Zero State: No Pools Found */}
         {user && poolsFetched && userPools.length === 0 && !poolId ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-lg mx-auto my-auto py-12">
@@ -1833,7 +1654,7 @@ function BracketApp() {
                 </div>
 
                 {/* Desktop 7-Column Balanced Interactive Bracket Canvas */}
-                <div className="hidden xl:block w-full pb-4">
+                <div className="hidden xl:block w-full pb-1">
                   <div className="w-full grid grid-cols-7 xl:grid-cols-[1fr_1fr_1fr_1.32fr_1fr_1fr_1fr] 2xl:grid-cols-[1fr_1fr_1fr_1.38fr_1fr_1fr_1fr] gap-2 xl:gap-3 2xl:gap-4 items-stretch py-2">
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
