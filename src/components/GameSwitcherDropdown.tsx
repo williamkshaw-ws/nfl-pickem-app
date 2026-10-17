@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Trophy, ChevronDown, Check, Grid, Shield, Loader2, LogIn, PlusCircle } from "lucide-react";
+import { Trophy, ChevronDown, Check, Grid, Shield, Loader2, LogIn, PlusCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useUserAllPools, UnifiedPoolItem } from "@/lib/useUserAllPools";
 import { FootballIcon } from "@/components/FootballIcon";
+import { PoolLeaveModal } from "@/components/PoolLeaveModal";
 
 export type GameKey = "pickem" | "bracket" | "squares";
 
@@ -65,6 +66,7 @@ export function GameSwitcherDropdown({
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [poolToLeave, setPoolToLeave] = useState<UnifiedPoolItem | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -122,27 +124,42 @@ export function GameSwitcherDropdown({
   };
 
   const renderPoolRow = (pool: UnifiedPoolItem) => (
-    <Link
+    <div
       key={`${pool.gameType}-${pool.id}`}
-      href={pool.href}
-      onClick={() => setIsOpen(false)}
-      className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all group cursor-pointer"
+      className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all group"
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <Link
+        href={pool.href}
+        onClick={() => setIsOpen(false)}
+        className="flex items-center gap-2 min-w-0 flex-1 py-0.5 cursor-pointer"
+      >
         <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-emerald-500 transition-colors shrink-0" />
         <span className="font-semibold text-xs text-slate-700 dark:text-slate-200 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
           {pool.name}
         </span>
-      </div>
+      </Link>
       <div className="flex items-center gap-1.5 shrink-0">
         {pool.role === "commissioner" && (
-          <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-            <Shield className="w-2.5 h-2.5" />
+          <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+            <Shield className="w-2 h-2" />
             Commish
           </span>
         )}
+        <button
+          type="button"
+          title={pool.role === "commissioner" ? "Leave / Reassign / Delete" : "Leave Pool"}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen(false);
+            setPoolToLeave(pool);
+          }}
+          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer shrink-0"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+        </button>
       </div>
-    </Link>
+    </div>
   );
 
   // If not mounted or user is not signed in, render simple home logo without dropdown
@@ -313,6 +330,17 @@ export function GameSwitcherDropdown({
           </div>
         </>
       )}
+
+      {/* Pool Leave & Commissioner Reassign/Delete Modal */}
+      <PoolLeaveModal
+        isOpen={Boolean(poolToLeave)}
+        onClose={() => setPoolToLeave(null)}
+        pool={poolToLeave}
+        onSuccess={() => {
+          refetch();
+          setPoolToLeave(null);
+        }}
+      />
     </div>
   );
 }
