@@ -850,7 +850,7 @@ function BracketApp() {
         }`}
       >
         <div className="flex items-center justify-between gap-1.5 text-[11px] 2xl:text-xs font-bold text-slate-500 dark:text-slate-400 px-1">
-          <span className="truncate min-w-0 flex-1">{slot.title}</span>
+          <span className="truncate min-w-0 flex-1">{slotKey === "super_bowl" ? "Championship Game" : slot.title}</span>
           {isGameDone && (
             <span
               className={`text-[10px] 2xl:text-[11px] font-extrabold px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap inline-flex items-center gap-0.5 ${
@@ -993,7 +993,7 @@ function BracketApp() {
 
   // Super Bowl Champion Center Card
   const renderSuperBowlCenterCard = () => (
-    <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 2xl:p-4 flex flex-col items-center gap-2 2xl:gap-2.5 text-center shadow-md">
+    <div className="w-full bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 2xl:p-3.5 flex flex-col items-center gap-2 2xl:gap-2.5 text-center shadow-md">
       <Trophy className="w-6 h-6 sm:w-7 sm:h-7 2xl:w-8 2xl:h-8 text-amber-500 shrink-0" />
       <div className="font-black text-[10px] sm:text-xs 2xl:text-sm uppercase tracking-wider text-slate-800 dark:text-slate-200 whitespace-nowrap">
         Super Bowl Champion
@@ -1791,7 +1791,7 @@ function BracketApp() {
 
                 {/* Desktop 7-Column Balanced Interactive Bracket Canvas */}
                 <div className="hidden xl:block w-full pb-4">
-                  <div className="w-full grid grid-cols-7 gap-2 xl:gap-3 2xl:gap-4 items-stretch py-2">
+                  <div className="w-full grid grid-cols-7 xl:grid-cols-[1fr_1fr_1fr_1.32fr_1fr_1fr_1fr] 2xl:grid-cols-[1fr_1fr_1fr_1.38fr_1fr_1fr_1fr] gap-2 xl:gap-3 2xl:gap-4 items-stretch py-2">
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">
@@ -2224,7 +2224,7 @@ function BracketApp() {
               {/* 7-Column Balanced Bracket Canvas */}
               <div className="overflow-x-auto overflow-y-auto flex-1 py-2 sm:py-3 pr-1">
                 <div className="min-w-[1040px] lg:min-w-[1180px] py-1 sm:py-2">
-                  <div className="grid grid-cols-7 gap-2 sm:gap-2.5 items-stretch">
+                  <div className="grid grid-cols-7 xl:grid-cols-[1fr_1fr_1fr_1.32fr_1fr_1fr_1fr] 2xl:grid-cols-[1fr_1fr_1fr_1.38fr_1fr_1fr_1fr] gap-2 sm:gap-2.5 items-stretch">
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1 py-1 mb-1.5">
@@ -2266,7 +2266,7 @@ function BracketApp() {
                         Super Bowl Pick
                       </div>
                       <div className="flex-1 flex flex-col justify-center items-center py-1">
-                        <div className="w-full max-w-[240px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-2.5 sm:p-3 flex flex-col items-center gap-2 text-center shadow-xs">
+                        <div className="w-full max-w-[300px] bg-gradient-to-b from-purple-500/10 to-amber-500/10 border-2 border-purple-500/30 rounded-2xl p-2.5 sm:p-3 flex flex-col items-center gap-2 text-center shadow-xs">
                           <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500" />
                           <div className="font-black text-[10px] sm:text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200">
                             Super Bowl Pick
