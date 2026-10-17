@@ -1088,7 +1088,7 @@ function BracketApp() {
                     type="button"
                     onClick={handleResetSimulation}
                     disabled={simulating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
                     title="Reset simulation to unplayed state"
                   >
                     <RotateCcw className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
@@ -1099,11 +1099,11 @@ function BracketApp() {
                     type="button"
                     onClick={handleSimulate}
                     disabled={simulating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition-colors cursor-pointer shrink-0"
                     title="Generate realistic playoff outcomes to test scoring"
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${simulating ? "animate-spin" : ""}`} />
-                    <span>Simulate Scores</span>
+                    <span className="hidden sm:inline">Simulate Scores</span>
                   </button>
                 )}
 
@@ -1112,7 +1112,7 @@ function BracketApp() {
                   <button
                     type="button"
                     onClick={() => setShowClearModal(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer shrink-0"
                     title="Clear your picks"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

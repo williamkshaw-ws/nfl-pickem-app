@@ -7,6 +7,7 @@ import {
   Trophy,
   RefreshCw,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   LogOut,
   PlusCircle,
@@ -291,7 +292,7 @@ export function Header({
           <div className="flex items-center gap-1 sm:gap-3 min-w-0 flex-1">
             <GameSwitcherDropdown currentGame="pickem" />
             <div className="flex items-center min-w-0 gap-1 sm:gap-2">
-              <h1 className="font-black text-xs sm:text-lg tracking-tight text-slate-900 dark:text-white truncate max-w-[75px] xs:max-w-[110px] sm:max-w-none flex items-center gap-1 shrink-0 sm:shrink">
+              <h1 className="font-black text-xs sm:text-lg tracking-tight text-slate-900 dark:text-white truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none flex items-center gap-1 shrink-0 sm:shrink">
                 <span className="truncate">{settings.leagueName}</span>
                 <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>
               </h1>
@@ -308,8 +309,8 @@ export function Header({
               )}
               
               {user && (
-                <>
-                  <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5 sm:mx-1 shrink-0" />
+                <div className="hidden sm:flex items-center shrink-0 gap-1 sm:gap-2">
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5 sm:mx-1 shrink-0" />
 
                   <div className="relative flex items-center shrink-0">
                     <select
@@ -338,7 +339,7 @@ export function Header({
                       <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
                     </button>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -597,6 +598,59 @@ export function Header({
           </div>
         </div>
       </div>
+
+      {/* Mobile Week Selector & ESPN Sync Sub-bar */}
+      {user && (
+        <div className="sm:hidden flex items-center justify-between px-3 py-1.5 bg-slate-50/90 dark:bg-slate-800/50 border-t border-slate-200/80 dark:border-slate-800/80">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onSelectWeek(Math.max(1, activeWeek - 1))}
+              disabled={activeWeek <= 1}
+              className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs font-black shadow-2xs transition active:scale-95 cursor-pointer"
+              title="Previous Week"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <div className="relative flex items-center">
+              <select
+                value={activeWeek}
+                onChange={(e) => onSelectWeek(Number(e.target.value))}
+                className="h-7 appearance-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold text-xs pl-2.5 pr-6 rounded-lg transition-colors outline-none border border-slate-200 dark:border-slate-700 flex items-center shadow-2xs cursor-pointer"
+              >
+                {availableWeeks.map((week) => (
+                  <option key={week} value={week} className="dark:bg-slate-900 dark:text-white">
+                    Week {week}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-slate-500 dark:text-slate-400 absolute right-1.5 pointer-events-none" />
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectWeek(Math.min(18, activeWeek + 1))}
+              disabled={activeWeek >= 18}
+              className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs font-black shadow-2xs transition active:scale-95 cursor-pointer"
+              title="Next Week"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {onSyncEspn && (
+            <button
+              type="button"
+              onClick={() => onSyncEspn(activeWeek)}
+              disabled={isSyncing}
+              title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
+              className="h-7 px-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-2xs active:scale-95"
+            >
+              <RefreshCw className={`w-3 h-3 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
+              <span className="text-[11px] font-semibold">Sync ESPN</span>
+            </button>
+          )}
+        </div>
+      )}
     </header>
 
       {/* Modals for Create / Join */}

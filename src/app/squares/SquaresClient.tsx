@@ -2045,16 +2045,6 @@ function SquaresPoolApp() {
                     <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white truncate">
                       {board.title || "Super Bowl Squares Pool"}
                     </h2>
-                    {poolId && (
-                      <button
-                        type="button"
-                        onClick={() => setShowShareModal(true)}
-                        className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
-                        title="Click to view share code and link"
-                      >
-                        <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
-                      </button>
-                    )}
                     {!isOwner && poolId && user && (
                       <button
                         type="button"
@@ -2213,27 +2203,6 @@ function SquaresPoolApp() {
                   <label className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                     Pool Title
                   </label>
-                  {poolId && (
-                    <button
-                      type="button"
-                      onClick={() => setShowShareModal(true)}
-                      className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition cursor-pointer shrink-0"
-                      title="Click to view share code and link"
-                    >
-                      <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
-                    </button>
-                  )}
-                  {poolId && isOwner && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBoard()}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition cursor-pointer shrink-0 ml-auto sm:ml-0"
-                      title="Permanently delete this board"
-                    >
-                      <Trash2 className="w-3 h-3 text-rose-500" />
-                      <span className="hidden sm:inline">Delete Board</span>
-                    </button>
-                  )}
                 </div>
                 <input
                   type="text"
