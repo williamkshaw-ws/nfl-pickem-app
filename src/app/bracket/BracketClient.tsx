@@ -822,6 +822,28 @@ function BracketApp() {
   const scoreDetails = useMemo(() => calculateBracketScore(picks, results, tiebreaker), [picks, results, tiebreaker]);
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
 
+  // Current active playoff round resolver (for dynamic round indicator dots)
+  const currentRound = useMemo<"wild_card" | "divisional" | "conference" | "super_bowl" | "completed">(() => {
+    const wcGames: BracketGameId[] = ["afc_wc_1", "afc_wc_2", "afc_wc_3", "nfc_wc_1", "nfc_wc_2", "nfc_wc_3"];
+    const divGames: BracketGameId[] = ["afc_div_1", "afc_div_2", "nfc_div_1", "nfc_div_2"];
+    const confGames: BracketGameId[] = ["afc_champ", "nfc_champ"];
+    const sbGames: BracketGameId[] = ["super_bowl"];
+
+    const isWcDone = wcGames.every((id) => results[id]?.isCompleted);
+    if (!isWcDone) return "wild_card";
+
+    const isDivDone = divGames.every((id) => results[id]?.isCompleted);
+    if (!isDivDone) return "divisional";
+
+    const isConfDone = confGames.every((id) => results[id]?.isCompleted);
+    if (!isConfDone) return "conference";
+
+    const isSbDone = sbGames.every((id) => results[id]?.isCompleted);
+    if (!isSbDone) return "super_bowl";
+
+    return "completed";
+  }, [results]);
+
   // Render matchup card
   const renderMatchupCard = (slotKey: BracketGameId) => {
     const slot = activeMatchups[slotKey];
@@ -1721,7 +1743,9 @@ function BracketApp() {
                     <div className="w-full flex flex-col gap-4">
                       <div className="flex flex-col items-center gap-3 w-full">
                         <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          {currentRound === "wild_card" && (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                          )}
                           AFC Wild Card
                         </div>
                         {renderMatchupCard("afc_wc_1")}
@@ -1731,7 +1755,9 @@ function BracketApp() {
 
                       <div className="flex flex-col items-center gap-3 w-full pt-4 border-t border-slate-200 dark:border-slate-800">
                         <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          {currentRound === "wild_card" && (
+                            <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                          )}
                           NFC Wild Card
                         </div>
                         {renderMatchupCard("nfc_wc_1")}
@@ -1745,7 +1771,9 @@ function BracketApp() {
                     <div className="w-full flex flex-col gap-4">
                       <div className="flex flex-col items-center gap-3 w-full">
                         <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          {currentRound === "divisional" && (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                          )}
                           AFC Divisional
                         </div>
                         {renderMatchupCard("afc_div_1")}
@@ -1754,7 +1782,9 @@ function BracketApp() {
 
                       <div className="flex flex-col items-center gap-3 w-full pt-4 border-t border-slate-200 dark:border-slate-800">
                         <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          {currentRound === "divisional" && (
+                            <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                          )}
                           NFC Divisional
                         </div>
                         {renderMatchupCard("nfc_div_1")}
@@ -1766,14 +1796,20 @@ function BracketApp() {
                   {mobileRoundTab === "conf" && (
                     <div className="w-full flex flex-col items-center gap-4">
                       <div className="w-full flex flex-col items-center gap-3">
-                        <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
+                          {currentRound === "conference" && (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                          )}
                           AFC Championship
                         </div>
                         {renderMatchupCard("afc_champ")}
                       </div>
 
                       <div className="w-full flex flex-col items-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                        <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                        <div className="text-center font-black text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5">
+                          {currentRound === "conference" && (
+                            <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                          )}
                           NFC Championship
                         </div>
                         {renderMatchupCard("nfc_champ")}
@@ -1783,6 +1819,13 @@ function BracketApp() {
 
                   {mobileRoundTab === "sb" && (
                     <div className="w-full flex flex-col items-center gap-4">
+                      <div className="text-center font-black text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1.5">
+                        {currentRound === "super_bowl" && (
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
+                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                        Super Bowl
+                      </div>
                       {renderSuperBowlCenterCard()}
                     </div>
                   )}
@@ -1795,7 +1838,9 @@ function BracketApp() {
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        {currentRound === "wild_card" && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         AFC Wild Card
                       </div>
                       <div className="flex-1 flex flex-col justify-between py-2 gap-3 xl:gap-4 2xl:gap-5">
@@ -1807,7 +1852,10 @@ function BracketApp() {
 
                     {/* Col 2: AFC Divisional */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                        {currentRound === "divisional" && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         AFC Divisional
                       </div>
                       <div className="flex-1 flex flex-col justify-around py-4 xl:py-6 2xl:py-8">
@@ -1818,7 +1866,10 @@ function BracketApp() {
 
                     {/* Col 3: AFC Championship */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                        {currentRound === "conference" && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         AFC Championship
                       </div>
                       <div className="flex-1 flex flex-col justify-center py-4 xl:py-6 2xl:py-8">
@@ -1829,6 +1880,9 @@ function BracketApp() {
                     {/* Col 4: Super Bowl (Center of bracket) */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                        {currentRound === "super_bowl" && (
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         <Trophy className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 text-amber-500" />
                         Super Bowl
                       </div>
@@ -1839,7 +1893,10 @@ function BracketApp() {
 
                     {/* Col 5: NFC Championship */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                        {currentRound === "conference" && (
+                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         NFC Championship
                       </div>
                       <div className="flex-1 flex flex-col justify-center py-4 xl:py-6 2xl:py-8">
@@ -1849,7 +1906,10 @@ function BracketApp() {
 
                     {/* Col 6: NFC Divisional */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-2">
+                      <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5 py-1 mb-2">
+                        {currentRound === "divisional" && (
+                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         NFC Divisional
                       </div>
                       <div className="flex-1 flex flex-col justify-around py-4 xl:py-6 2xl:py-8">
@@ -1861,7 +1921,9 @@ function BracketApp() {
                     {/* Col 7: NFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-xs xl:text-[13px] 2xl:text-sm uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1.5 py-1 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-sky-500" />
+                        {currentRound === "wild_card" && (
+                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         NFC Wild Card
                       </div>
                       <div className="flex-1 flex flex-col justify-between py-2 gap-3 xl:gap-4 2xl:gap-5">
@@ -2228,7 +2290,9 @@ function BracketApp() {
                     {/* Col 1: AFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1 py-1 mb-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        {currentRound === "wild_card" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         AFC Wild Card
                       </div>
                       <div className="flex-1 flex flex-col justify-between py-1 gap-2">
@@ -2240,7 +2304,10 @@ function BracketApp() {
 
                     {/* Col 2: AFC Divisional */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-1.5">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1 py-1 mb-1.5">
+                        {currentRound === "divisional" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         AFC Divisional
                       </div>
                       <div className="flex-1 flex flex-col justify-around py-3">
@@ -2251,7 +2318,10 @@ function BracketApp() {
 
                     {/* Col 3: AFC Championship */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-rose-600 dark:text-rose-400 py-1 mb-1.5">
+                      <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1 py-1 mb-1.5">
+                        {currentRound === "conference" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         AFC Championship
                       </div>
                       <div className="flex-1 flex flex-col justify-center py-3">
@@ -2262,6 +2332,9 @@ function BracketApp() {
                     {/* Col 4: Super Bowl Pick */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1 py-1 mb-1.5">
+                        {currentRound === "super_bowl" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         <Trophy className="w-3.5 h-3.5 text-amber-500" />
                         Super Bowl Pick
                       </div>
@@ -2278,7 +2351,10 @@ function BracketApp() {
 
                     {/* Col 5: NFC Championship */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-1.5">
+                      <div className="text-center font-black text-[9px] sm:text-[10px] uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1 py-1 mb-1.5">
+                        {currentRound === "conference" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         NFC Championship
                       </div>
                       <div className="flex-1 flex flex-col justify-center py-3">
@@ -2288,7 +2364,10 @@ function BracketApp() {
 
                     {/* Col 6: NFC Divisional */}
                     <div className="flex flex-col h-full">
-                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-sky-600 dark:text-sky-400 py-1 mb-1.5">
+                      <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1 py-1 mb-1.5">
+                        {currentRound === "divisional" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         NFC Divisional
                       </div>
                       <div className="flex-1 flex flex-col justify-around py-3">
@@ -2300,7 +2379,9 @@ function BracketApp() {
                     {/* Col 7: NFC Wild Card */}
                     <div className="flex flex-col h-full">
                       <div className="text-center font-black text-[10px] sm:text-[11px] uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center justify-center gap-1 py-1 mb-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                        {currentRound === "wild_card" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shrink-0" title="Current Round" />
+                        )}
                         NFC Wild Card
                       </div>
                       <div className="flex-1 flex flex-col justify-between py-1 gap-2">
