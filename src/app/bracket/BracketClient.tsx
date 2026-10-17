@@ -52,6 +52,7 @@ import {
   extractActualWinners,
   TEAM_BY_ABBR,
   PlayoffTeam,
+  getTeamNickname,
   BracketPool,
   UserBracketPool,
   extractBracketCode,
@@ -882,8 +883,11 @@ function BracketApp() {
                 height={16}
                 className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 shrink-0 object-contain"
               />
-              <span className="truncate font-bold text-slate-700 dark:text-slate-300">
+              <span className="truncate font-bold text-slate-700 dark:text-slate-300 xl:hidden">
                 {eliminatedTeam.name}
+              </span>
+              <span className="truncate font-bold text-slate-700 dark:text-slate-300 hidden xl:inline">
+                {eliminatedTeam.nickname || getTeamNickname(eliminatedTeam)}
               </span>
             </div>
             <span className="inline-flex items-center text-[9px] 2xl:text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 shrink-0 ml-1.5">
@@ -943,7 +947,8 @@ function BracketApp() {
             {team.seed}
           </span>
           <TeamLogo alt={team.abbr} width={20} height={20} className="w-4 h-4 sm:w-4.5 sm:h-4.5 2xl:w-5 2xl:h-5 shrink-0 object-contain" />
-          <span className="truncate">{team.name}</span>
+          <span className="truncate xl:hidden">{team.name}</span>
+          <span className="truncate hidden xl:inline">{team.nickname || getTeamNickname(team)}</span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-1.5 2xl:ml-2">
@@ -979,8 +984,12 @@ function BracketApp() {
     );
   };
 
-  const sbHomeName = activeMatchups.super_bowl.homeTeam?.name || "Home Team";
-  const sbAwayName = activeMatchups.super_bowl.awayTeam?.name || "Away Team";
+  const sbHomeTeam = activeMatchups.super_bowl.homeTeam;
+  const sbAwayTeam = activeMatchups.super_bowl.awayTeam;
+  const sbHomeName = sbHomeTeam?.name || "Home Team";
+  const sbAwayName = sbAwayTeam?.name || "Away Team";
+  const sbHomeNickname = sbHomeTeam?.nickname || getTeamNickname(sbHomeTeam) || "Home";
+  const sbAwayNickname = sbAwayTeam?.nickname || getTeamNickname(sbAwayTeam) || "Away";
 
   // Super Bowl Champion Center Card
   const renderSuperBowlCenterCard = () => (
@@ -1005,7 +1014,8 @@ function BracketApp() {
         <div className="grid grid-cols-2 gap-1.5 2xl:gap-2 text-left">
           <div>
             <label className="text-[9px] sm:text-[10px] 2xl:text-xs font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
-              {sbAwayName}
+              <span className="xl:hidden">{sbAwayName}</span>
+              <span className="hidden xl:inline">{sbAwayNickname}</span>
             </label>
             <input
               type="text"
@@ -1020,7 +1030,8 @@ function BracketApp() {
           </div>
           <div>
             <label className="text-[9px] sm:text-[10px] 2xl:text-xs font-bold text-slate-500 dark:text-slate-400 truncate block mb-1">
-              {sbHomeName}
+              <span className="xl:hidden">{sbHomeName}</span>
+              <span className="hidden xl:inline">{sbHomeNickname}</span>
             </label>
             <input
               type="text"
@@ -2090,7 +2101,8 @@ function BracketApp() {
                     {team.seed}
                   </span>
                   <TeamLogo alt={team.abbr} width={16} height={16} className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 object-contain" />
-                  <span className="truncate text-[10px] sm:text-[11px]">{team.name}</span>
+                  <span className="truncate text-[10px] sm:text-[11px] xl:hidden">{team.name}</span>
+                  <span className="truncate text-[10px] sm:text-[11px] hidden xl:inline">{team.nickname || getTeamNickname(team)}</span>
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 ml-1">
@@ -2149,7 +2161,8 @@ function BracketApp() {
                   <span>Actual:</span>
                   <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <TeamLogo alt={actualWinnerTeam.abbr} width={12} height={12} className="w-3 h-3 object-contain" />
-                    <span className="truncate max-w-[100px] sm:max-w-[120px]">{actualWinnerTeam.name}</span>
+                    <span className="truncate max-w-[100px] sm:max-w-[120px] xl:hidden">{actualWinnerTeam.name}</span>
+                    <span className="truncate max-w-[100px] sm:max-w-[120px] hidden xl:inline">{actualWinnerTeam.nickname || getTeamNickname(actualWinnerTeam)}</span>
                   </span>
                 </div>
               )}

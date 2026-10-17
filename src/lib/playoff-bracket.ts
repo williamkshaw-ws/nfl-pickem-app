@@ -3,6 +3,53 @@ export interface PlayoffTeam {
   conference: "AFC" | "NFC";
   name: string;
   abbr: string;
+  nickname: string;
+}
+
+export const NFL_NICKNAMES: Record<string, string> = {
+  ARI: "Cardinals",
+  ATL: "Falcons",
+  BAL: "Ravens",
+  BUF: "Bills",
+  CAR: "Panthers",
+  CHI: "Bears",
+  CIN: "Bengals",
+  CLE: "Browns",
+  DAL: "Cowboys",
+  DEN: "Broncos",
+  DET: "Lions",
+  GB: "Packers",
+  HOU: "Texans",
+  IND: "Colts",
+  JAX: "Jaguars",
+  KC: "Chiefs",
+  LV: "Raiders",
+  LAC: "Chargers",
+  LAR: "Rams",
+  MIA: "Dolphins",
+  MIN: "Vikings",
+  NE: "Patriots",
+  NO: "Saints",
+  NYG: "Giants",
+  NYJ: "Jets",
+  PHI: "Eagles",
+  PIT: "Steelers",
+  SF: "49ers",
+  SEA: "Seahawks",
+  TB: "Buccaneers",
+  TEN: "Titans",
+  WAS: "Commanders",
+};
+
+export function getTeamNickname(team?: { name?: string; abbr?: string; nickname?: string } | null): string {
+  if (!team) return "";
+  if (team.nickname) return team.nickname;
+  if (team.abbr && NFL_NICKNAMES[team.abbr]) return NFL_NICKNAMES[team.abbr];
+  if (team.name) {
+    const parts = team.name.trim().split(" ");
+    return parts[parts.length - 1];
+  }
+  return "";
 }
 
 export type BracketGameId =
@@ -68,23 +115,23 @@ export interface BracketParticipant {
 }
 
 export const AFC_SEEDS: PlayoffTeam[] = [
-  { seed: 1, conference: "AFC", name: "Kansas City Chiefs", abbr: "KC" },
-  { seed: 2, conference: "AFC", name: "Buffalo Bills", abbr: "BUF" },
-  { seed: 3, conference: "AFC", name: "Baltimore Ravens", abbr: "BAL" },
-  { seed: 4, conference: "AFC", name: "Houston Texans", abbr: "HOU" },
-  { seed: 5, conference: "AFC", name: "Los Angeles Chargers", abbr: "LAC" },
-  { seed: 6, conference: "AFC", name: "Pittsburgh Steelers", abbr: "PIT" },
-  { seed: 7, conference: "AFC", name: "Denver Broncos", abbr: "DEN" },
+  { seed: 1, conference: "AFC", name: "Kansas City Chiefs", abbr: "KC", nickname: "Chiefs" },
+  { seed: 2, conference: "AFC", name: "Buffalo Bills", abbr: "BUF", nickname: "Bills" },
+  { seed: 3, conference: "AFC", name: "Baltimore Ravens", abbr: "BAL", nickname: "Ravens" },
+  { seed: 4, conference: "AFC", name: "Houston Texans", abbr: "HOU", nickname: "Texans" },
+  { seed: 5, conference: "AFC", name: "Los Angeles Chargers", abbr: "LAC", nickname: "Chargers" },
+  { seed: 6, conference: "AFC", name: "Pittsburgh Steelers", abbr: "PIT", nickname: "Steelers" },
+  { seed: 7, conference: "AFC", name: "Denver Broncos", abbr: "DEN", nickname: "Broncos" },
 ];
 
 export const NFC_SEEDS: PlayoffTeam[] = [
-  { seed: 1, conference: "NFC", name: "Detroit Lions", abbr: "DET" },
-  { seed: 2, conference: "NFC", name: "Philadelphia Eagles", abbr: "PHI" },
-  { seed: 3, conference: "NFC", name: "Los Angeles Rams", abbr: "LAR" },
-  { seed: 4, conference: "NFC", name: "Tampa Bay Buccaneers", abbr: "TB" },
-  { seed: 5, conference: "NFC", name: "San Francisco 49ers", abbr: "SF" },
-  { seed: 6, conference: "NFC", name: "Green Bay Packers", abbr: "GB" },
-  { seed: 7, conference: "NFC", name: "Washington Commanders", abbr: "WAS" },
+  { seed: 1, conference: "NFC", name: "Detroit Lions", abbr: "DET", nickname: "Lions" },
+  { seed: 2, conference: "NFC", name: "Philadelphia Eagles", abbr: "PHI", nickname: "Eagles" },
+  { seed: 3, conference: "NFC", name: "Los Angeles Rams", abbr: "LAR", nickname: "Rams" },
+  { seed: 4, conference: "NFC", name: "Tampa Bay Buccaneers", abbr: "TB", nickname: "Buccaneers" },
+  { seed: 5, conference: "NFC", name: "San Francisco 49ers", abbr: "SF", nickname: "49ers" },
+  { seed: 6, conference: "NFC", name: "Green Bay Packers", abbr: "GB", nickname: "Packers" },
+  { seed: 7, conference: "NFC", name: "Washington Commanders", abbr: "WAS", nickname: "Commanders" },
 ];
 
 export const ALL_PLAYOFF_TEAMS: PlayoffTeam[] = [...AFC_SEEDS, ...NFC_SEEDS];
