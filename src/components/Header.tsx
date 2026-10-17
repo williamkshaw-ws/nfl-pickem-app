@@ -64,8 +64,10 @@ export function Header({
   isSyncing,
 }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [leaguesMenuOpen, setLeaguesMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const leaguesMenuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
@@ -99,36 +101,41 @@ export function Header({
   const activeUser = currentActiveUserId ? users.find((u) => u.id === currentActiveUserId) || null : null;
 
   useEffect(() => {
-    if (userDropdownOpen && user) {
-      const fetchLeagues = async () => {
-        setLoadingLeagues(true);
-        try {
-          const q = query(collection(db, "memberships"), where("userId", "==", user.id));
-          const querySnapshot = await getDocs(q);
-          const m: LeagueMembership[] = [];
-          querySnapshot.forEach((doc) => {
-            m.push(doc.data() as LeagueMembership);
-          });
-          setMemberships(m);
-        } catch (err) {
-          console.error("Failed to fetch leagues:", err);
-        } finally {
-          setLoadingLeagues(false);
-        }
-      };
-      fetchLeagues();
+    if (!user) {
+      setMemberships([]);
+      return;
     }
-  }, [userDropdownOpen, user]);
+    const fetchLeagues = async () => {
+      setLoadingLeagues(true);
+      try {
+        const q = query(collection(db, "memberships"), where("userId", "==", user.id));
+        const querySnapshot = await getDocs(q);
+        const m: LeagueMembership[] = [];
+        querySnapshot.forEach((doc) => {
+          m.push(doc.data() as LeagueMembership);
+        });
+        setMemberships(m);
+      } catch (err) {
+        console.error("Failed to fetch leagues:", err);
+      } finally {
+        setLoadingLeagues(false);
+      }
+    };
+    fetchLeagues();
+  }, [user, userDropdownOpen, leaguesMenuOpen]);
 
-  // Close user dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false);
       }
+      if (leaguesMenuRef.current && !leaguesMenuRef.current.contains(event.target as Node)) {
+        setLeaguesMenuOpen(false);
+      }
     };
 
-    if (userDropdownOpen) {
+    if (userDropdownOpen || leaguesMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
     }
@@ -136,7 +143,7 @@ export function Header({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [userDropdownOpen]);
+  }, [userDropdownOpen, leaguesMenuOpen]);
 
   const handleLogout = async () => {
     try {
@@ -268,24 +275,32 @@ export function Header({
     }
   };
 
+  const runLeagues = memberships.filter(
+    (m) => m.role === "commissioner" || m.role === "admin"
+  );
+  const joinedLeagues = memberships.filter(
+    (m) => m.role !== "commissioner" && m.role !== "admin"
+  );
+
   return (
     <>
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-4">
           
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <div className="flex items-center gap-1 sm:gap-3 min-w-0 flex-1">
             <GameSwitcherDropdown currentGame="pickem" />
-            <div className="flex items-center min-w-0 gap-2">
-              <h1 className="font-black text-sm sm:text-lg tracking-tight text-slate-900 dark:text-white truncate flex items-center gap-1 sm:gap-1.5">
-                {settings.leagueName} <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>
+            <div className="flex items-center min-w-0 gap-1 sm:gap-2">
+              <h1 className="font-black text-xs sm:text-lg tracking-tight text-slate-900 dark:text-white truncate max-w-[75px] xs:max-w-[110px] sm:max-w-none flex items-center gap-1 shrink-0 sm:shrink">
+                <span className="truncate">{settings.leagueName}</span>
+                <span className="text-slate-400 dark:text-slate-500 font-medium hidden sm:inline">&apos;{settings.seasonYear.toString().slice(2)}</span>
               </h1>
 
               {currentLeagueId && (
                 <button
                   type="button"
                   onClick={() => setShowShareModal(true)}
-                  className="inline-flex items-center text-[11px] font-mono font-black tracking-wider px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition cursor-pointer shrink-0"
+                  className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-black tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition cursor-pointer shrink-0"
                   title="Click to view share code and link"
                 >
                   <span>{currentLeagueId.toUpperCase()}</span>
@@ -294,13 +309,13 @@ export function Header({
               
               {user && (
                 <>
-                  <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-800 mx-1" />
+                  <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5 sm:mx-1 shrink-0" />
 
-                  <div className="relative flex items-center flex-shrink-0">
+                  <div className="relative flex items-center shrink-0">
                     <select
                       value={activeWeek}
                       onChange={(e) => onSelectWeek(Number(e.target.value))}
-                      className="h-7 sm:h-[34px] appearance-none bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm pl-2 sm:pl-3 pr-6 sm:pr-8 rounded-md sm:rounded-lg cursor-pointer transition-colors outline-none border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 flex items-center"
+                      className="h-7 sm:h-[34px] appearance-none bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-bold text-xs sm:text-sm pl-2 sm:pl-3 pr-5 sm:pr-8 rounded-lg cursor-pointer transition-colors outline-none border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 flex items-center"
                     >
                       {availableWeeks.map((week) => (
                         <option key={week} value={week} className="dark:bg-slate-900 dark:text-white">
@@ -308,7 +323,7 @@ export function Header({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500 dark:text-slate-400 absolute right-1.5 sm:right-2.5 pointer-events-none" />
+                    <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500 dark:text-slate-400 absolute right-1 sm:right-2.5 pointer-events-none" />
                   </div>
 
                   {onSyncEspn && (
@@ -318,7 +333,7 @@ export function Header({
                       disabled={isSyncing}
                       title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
                       aria-label="Refresh ESPN scores"
-                      className="h-7 w-7 sm:h-[34px] sm:w-[34px] rounded-md sm:rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
+                      className="h-7 w-7 sm:h-[34px] sm:w-[34px] rounded-lg bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0 active:scale-95"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
                     </button>
@@ -328,7 +343,179 @@ export function Header({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Pick'em Leagues Dropdown (Boards/Brackets equivalent) */}
+            {user && (
+              <div ref={leaguesMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setLeaguesMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition shadow-2xs shrink-0 cursor-pointer"
+                  title="Switch between your pick'em leagues"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {memberships.length > 0 ? `My Leagues (${memberships.length})` : "Leagues"}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${leaguesMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {leaguesMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setLeaguesMenuOpen(false)} />
+                    <div className="absolute right-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 py-1.5 text-xs max-h-96 overflow-y-auto">
+                      {/* Header with quick Join & Create buttons */}
+                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          My Pick&apos;em Leagues
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowJoin(true);
+                              setLeaguesMenuOpen(false);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer"
+                          >
+                            <LogIn className="w-2.5 h-2.5" />
+                            Join
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCreate(true);
+                              setLeaguesMenuOpen(false);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition cursor-pointer shadow-2xs"
+                          >
+                            <PlusCircle className="w-2.5 h-2.5" />
+                            New
+                          </button>
+                        </div>
+                      </div>
+
+                      {loadingLeagues ? (
+                        <div className="flex justify-center p-4">
+                          <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+                        </div>
+                      ) : memberships.length === 0 ? (
+                        <div className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                          You haven&apos;t joined or created any leagues yet.
+                        </div>
+                      ) : (
+                        <>
+                          {/* Leagues You Run */}
+                          {runLeagues.length > 0 && (
+                            <div className="mb-1">
+                              <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Leagues You Run</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                                  {runLeagues.length}
+                                </span>
+                              </div>
+                              {runLeagues.map((m) => {
+                                const isCurrent = m.leagueId === currentLeagueId;
+                                return (
+                                  <div
+                                    key={m.id}
+                                    className={`px-3 py-1.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                                      isCurrent ? "bg-emerald-500/10 font-bold text-emerald-700 dark:text-emerald-400" : "text-slate-700 dark:text-slate-300"
+                                    }`}
+                                  >
+                                    <Link
+                                      href={`/league/${m.leagueId}`}
+                                      onClick={() => {
+                                        if (typeof window !== "undefined") {
+                                          try {
+                                            localStorage.setItem("last_active_league", m.leagueId);
+                                          } catch {}
+                                        }
+                                        setLeaguesMenuOpen(false);
+                                      }}
+                                      className="min-w-0 pr-2 flex-1"
+                                    >
+                                      <div className="font-bold truncate flex items-center gap-1.5">
+                                        <span className="truncate">{m.leagueName}</span>
+                                        <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                          {m.leagueId.toUpperCase()}
+                                        </span>
+                                      </div>
+                                    </Link>
+                                    {isCurrent && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Leagues You Joined */}
+                          {joinedLeagues.length > 0 && (
+                            <div>
+                              <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Leagues You Joined</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-400 font-bold">
+                                  {joinedLeagues.length}
+                                </span>
+                              </div>
+                              {joinedLeagues.map((m) => {
+                                const isCurrent = m.leagueId === currentLeagueId;
+                                return (
+                                  <div
+                                    key={m.id}
+                                    className={`px-3 py-1.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition ${
+                                      isCurrent ? "bg-emerald-500/10 font-bold text-emerald-700 dark:text-emerald-400" : "text-slate-700 dark:text-slate-300"
+                                    }`}
+                                  >
+                                    <Link
+                                      href={`/league/${m.leagueId}`}
+                                      onClick={() => {
+                                        if (typeof window !== "undefined") {
+                                          try {
+                                            localStorage.setItem("last_active_league", m.leagueId);
+                                          } catch {}
+                                        }
+                                        setLeaguesMenuOpen(false);
+                                      }}
+                                      className="min-w-0 pr-2 flex-1"
+                                    >
+                                      <div className="font-bold truncate flex items-center gap-1.5">
+                                        <span className="truncate">{m.leagueName}</span>
+                                        <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                          {m.leagueId.toUpperCase()}
+                                        </span>
+                                      </div>
+                                    </Link>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {isCurrent && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                                      <button
+                                        type="button"
+                                        title="Leave League"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setLeaguesMenuOpen(false);
+                                          setLeagueToLeave(m);
+                                        }}
+                                        className="px-1.5 py-0.5 text-[9px] font-bold text-rose-500 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                                      >
+                                        Leave
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Theme Toggle */}
             <button
               type="button"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
@@ -375,10 +562,10 @@ export function Header({
               </button>
 
               {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-3 sm:p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                     
                     {/* User Profile Header */}
-                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-3">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl mb-2">
                       <div className={`w-10 h-10 ${activeUser?.avatarColor || user?.avatarColor || "bg-emerald-600"} text-white rounded-xl flex items-center justify-center text-lg font-black flex-shrink-0 shadow-xs transition-colors`}>
                         {((user?.name || activeUser?.name || user?.username || user?.email || "U").charAt(0) || "U").toUpperCase()}
                       </div>
@@ -388,109 +575,30 @@ export function Header({
                       </div>
                     </div>
 
-                    {/* My Leagues Header (FIRST / AT TOP) */}
-                    <div className="flex items-center justify-between mb-2.5 px-1">
-                      <h4 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                        My Leagues
-                      </h4>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            setShowJoin(true);
-                            setUserDropdownOpen(false);
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg text-[10px] font-bold transition-colors shadow-xs"
-                        >
-                          <LogIn className="w-3 h-3" />
-                          Join Code
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowCreate(true);
-                            setUserDropdownOpen(false);
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition-colors shadow-xs"
-                        >
-                          <PlusCircle className="w-3 h-3" />
-                          Create New
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* League List */}
-                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-3">
-                      {loadingLeagues ? (
-                        <div className="flex justify-center p-4">
-                          <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+                    {/* Quick Link to My Leagues */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        setLeaguesMenuOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group mb-1 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                          <Trophy className="w-4 h-4" />
                         </div>
-                      ) : memberships.length === 0 ? (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">No leagues yet.</p>
-                      ) : (
-                        memberships.map((m) => {
-                          const isCurrent = m.leagueId === currentLeagueId;
-                          return (
-                            <Link
-                              key={m.id}
-                              href={`/league/${m.leagueId}`}
-                              onClick={() => {
-                                if (typeof window !== "undefined") {
-                                  try {
-                                    localStorage.setItem("last_active_league", m.leagueId);
-                                  } catch {
-                                    // Ignore storage errors
-                                  }
-                                }
-                                setUserDropdownOpen(false);
-                              }}
-                              className={`block p-2.5 border rounded-2xl transition-all group relative overflow-hidden ${
-                                isCurrent
-                                  ? "border-emerald-500/80 bg-emerald-50/70 dark:bg-emerald-950/40"
-                                  : "border-slate-100 dark:border-slate-800/80 hover:border-emerald-200 dark:hover:border-emerald-700/60 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
-                              }`}
-                            >
-                              <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-bl-full -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100/50 dark:group-hover:bg-emerald-900/30" />
-                              <div className="relative z-10 flex items-center justify-between">
-                                <div className="flex items-center gap-2 truncate pr-2">
-                                  <h5 className={`font-bold text-xs truncate ${
-                                    isCurrent ? "text-emerald-900 dark:text-emerald-200 font-extrabold" : "text-slate-900 dark:text-white"
-                                  }`}>
-                                    {m.leagueName}
-                                  </h5>
-                                  {isCurrent && (
-                                    <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[8px] font-black uppercase tracking-wider rounded flex-shrink-0">
-                                      Active
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  {m.role === 'commissioner' ? (
-                                    <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest rounded flex-shrink-0">
-                                      Commissioner
-                                    </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      title="Leave League"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setLeagueToLeave(m);
-                                      }}
-                                      className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-wider rounded border border-rose-200 dark:border-rose-900/60 transition-colors"
-                                    >
-                                      Leave
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </Link>
-                          );
-                        })
-                      )}
-                    </div>
+                        <div className="text-left">
+                          <span className="text-xs font-bold block text-slate-900 dark:text-white">My Leagues</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                            {memberships.length} {memberships.length === 1 ? "league" : "leagues"} enrolled
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
+                    </button>
 
-                    {/* Bottom Actions: Settings link & Sign Out at the bottom */}
+                    {/* Bottom Actions: Settings link & Sign Out */}
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
                       <button
                         type="button"
@@ -498,7 +606,7 @@ export function Header({
                           setUserDropdownOpen(false);
                           setShowSettings(true);
                         }}
-                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
@@ -515,7 +623,7 @@ export function Header({
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors font-bold text-xs"
+                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors font-bold text-xs cursor-pointer"
                       >
                         <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
                           <LogOut className="w-4 h-4" />

@@ -147,8 +147,6 @@ export function CommissionerHub({
   const [isNudging, setIsNudging] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || "");
   const [leaguePassword, setLeaguePassword] = useState(settings.leaguePassword || "");
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
 
   // Modals state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -610,70 +608,6 @@ export function CommissionerHub({
       {/* ========================================================================= */}
       {activeSubTab === "roster" && (
         <div className="space-y-6">
-          {/* Quick Invites & Code Strip */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  League Invite &amp; Code
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Share this 5-digit code or direct link with friends to invite them.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                {/* 5-Digit Code */}
-                <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-2">
-                    Code:
-                  </span>
-                  <span className="font-mono font-black text-sm tracking-widest text-slate-900 dark:text-white mr-2">
-                    {leagueId}
-                  </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(leagueId);
-                      setCopiedCode(true);
-                      setTimeout(() => setCopiedCode(false), 2000);
-                    }}
-                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition text-slate-600 dark:text-slate-300"
-                    title="Copy league code"
-                  >
-                    {copiedCode ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-
-                {/* Direct Link */}
-                <button
-                  onClick={() => {
-                    const link =
-                      typeof window !== "undefined"
-                        ? `${window.location.origin}/?join=${leagueId}`
-                        : "";
-                    navigator.clipboard.writeText(link);
-                    setCopiedLink(true);
-                    setTimeout(() => setCopiedLink(false), 2000);
-                  }}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-                >
-                  {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? "Link Copied!" : "Copy Invite Link"}</span>
-                </button>
-
-                {settings.leaguePassword && (
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Password Protected
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Members Roster & Submission Tracking */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
