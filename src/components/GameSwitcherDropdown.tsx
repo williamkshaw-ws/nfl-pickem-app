@@ -184,15 +184,46 @@ export function GameSwitcherDropdown({
     return false;
   };
 
+  const getPoolHighlightClasses = (gameType: UnifiedPoolItem["gameType"]) => {
+    switch (gameType) {
+      case "squares":
+        return {
+          container: "bg-amber-500/10 dark:bg-amber-500/15 border-amber-500/30 dark:border-amber-500/40",
+          dot: "bg-amber-500 ring-2 ring-amber-500/30 dark:ring-amber-400/30",
+          text: "font-black text-amber-950 dark:text-amber-100",
+          hoverText: "group-hover:text-amber-600 dark:group-hover:text-amber-400",
+          hoverDot: "group-hover:bg-amber-500",
+        };
+      case "bracket":
+        return {
+          container: "bg-purple-500/10 dark:bg-purple-500/15 border-purple-500/30 dark:border-purple-500/40",
+          dot: "bg-purple-500 ring-2 ring-purple-500/30 dark:ring-purple-400/30",
+          text: "font-black text-purple-950 dark:text-purple-100",
+          hoverText: "group-hover:text-purple-600 dark:group-hover:text-purple-400",
+          hoverDot: "group-hover:bg-purple-500",
+        };
+      case "pickem":
+      default:
+        return {
+          container: "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/30 dark:border-emerald-500/40",
+          dot: "bg-emerald-500 ring-2 ring-emerald-500/30 dark:ring-emerald-400/30",
+          text: "font-black text-emerald-950 dark:text-emerald-100",
+          hoverText: "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+          hoverDot: "group-hover:bg-emerald-500",
+        };
+    }
+  };
+
   const renderPoolRow = (pool: UnifiedPoolItem) => {
     const isCurrent = isCurrentPool(pool);
+    const highlight = getPoolHighlightClasses(pool.gameType);
 
     return (
       <div
         key={`${pool.gameType}-${pool.id}`}
         className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl transition-all group ${
           isCurrent
-            ? "bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/40 shadow-2xs"
+            ? `${highlight.container} border shadow-2xs`
             : "hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent"
         }`}
       >
@@ -204,27 +235,21 @@ export function GameSwitcherDropdown({
           <span
             className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
               isCurrent
-                ? "bg-emerald-500 ring-2 ring-emerald-500/30 dark:ring-emerald-400/30"
-                : "bg-slate-300 dark:bg-slate-600 group-hover:bg-emerald-500"
+                ? highlight.dot
+                : `bg-slate-300 dark:bg-slate-600 ${highlight.hoverDot}`
             }`}
           />
           <span
             className={`text-xs truncate transition-colors ${
               isCurrent
-                ? "font-black text-emerald-950 dark:text-emerald-100"
-                : "font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+                ? highlight.text
+                : `font-semibold text-slate-700 dark:text-slate-200 ${highlight.hoverText}`
             }`}
           >
             {pool.name}
           </span>
         </Link>
         <div className="flex items-center gap-1.5 shrink-0">
-          {isCurrent && (
-            <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-              <Check className="w-2 h-2 text-emerald-600 dark:text-emerald-400" />
-              Viewing
-            </span>
-          )}
           {pool.role === "commissioner" && (
             <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
               <Shield className="w-2 h-2" />
