@@ -1086,6 +1086,7 @@ function BracketApp() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown
               currentGame="bracket"
+              currentPoolId={poolId || undefined}
               onJoin={() => {
                 setJoinPoolCode("");
                 setJoinError("");

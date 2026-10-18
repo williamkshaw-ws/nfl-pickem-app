@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Trophy, ChevronDown, Check, Grid, Shield, Loader2, LogIn, PlusCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useUserAllPools, UnifiedPoolItem } from "@/lib/useUserAllPools";
@@ -13,6 +14,8 @@ export type GameKey = "pickem" | "bracket" | "squares";
 interface GameSwitcherDropdownProps {
   currentGame: GameKey;
   className?: string;
+  currentLeagueId?: string;
+  currentPoolId?: string;
   onJoin?: () => void;
   onCreate?: () => void;
 }
@@ -60,12 +63,16 @@ const GAMES: GameOption[] = [
 export function GameSwitcherDropdown({
   currentGame,
   className = "",
+  currentLeagueId,
+  currentPoolId,
   onJoin,
   onCreate,
 }: GameSwitcherDropdownProps) {
   const { user } = useAuth();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [currentQueryId, setCurrentQueryId] = useState<string>("");
   const [poolToLeave, setPoolToLeave] = useState<UnifiedPoolItem | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +88,14 @@ export function GameSwitcherDropdown({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Sync current query param when dropdown opens or pathname changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      setCurrentQueryId(params.get("id") || params.get("code") || "");
+    }
+  }, [isOpen, pathname]);
 
   // Refresh data when opening dropdown
   useEffect(() => {
@@ -123,44 +138,116 @@ export function GameSwitcherDropdown({
     return <Trophy className={iconClass} />;
   };
 
-  const renderPoolRow = (pool: UnifiedPoolItem) => (
-    <div
-      key={`${pool.gameType}-${pool.id}`}
-      className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all group"
-    >
-      <Link
-        href={pool.href}
-        onClick={() => setIsOpen(false)}
-        className="flex items-center gap-2 min-w-0 flex-1 py-0.5 cursor-pointer"
+  const isCurrentPool = (pool: UnifiedPoolItem) => {
+    // 1. Explicit props check
+    if (currentLeagueId && pool.gameType === "pickem") {
+      if (pool.id.toLowerCase() === currentLeagueId.toLowerCase()) return true;
+    }
+    if (currentPoolId) {
+      if (pool.id.toLowerCase() === currentPoolId.toLowerCase()) return true;
+    }
+
+    // 2. Pick'em route check
+    if (pool.gameType === "pickem") {
+      if (pathname && pathname.startsWith("/league/")) {
+        const routeId = decodeURIComponent(pathname.replace(/^\/league\//, "").split("/")[0]).toLowerCase();
+        if (pool.id.toLowerCase() === routeId) return true;
+      }
+      if (pathname === "/" || pathname === "") {
+        const lastLeague = typeof window !== "undefined" ? localStorage.getItem("last_active_league")?.toLowerCase() : null;
+        if (lastLeague && pool.id.toLowerCase() === lastLeague) return true;
+      }
+    }
+
+    // 3. Squares route check
+    if (pool.gameType === "squares" && pathname && pathname.startsWith("/squares")) {
+      const activeId = currentQueryId || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("id") || new URLSearchParams(window.location.search).get("code") : "");
+      if (activeId) {
+        if (pool.id.toLowerCase() === activeId.toLowerCase()) return true;
+      } else {
+        const lastSquares = typeof window !== "undefined" ? localStorage.getItem("last_active_squares_board")?.toLowerCase() : null;
+        if (lastSquares && pool.id.toLowerCase() === lastSquares) return true;
+      }
+    }
+
+    // 4. Bracket route check
+    if (pool.gameType === "bracket" && pathname && pathname.startsWith("/bracket")) {
+      const activeId = currentQueryId || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("id") || new URLSearchParams(window.location.search).get("code") : "");
+      if (activeId) {
+        if (pool.id.toLowerCase() === activeId.toLowerCase()) return true;
+      } else {
+        const lastBracket = typeof window !== "undefined" ? localStorage.getItem("last_active_bracket_pool")?.toLowerCase() : null;
+        if (lastBracket && pool.id.toLowerCase() === lastBracket) return true;
+      }
+    }
+
+    return false;
+  };
+
+  const renderPoolRow = (pool: UnifiedPoolItem) => {
+    const isCurrent = isCurrentPool(pool);
+
+    return (
+      <div
+        key={`${pool.gameType}-${pool.id}`}
+        className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl transition-all group ${
+          isCurrent
+            ? "bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/40 shadow-2xs"
+            : "hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent"
+        }`}
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-emerald-500 transition-colors shrink-0" />
-        <span className="font-semibold text-xs text-slate-700 dark:text-slate-200 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-          {pool.name}
-        </span>
-      </Link>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {pool.role === "commissioner" && (
-          <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-            <Shield className="w-2 h-2" />
-            Commish
-          </span>
-        )}
-        <button
-          type="button"
-          title={pool.role === "commissioner" ? "Leave / Reassign / Delete" : "Leave Pool"}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setIsOpen(false);
-            setPoolToLeave(pool);
-          }}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer shrink-0"
+        <Link
+          href={pool.href}
+          onClick={() => setIsOpen(false)}
+          className="flex items-center gap-2 min-w-0 flex-1 py-0.5 cursor-pointer"
         >
-          <LogOut className="w-3.5 h-3.5" />
-        </button>
+          <span
+            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              isCurrent
+                ? "bg-emerald-500 ring-2 ring-emerald-500/30 dark:ring-emerald-400/30"
+                : "bg-slate-300 dark:bg-slate-600 group-hover:bg-emerald-500"
+            }`}
+          />
+          <span
+            className={`text-xs truncate transition-colors ${
+              isCurrent
+                ? "font-black text-emerald-950 dark:text-emerald-100"
+                : "font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+            }`}
+          >
+            {pool.name}
+          </span>
+        </Link>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isCurrent && (
+            <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+              <Check className="w-2 h-2 text-emerald-600 dark:text-emerald-400" />
+              Viewing
+            </span>
+          )}
+          {pool.role === "commissioner" && (
+            <span className="inline-flex items-center gap-0.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+              <Shield className="w-2 h-2" />
+              Commish
+            </span>
+          )}
+          <button
+            type="button"
+            title={pool.role === "commissioner" ? "Leave / Reassign / Delete" : "Leave Pool"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsOpen(false);
+              setPoolToLeave(pool);
+            }}
+            className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer shrink-0"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // If not mounted or user is not signed in, render simple home logo without dropdown
   if (!mounted || !user) {

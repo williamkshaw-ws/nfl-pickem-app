@@ -281,6 +281,7 @@ export function Header({
           <div className="flex items-center gap-1 sm:gap-3 min-w-0 flex-1">
             <GameSwitcherDropdown
               currentGame="pickem"
+              currentLeagueId={currentLeagueId}
               onJoin={() => setShowJoin(true)}
               onCreate={() => setShowCreate(true)}
             />

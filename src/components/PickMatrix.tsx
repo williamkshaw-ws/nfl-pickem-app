@@ -408,6 +408,35 @@ export function PickMatrix({
     return Array.from(playerContentionMap.values()).filter((c) => c.status === "eliminated").length;
   }, [playerContentionMap]);
 
+  // Final display list of players:
+  // In-contention players (leaders, clinched, contending) listed FIRST,
+  // followed by mathematically eliminated players below them.
+  const displayPlayers = useMemo(() => {
+    if (isWeekFinished) return rankedPlayers;
+
+    const inContention: typeof rankedPlayers = [];
+    const eliminated: typeof rankedPlayers = [];
+
+    rankedPlayers.forEach((p) => {
+      const c = playerContentionMap.get(p.user.id);
+      if (c && c.status === "eliminated") {
+        eliminated.push(p);
+      } else {
+        inContention.push(p);
+      }
+    });
+
+    return [...inContention, ...eliminated];
+  }, [rankedPlayers, playerContentionMap, isWeekFinished]);
+
+  const firstEliminatedIndex = useMemo(() => {
+    if (isWeekFinished) return -1;
+    return displayPlayers.findIndex((p) => {
+      const c = playerContentionMap.get(p.user.id);
+      return c?.status === "eliminated";
+    });
+  }, [displayPlayers, playerContentionMap, isWeekFinished]);
+
   // Identify weekly winners for the banner
   const weeklyWinners = useMemo(() => {
     return rankedPlayers.filter((p) => p.isWeeklyWinner);
@@ -602,7 +631,7 @@ export function PickMatrix({
             </thead>
 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
-              {rankedPlayers.map((stat) => {
+              {displayPlayers.map((stat, idx) => {
                 const user = stat.user;
                 const isMe = user.id === currentUserId;
                 const contention = playerContentionMap.get(user.id) || {
@@ -612,9 +641,22 @@ export function PickMatrix({
                   badgeColor: "bg-slate-100 text-slate-700",
                 };
                 const totalCols = sortedGames.length + (tbGame ? 1 : 0);
+                const isFirstEliminated = firstEliminatedIndex !== -1 && idx === firstEliminatedIndex;
 
                 return (
                   <React.Fragment key={user.id}>
+                    {isFirstEliminated && (
+                      <tr className="bg-rose-50/70 dark:bg-rose-950/40 border-y border-rose-200/80 dark:border-rose-900/60">
+                        <td
+                          colSpan={totalCols}
+                          className="sticky left-0 py-1.5 px-3 z-10 text-left bg-rose-50/95 dark:bg-rose-950/95 backdrop-blur-xs"
+                        >
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                            Eliminated From 1st Place ({eliminatedCount})
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                     {/* Player Subheader Row */}
                     <tr
                       className={

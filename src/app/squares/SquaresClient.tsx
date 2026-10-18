@@ -1529,6 +1529,7 @@ function SquaresPoolApp() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <GameSwitcherDropdown
               currentGame="squares"
+              currentPoolId={poolId || undefined}
               onJoin={() => setShowJoinModal(true)}
               onCreate={openCreateModal}
             />
