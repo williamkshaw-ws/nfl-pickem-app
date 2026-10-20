@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import confetti from "canvas-confetti";
+import { fireCelebrationConfetti } from "@/lib/confetti";
 import { WeeklyPlayerResult, Game } from "@/types/nfl";
 import {
   Trophy,
@@ -59,48 +59,7 @@ export function WeeklyLeaderboard({
       e.preventDefault();
       e.stopPropagation();
     }
-    try {
-      const confettiFn =
-        typeof confetti === "function"
-          ? confetti
-          : (confetti as any)?.default || (typeof window !== "undefined" && (window as any).confetti);
-
-      if (typeof confettiFn === "function") {
-        confettiFn({
-          particleCount: 90,
-          spread: 70,
-          origin: { y: 0.6 },
-          zIndex: 99999,
-          disableForReducedMotion: false,
-          colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6", "#14b8a6"],
-        });
-
-        setTimeout(() => {
-          try {
-            confettiFn({
-              particleCount: 50,
-              angle: 60,
-              spread: 55,
-              origin: { x: 0 },
-              zIndex: 99999,
-              disableForReducedMotion: false,
-              colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
-            });
-            confettiFn({
-              particleCount: 50,
-              angle: 120,
-              spread: 55,
-              origin: { x: 1 },
-              zIndex: 99999,
-              disableForReducedMotion: false,
-              colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
-            });
-          } catch {}
-        }, 150);
-      }
-    } catch (err) {
-      console.error("Confetti trigger error:", err);
-    }
+    fireCelebrationConfetti();
   };
 
   // Auto-celebrate only once per viewer per finished week

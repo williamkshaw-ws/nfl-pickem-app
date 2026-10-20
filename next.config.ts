@@ -31,6 +31,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://a.espncdn.com https://static.www.nfl.com",
               "font-src 'self' data:",
               "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://site.api.espn.com",
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "object-src 'none'",
               "base-uri 'self'",
