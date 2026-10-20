@@ -54,16 +54,52 @@ export function WeeklyLeaderboard({
   }, [weeklyResults]);
 
   // Trigger celebration confetti if there's a winner
-  const triggerConfetti = () => {
+  const triggerConfetti = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
-      });
-    } catch {
-      // ignore
+      const confettiFn =
+        typeof confetti === "function"
+          ? confetti
+          : (confetti as any)?.default || (typeof window !== "undefined" && (window as any).confetti);
+
+      if (typeof confettiFn === "function") {
+        confettiFn({
+          particleCount: 90,
+          spread: 70,
+          origin: { y: 0.6 },
+          zIndex: 99999,
+          disableForReducedMotion: false,
+          colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6", "#14b8a6"],
+        });
+
+        setTimeout(() => {
+          try {
+            confettiFn({
+              particleCount: 50,
+              angle: 60,
+              spread: 55,
+              origin: { x: 0 },
+              zIndex: 99999,
+              disableForReducedMotion: false,
+              colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
+            });
+            confettiFn({
+              particleCount: 50,
+              angle: 120,
+              spread: 55,
+              origin: { x: 1 },
+              zIndex: 99999,
+              disableForReducedMotion: false,
+              colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
+            });
+          } catch {}
+        }, 150);
+      }
+    } catch (err) {
+      console.error("Confetti trigger error:", err);
     }
   };
 
@@ -195,8 +231,9 @@ export function WeeklyLeaderboard({
           )}
           {allGamesCompleted && primaryWinner && (
             <button
-              onClick={triggerConfetti}
-              className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-900 text-amber-800 dark:text-amber-200 transition active:scale-95"
+              type="button"
+              onClick={(e) => triggerConfetti(e)}
+              className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-900 text-amber-800 dark:text-amber-200 transition active:scale-95 cursor-pointer"
               title="Celebrate!"
               aria-label="Celebrate"
             >

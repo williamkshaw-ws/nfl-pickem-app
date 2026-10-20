@@ -55,15 +55,52 @@ export function PickMatrix({
 }: PickMatrixProps) {
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
 
-  const triggerConfetti = () => {
+  const triggerConfetti = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-    } catch {
-      // Ignore if confetti not supported
+      const confettiFn =
+        typeof confetti === "function"
+          ? confetti
+          : (confetti as any)?.default || (typeof window !== "undefined" && (window as any).confetti);
+
+      if (typeof confettiFn === "function") {
+        confettiFn({
+          particleCount: 90,
+          spread: 70,
+          origin: { y: 0.6 },
+          zIndex: 99999,
+          disableForReducedMotion: false,
+          colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6", "#14b8a6"],
+        });
+
+        setTimeout(() => {
+          try {
+            confettiFn({
+              particleCount: 50,
+              angle: 60,
+              spread: 55,
+              origin: { x: 0 },
+              zIndex: 99999,
+              disableForReducedMotion: false,
+              colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
+            });
+            confettiFn({
+              particleCount: 50,
+              angle: 120,
+              spread: 55,
+              origin: { x: 1 },
+              zIndex: 99999,
+              disableForReducedMotion: false,
+              colors: ["#10b981", "#f59e0b", "#6366f1", "#ec4899", "#3b82f6"],
+            });
+          } catch {}
+        }, 150);
+      }
+    } catch (err) {
+      console.error("Confetti trigger error:", err);
     }
   };
 
@@ -232,25 +269,56 @@ export function PickMatrix({
     });
 
     // Compute ranks with "T-" tie prefix
-    let currentRank = 1;
     return enhanced.map((p, idx) => {
-      if (idx > 0) {
-        const prev = enhanced[idx - 1];
-        if (prev.correctCount !== p.correctCount) {
-          currentRank = idx + 1;
+      let rank = idx + 1;
+      let tiedWithOthers = false;
+
+      if (isWeekFinished) {
+        if (p.weeklyResult) {
+          rank = p.weeklyResult.rank;
+          tiedWithOthers =
+            enhanced.filter((other) => other.weeklyResult?.rank === rank).length > 1;
+        } else if (p.tbDiff !== undefined) {
+          const prev = idx > 0 ? enhanced[idx - 1] : null;
+          if (prev && prev.correctCount === p.correctCount && prev.tbDiff === p.tbDiff) {
+            rank = (prev as any).rank || idx;
+          }
+          tiedWithOthers =
+            enhanced.filter(
+              (o) => o.correctCount === p.correctCount && o.tbDiff === p.tbDiff
+            ).length > 1;
+        } else {
+          let currentRank = 1;
+          for (let j = 0; j <= idx; j++) {
+            if (j > 0 && enhanced[j].correctCount !== enhanced[j - 1].correctCount) {
+              currentRank = j + 1;
+            }
+          }
+          rank = currentRank;
+          tiedWithOthers =
+            enhanced.filter((other) => other.correctCount === p.correctCount).length > 1;
         }
+      } else {
+        let currentRank = 1;
+        for (let j = 0; j <= idx; j++) {
+          if (j > 0 && enhanced[j].correctCount !== enhanced[j - 1].correctCount) {
+            currentRank = j + 1;
+          }
+        }
+        rank = currentRank;
+        tiedWithOthers =
+          enhanced.filter((other) => other.correctCount === p.correctCount).length > 1;
       }
-      const tiedWithOthers =
-        enhanced.filter((other) => other.correctCount === p.correctCount).length > 1;
-      const rankLabel = tiedWithOthers ? `T-${currentRank}` : `#${currentRank}`;
+
+      const rankLabel = tiedWithOthers ? `T-${rank}` : `#${rank}`;
 
       return {
         ...p,
-        rank: currentRank,
+        rank,
         rankLabel,
       };
     });
-  }, [playerStats, maxCurrentCorrect, weeklyResults]);
+  }, [playerStats, maxCurrentCorrect, weeklyResults, isWeekFinished]);
 
   // Contention status for each ranked player
   const playerContentionMap = useMemo(() => {
@@ -258,8 +326,13 @@ export function PickMatrix({
 
     // If active week is completely finished
     if (isWeekFinished) {
-      rankedPlayers.forEach((p) => {
-        if (p.isWeeklyWinner || (p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0)) {
+      const hasOfficialWinner = rankedPlayers.some((p) => p.isWeeklyWinner);
+      rankedPlayers.forEach((p, idx) => {
+        const isWinner = hasOfficialWinner
+          ? p.isWeeklyWinner
+          : idx === 0 && p.correctCount > 0;
+
+        if (isWinner) {
           map.set(p.user.id, {
             status: "winner",
             label: "Weekly Winner",
@@ -267,9 +340,10 @@ export function PickMatrix({
             badgeColor: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800",
           });
         } else {
+          const tiedTopScore = p.correctCount === maxCurrentCorrect && maxCurrentCorrect > 0;
           map.set(p.user.id, {
             status: "finished",
-            label: "Finished",
+            label: tiedTopScore ? "2nd Place (TB)" : "Finished",
             detail: `${p.correctCount} pts`,
             badgeColor: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
           });
@@ -495,7 +569,8 @@ export function PickMatrix({
 
             {isWeekFinished && primaryWinner ? (
               <button
-                onClick={triggerConfetti}
+                type="button"
+                onClick={(e) => triggerConfetti(e)}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 transition-all cursor-pointer active:scale-95"
                 title="Celebrate Weekly Winner!"
               >
@@ -680,7 +755,17 @@ export function PickMatrix({
                               · <strong className="text-slate-900 dark:text-white font-black">{stat.correctCount}</strong>/{sortedGames.length} correct
                             </span>
                             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              · {stat.gamesBack === 0 ? "Leader" : `${stat.gamesBack} ${stat.gamesBack === 1 ? "game back" : "games back"}`}
+                              · {isWeekFinished
+                                  ? contention.status === "winner"
+                                    ? "Winner"
+                                    : stat.gamesBack === 0
+                                    ? "2nd Place (Tiebreaker)"
+                                    : `#${stat.rank} Place`
+                                  : stat.gamesBack === 0
+                                  ? rankedPlayers.filter((p) => p.gamesBack === 0).length > 1
+                                    ? "Co-Leader"
+                                    : "Leader"
+                                  : `${stat.gamesBack} ${stat.gamesBack === 1 ? "game back" : "games back"}`}
                             </span>
                             {completedCount === 0 && (
                               <span

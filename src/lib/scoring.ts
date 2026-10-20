@@ -379,7 +379,8 @@ export function calculateSeasonStandings(
       const curr = standings[i];
       if (
         curr.totalCorrect === prev.totalCorrect &&
-        curr.weeklyWins === prev.weeklyWins
+        curr.weeklyWins === prev.weeklyWins &&
+        curr.winPercentage === prev.winPercentage
       ) {
         curr.rank = prev.rank;
       } else {

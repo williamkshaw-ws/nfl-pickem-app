@@ -39,7 +39,12 @@ function rankPlayers(
   const ranks = new Map<string, number>();
   sorted.forEach((p, i) => {
     const prev = sorted[i - 1];
-    if (prev && prev.totalCorrect === p.totalCorrect && prev.weeklyWins === p.weeklyWins) {
+    if (
+      prev &&
+      prev.totalCorrect === p.totalCorrect &&
+      prev.weeklyWins === p.weeklyWins &&
+      prev.winPercentage === p.winPercentage
+    ) {
       ranks.set(p.userId, ranks.get(prev.userId)!);
     } else {
       ranks.set(p.userId, i + 1);
