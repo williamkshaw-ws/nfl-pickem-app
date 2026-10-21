@@ -8,6 +8,7 @@ import {
   BracketParticipant,
   BracketPool,
   UserBracketPool,
+  DEFAULT_ROUND_POINTS,
 } from "@/lib/playoff-bracket";
 
 const DEFAULT_LOCK_TIME = "2026-01-10T21:30:00.000Z";
@@ -112,8 +113,10 @@ export async function GET(request: Request) {
         userRole = "commissioner";
       }
 
+      const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
+
       // Rank all participants using 3-tier tiebreaker
-      const leaderboard = rankBracketParticipants(rawParticipants, results);
+      const leaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
 
       // Fetch user's pools list if authenticated
       const userPools: UserBracketPool[] = [];
@@ -147,6 +150,7 @@ export async function GET(request: Request) {
           results,
           isSimulated: !!poolData.isSimulated,
           simulatedAt: poolData.simulatedAt || null,
+          roundPoints,
         },
         leaderboard,
         currentUserEntry,
@@ -242,6 +246,7 @@ export async function POST(request: Request) {
       results: {},
       isSimulated: false,
       simulatedAt: null,
+      roundPoints: DEFAULT_ROUND_POINTS,
       createdAt: now,
       updatedAt: now,
     };

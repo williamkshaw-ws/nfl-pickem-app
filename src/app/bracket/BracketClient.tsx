@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronRight,
   Settings,
+  SlidersHorizontal,
   LogOut,
   Check,
   Copy,
@@ -56,6 +57,11 @@ import {
   BracketPool,
   UserBracketPool,
   extractBracketCode,
+  BracketRoundPoints,
+  DEFAULT_ROUND_POINTS,
+  calculateTotalBracketPoints,
+  calculateChampionConsensus,
+  ChampionConsensusItem,
 } from "@/lib/playoff-bracket";
 
 const STORAGE_PICKS_KEY = "pocketpicks_bracket_picks_v3";
@@ -215,6 +221,13 @@ function BracketApp() {
   // Share pool modal
   const [showShareModal, setShowShareModal] = useState(false);
 
+  // Custom round points scoring modal (commissioner only)
+  const [showScoringModal, setShowScoringModal] = useState(false);
+  const [scoringForm, setScoringForm] = useState<BracketRoundPoints>(DEFAULT_ROUND_POINTS);
+  const [savingScoring, setSavingScoring] = useState(false);
+  const [scoringError, setScoringError] = useState("");
+  const [scoringSuccess, setScoringSuccess] = useState(false);
+
   // Prevent background scrolling when any modal is open
   const isAnyModalOpen = Boolean(
     showRulesModal ||
@@ -224,7 +237,8 @@ function BracketApp() {
     showJoinPoolModal ||
     showDeleteModal ||
     showLeaveModal ||
-    showShareModal
+    showShareModal ||
+    showScoringModal
   );
 
   useEffect(() => {
@@ -640,6 +654,45 @@ function BracketApp() {
     }
   };
 
+  // Save custom round point values handler (commissioner only)
+  const handleSaveScoring = async () => {
+    if (!poolId || !user || !isOwner) return;
+    setSavingScoring(true);
+    setScoringError("");
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`/api/bracket/${encodeURIComponent(poolId)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "update_scoring",
+          roundPoints: scoringForm,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update point values");
+      if (poolData) {
+        setPoolData({ ...poolData, roundPoints: data.roundPoints });
+      }
+      if (data.leaderboard) {
+        setLeaderboard(data.leaderboard);
+      }
+      setScoringSuccess(true);
+      showToast("Point values updated successfully!");
+      setTimeout(() => {
+        setScoringSuccess(false);
+        setShowScoringModal(false);
+      }, 700);
+    } catch (err: unknown) {
+      setScoringError(err instanceof Error ? err.message : "Failed to update point values");
+    } finally {
+      setSavingScoring(false);
+    }
+  };
+
   // Create new bracket pool handler
   const handleCreatePool = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -814,7 +867,18 @@ function BracketApp() {
   const isDisplayingActual = isSimulated && bracketViewMode === "actual";
   const activeMatchups = isDisplayingActual ? actualTournamentMatchups : userProjectedMatchups;
 
-  const scoreDetails = useMemo(() => calculateBracketScore(picks, results, tiebreaker), [picks, results, tiebreaker]);
+  const scoreDetails = useMemo(
+    () => calculateBracketScore(picks, results, tiebreaker, poolData?.roundPoints),
+    [picks, results, tiebreaker, poolData?.roundPoints]
+  );
+  const totalPoolPoints = useMemo(
+    () => calculateTotalBracketPoints(poolData?.roundPoints),
+    [poolData?.roundPoints]
+  );
+  const consensusItems = useMemo(
+    () => calculateChampionConsensus(leaderboard, results),
+    [leaderboard, results]
+  );
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
 
   // Current active playoff round resolver (for dynamic round indicator dots)
@@ -1318,15 +1382,30 @@ function BracketApp() {
                   </span>
                 )}
 
-                {/* Commissioner Lock toggle button */}
+                {/* Commissioner Lock toggle button & Point Values */}
                 {isOwner && (
-                  <button
-                    type="button"
-                    onClick={handleToggleLock}
-                    className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
-                  >
-                    {isLocked ? "Unlock Bracket" : "Lock Bracket"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleLock}
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
+                    >
+                      {isLocked ? "Unlock Bracket" : "Lock Bracket"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScoringForm(poolData.roundPoints || DEFAULT_ROUND_POINTS);
+                        setScoringError("");
+                        setShowScoringModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                      title="Customize points awarded per round"
+                    >
+                      <SlidersHorizontal className="w-3 h-3 text-purple-500" />
+                      <span>Point Values</span>
+                    </button>
+                  </div>
                 )}
 
                 {/* Desktop View Mode Toggle */}
@@ -1361,7 +1440,7 @@ function BracketApp() {
                 {isSimulated && (
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 text-xs font-black shrink-0 whitespace-nowrap">
                     <Flame className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                    <span>{scoreDetails.score} / 13 pts</span>
+                    <span>{scoreDetails.score} / {totalPoolPoints} pts</span>
                   </div>
                 )}
 
@@ -1768,13 +1847,135 @@ function BracketApp() {
                       {poolData.name} Leaderboard
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Ranked by total correct picks, followed by the 3-tier Super Bowl tiebreaker.
+                      Ranked by points scored, followed by the 3-tier Super Bowl tiebreaker.
                     </p>
                   </div>
-                  <div className="text-xs font-mono font-bold text-slate-500">
-                    {leaderboard.length} {leaderboard.length === 1 ? "participant" : "participants"}
+                  <div className="flex items-center gap-2.5">
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScoringForm(poolData.roundPoints || DEFAULT_ROUND_POINTS);
+                          setScoringError("");
+                          setShowScoringModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                        title="Customize points awarded per round"
+                      >
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-purple-500" />
+                        <span>Point Values</span>
+                      </button>
+                    )}
+                    <div className="text-xs font-mono font-bold text-slate-500">
+                      {leaderboard.length} {leaderboard.length === 1 ? "participant" : "participants"}
+                    </div>
                   </div>
                 </div>
+
+                {/* SUPER BOWL CONSENSUS BAR */}
+                {leaderboard.length > 0 && (
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight">
+                          Super Bowl Champion Consensus
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                        {consensusItems.reduce((acc, c) => acc + c.count, 0)} of {leaderboard.length} picked
+                      </span>
+                    </div>
+
+                    {consensusItems.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">
+                        Consensus will appear here once participants make their Super Bowl champion picks.
+                      </p>
+                    ) : (
+                      <>
+                        {/* Segmented Progress Bar */}
+                        <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden gap-0.5 p-0.5">
+                          {consensusItems.map((item, idx) => {
+                            const barColors = [
+                              "bg-purple-500",
+                              "bg-blue-500",
+                              "bg-emerald-500",
+                              "bg-amber-500",
+                              "bg-rose-500",
+                              "bg-cyan-500",
+                              "bg-indigo-500",
+                              "bg-orange-500",
+                            ];
+                            const barColor = item.isEliminated
+                              ? "bg-slate-400 dark:bg-slate-600 opacity-50"
+                              : barColors[idx % barColors.length];
+
+                            return (
+                              <div
+                                key={item.team.abbr}
+                                style={{ width: `${item.percentage}%` }}
+                                className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                                title={`${item.team.name}: ${item.percentage}% (${item.count})`}
+                              />
+                            );
+                          })}
+                        </div>
+
+                        {/* Team Chips Row */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar flex-wrap sm:flex-nowrap">
+                          {consensusItems.map((item, idx) => {
+                            const dotColors = [
+                              "bg-purple-500",
+                              "bg-blue-500",
+                              "bg-emerald-500",
+                              "bg-amber-500",
+                              "bg-rose-500",
+                              "bg-cyan-500",
+                              "bg-indigo-500",
+                              "bg-orange-500",
+                            ];
+                            const dotColor = item.isEliminated
+                              ? "bg-slate-400 dark:bg-slate-600"
+                              : dotColors[idx % dotColors.length];
+
+                            return (
+                              <div
+                                key={item.team.abbr}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border text-xs shrink-0 transition-all ${
+                                  item.isEliminated
+                                    ? "bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800 opacity-60"
+                                    : "bg-slate-50 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700/80"
+                                }`}
+                              >
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+                                <TeamLogo
+                                  alt={item.team.name}
+                                  width={16}
+                                  height={16}
+                                  className="w-4 h-4 object-contain shrink-0"
+                                />
+                                <span className={`font-extrabold text-slate-900 dark:text-white ${item.isEliminated ? "line-through text-slate-500" : ""}`}>
+                                  {item.team.abbr}
+                                </span>
+                                <span className="font-black text-slate-700 dark:text-slate-300 font-mono">
+                                  {item.percentage}%
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-semibold">
+                                  ({item.count})
+                                </span>
+                                {item.isEliminated && (
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                                    Eliminated
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {leaderboard.length === 0 ? (
                   <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
@@ -1903,9 +2104,14 @@ function BracketApp() {
                                 </td>
 
                                 <td className="py-3.5 px-4 text-right">
-                                  <span className="inline-flex items-center gap-1 font-mono font-black text-sm text-purple-600 dark:text-purple-400">
-                                    {entry.score} <span className="text-[10px] text-slate-400 font-normal">pts</span>
-                                  </span>
+                                  <div className="flex flex-col items-end">
+                                    <span className="inline-flex items-center gap-1 font-mono font-black text-sm text-purple-600 dark:text-purple-400">
+                                      {entry.score} <span className="text-[10px] text-slate-400 font-normal">pts</span>
+                                    </span>
+                                    <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                                      Max: <span className="font-bold text-slate-700 dark:text-slate-300">{entry.maxPossible ?? entry.score}</span>
+                                    </span>
+                                  </div>
                                 </td>
 
                                 <td className="py-3.5 px-4 text-center">
@@ -2079,7 +2285,7 @@ function BracketApp() {
                         {viewingParticipant.userName}&apos;s Bracket
                       </h3>
                       <span className="text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 whitespace-nowrap">
-                        {viewingParticipant.score} / 13 pts
+                        {viewingParticipant.score} / {totalPoolPoints} pts (Max: {viewingParticipant.maxPossible ?? viewingParticipant.score})
                       </span>
                     </div>
                     {viewingParticipant.tiebreaker && (
@@ -2626,11 +2832,44 @@ function BracketApp() {
 
             <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                <h4 className="font-bold text-slate-900 dark:text-white mb-1">
-                  1. How Scoring Works
-                </h4>
-                <p>
-                  Each correct game pick is worth <strong>1 point</strong> across all 13 postseason games. The maximum possible score is <strong>13 points</strong>.
+                <div className="flex items-center justify-between mb-1.5">
+                  <h4 className="font-bold text-slate-900 dark:text-white">
+                    1. How Scoring Works
+                  </h4>
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRulesModal(false);
+                        setScoringForm(poolData?.roundPoints || DEFAULT_ROUND_POINTS);
+                        setScoringError("");
+                        setShowScoringModal(true);
+                      }}
+                      className="text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+                    >
+                      Edit Point Values &rarr;
+                    </button>
+                  )}
+                </div>
+                <p className="mb-2">
+                  Points are awarded for each correct game pick across all 13 postseason games:
+                </p>
+                <div className="grid grid-cols-2 gap-2 my-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    Wild Card: <strong className="text-purple-600 dark:text-purple-400">{poolData?.roundPoints?.wild_card ?? 1} pt</strong> each (6 games)
+                  </div>
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    Divisional: <strong className="text-purple-600 dark:text-purple-400">{poolData?.roundPoints?.divisional ?? 1} pt{(poolData?.roundPoints?.divisional ?? 1) === 1 ? "" : "s"}</strong> each (4 games)
+                  </div>
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    Conference: <strong className="text-purple-600 dark:text-purple-400">{poolData?.roundPoints?.conference ?? 1} pt{(poolData?.roundPoints?.conference ?? 1) === 1 ? "" : "s"}</strong> each (2 games)
+                  </div>
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    Super Bowl: <strong className="text-purple-600 dark:text-purple-400">{poolData?.roundPoints?.super_bowl ?? 1} pt{(poolData?.roundPoints?.super_bowl ?? 1) === 1 ? "" : "s"}</strong> (1 game)
+                  </div>
+                </div>
+                <p className="mt-1 text-slate-500">
+                  The maximum possible score in this pool is <strong>{totalPoolPoints} points</strong>.
                 </p>
               </div>
 
@@ -2663,6 +2902,215 @@ function BracketApp() {
                 className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-purple-600 dark:hover:bg-purple-500 text-white transition cursor-pointer"
               >
                 Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: CUSTOMIZE POINT VALUES (Commissioner Only) */}
+      {showScoringModal && (
+        <div
+          onClick={() => setShowScoringModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  Round Point Values
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowScoringModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+              Set the point value for correct picks in each round. Scores and max possible points for all participants will update automatically.
+            </p>
+
+            {/* Quick Presets */}
+            <div className="mb-4">
+              <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">
+                Quick Presets
+              </label>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setScoringForm({ wild_card: 1, divisional: 1, conference: 1, super_bowl: 1 })}
+                  className={`py-2 px-3 rounded-xl border text-center font-bold transition cursor-pointer ${
+                    scoringForm.wild_card === 1 && scoringForm.divisional === 1 && scoringForm.conference === 1 && scoringForm.super_bowl === 1
+                      ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                      : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <div>Standard (1-1-1-1)</div>
+                  <div className="text-[10px] text-slate-400 font-normal">13 total pts</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScoringForm({ wild_card: 1, divisional: 2, conference: 4, super_bowl: 8 })}
+                  className={`py-2 px-3 rounded-xl border text-center font-bold transition cursor-pointer ${
+                    scoringForm.wild_card === 1 && scoringForm.divisional === 2 && scoringForm.conference === 4 && scoringForm.super_bowl === 8
+                      ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                      : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <div>Progressive (1-2-4-8)</div>
+                  <div className="text-[10px] text-slate-400 font-normal">30 total pts</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScoringForm({ wild_card: 1, divisional: 2, conference: 3, super_bowl: 5 })}
+                  className={`py-2 px-3 rounded-xl border text-center font-bold transition cursor-pointer ${
+                    scoringForm.wild_card === 1 && scoringForm.divisional === 2 && scoringForm.conference === 3 && scoringForm.super_bowl === 5
+                      ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                      : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <div>Fibonacci (1-2-3-5)</div>
+                  <div className="text-[10px] text-slate-400 font-normal">25 total pts</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScoringForm({ wild_card: 1, divisional: 2, conference: 3, super_bowl: 4 })}
+                  className={`py-2 px-3 rounded-xl border text-center font-bold transition cursor-pointer ${
+                    scoringForm.wild_card === 1 && scoringForm.divisional === 2 && scoringForm.conference === 3 && scoringForm.super_bowl === 4
+                      ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                      : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <div>Stepped (1-2-3-4)</div>
+                  <div className="text-[10px] text-slate-400 font-normal">24 total pts</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Inputs for each round */}
+            <div className="space-y-3 mb-5">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Wild Card Round</div>
+                  <div className="text-[11px] text-slate-400">6 games • {6 * (scoringForm.wild_card || 0)} pts total</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={scoringForm.wild_card}
+                    onChange={(e) => setScoringForm({ ...scoringForm, wild_card: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-16 py-1 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-center font-mono font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">pts</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Divisional Round</div>
+                  <div className="text-[11px] text-slate-400">4 games • {4 * (scoringForm.divisional || 0)} pts total</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={scoringForm.divisional}
+                    onChange={(e) => setScoringForm({ ...scoringForm, divisional: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-16 py-1 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-center font-mono font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">pts</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Conference Championships</div>
+                  <div className="text-[11px] text-slate-400">2 games • {2 * (scoringForm.conference || 0)} pts total</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={scoringForm.conference}
+                    onChange={(e) => setScoringForm({ ...scoringForm, conference: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-16 py-1 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-center font-mono font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">pts</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Super Bowl</div>
+                  <div className="text-[11px] text-slate-400">1 game • {1 * (scoringForm.super_bowl || 0)} pts total</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={scoringForm.super_bowl}
+                    onChange={(e) => setScoringForm({ ...scoringForm, super_bowl: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-16 py-1 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-center font-mono font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">pts</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary strip */}
+            <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 flex items-center justify-between mb-5">
+              <span className="text-xs font-bold text-purple-900 dark:text-purple-300">
+                Total Available Points:
+              </span>
+              <span className="text-sm font-black font-mono text-purple-700 dark:text-purple-400">
+                {calculateTotalBracketPoints(scoringForm)} pts
+              </span>
+            </div>
+
+            {scoringError && (
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 mb-3">{scoringError}</p>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowScoringModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveScoring}
+                disabled={savingScoring || scoringSuccess}
+                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {savingScoring ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : scoringSuccess ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-white" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <span>Save Point Values</span>
+                )}
               </button>
             </div>
           </div>

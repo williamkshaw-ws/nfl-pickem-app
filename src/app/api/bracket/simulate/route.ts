@@ -9,6 +9,7 @@ import {
   SimulationResults,
   BracketParticipant,
   BracketPool,
+  DEFAULT_ROUND_POINTS,
 } from "@/lib/playoff-bracket";
 
 export async function POST(request: Request) {
@@ -112,10 +113,11 @@ export async function POST(request: Request) {
     }
 
     const rawParticipants: BracketParticipant[] = [];
+    const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
 
     entriesSnapshot.forEach((doc) => {
       const data = doc.data();
-      const scoreRes = calculateBracketScore(data.picks || {}, results, data.tiebreaker || undefined);
+      const scoreRes = calculateBracketScore(data.picks || {}, results, data.tiebreaker || undefined, roundPoints);
       const uProfile = userMap.get(data.userId);
       const resolvedName = uProfile?.name || uProfile?.username || data.userName || "Participant";
       const resolvedAvatar = uProfile?.avatarColor || data.userAvatar || "bg-emerald-600";
@@ -134,7 +136,7 @@ export async function POST(request: Request) {
     });
 
     // Rank participants with 3-tier tiebreaker
-    const rankedLeaderboard = rankBracketParticipants(rawParticipants, results);
+    const rankedLeaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
 
     // Update scores in database batch
     const batch = db.batch();

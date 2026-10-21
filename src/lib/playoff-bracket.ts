@@ -67,6 +67,45 @@ export type BracketGameId =
   | "nfc_champ"
   | "super_bowl";
 
+export interface BracketRoundPoints {
+  wild_card: number;
+  divisional: number;
+  conference: number;
+  super_bowl: number;
+}
+
+export const DEFAULT_ROUND_POINTS: BracketRoundPoints = {
+  wild_card: 1,
+  divisional: 1,
+  conference: 1,
+  super_bowl: 1,
+};
+
+export const GAME_ROUNDS: Record<BracketGameId, keyof BracketRoundPoints> = {
+  afc_wc_1: "wild_card",
+  afc_wc_2: "wild_card",
+  afc_wc_3: "wild_card",
+  nfc_wc_1: "wild_card",
+  nfc_wc_2: "wild_card",
+  nfc_wc_3: "wild_card",
+  afc_div_1: "divisional",
+  afc_div_2: "divisional",
+  nfc_div_1: "divisional",
+  nfc_div_2: "divisional",
+  afc_champ: "conference",
+  nfc_champ: "conference",
+  super_bowl: "super_bowl",
+};
+
+export function calculateTotalBracketPoints(roundPoints: BracketRoundPoints = DEFAULT_ROUND_POINTS): number {
+  return (
+    6 * (roundPoints.wild_card ?? 1) +
+    4 * (roundPoints.divisional ?? 1) +
+    2 * (roundPoints.conference ?? 1) +
+    1 * (roundPoints.super_bowl ?? 1)
+  );
+}
+
 export type BracketPicks = Partial<Record<BracketGameId, string>>;
 
 export interface TiebreakerPrediction {
@@ -106,6 +145,7 @@ export interface BracketParticipant {
   picks: BracketPicks;
   tiebreaker?: TiebreakerPrediction;
   score: number;
+  maxPossible?: number;
   superBowlWinner?: string;
   updatedAt: string;
   rank?: number;
@@ -481,8 +521,9 @@ export function simulatePlayoffOutcomes(): SimulationResults {
 }
 
 /**
- * Calculates a participant's score (1 point per correct game pick, max 13 points)
- * and resolves the 3-tier Super Bowl tiebreaker:
+ * Calculates a participant's score based on the pool's round point values
+ * and determines their elimination-aware max possible points.
+ * Also resolves the 3-tier Super Bowl tiebreaker:
  * - Tier 1: Total combined score difference (closest wins)
  * - Tier 2: Home team score difference (closest wins)
  * - Tier 3: Away team score difference (closest wins)
@@ -490,7 +531,8 @@ export function simulatePlayoffOutcomes(): SimulationResults {
 export function calculateBracketScore(
   picks: BracketPicks,
   results: SimulationResults,
-  tiebreaker?: TiebreakerPrediction
+  tiebreaker?: TiebreakerPrediction,
+  roundPoints: BracketRoundPoints = DEFAULT_ROUND_POINTS
 ): {
   score: number;
   maxPossible: number;
@@ -500,6 +542,7 @@ export function calculateBracketScore(
   tiebreakerStats?: TiebreakerStats;
 } {
   let score = 0;
+  let potentialRemaining = 0;
   const correctGameIds: BracketGameId[] = [];
   const wrongGameIds: BracketGameId[] = [];
   const pendingGameIds: BracketGameId[] = [];
@@ -513,21 +556,41 @@ export function calculateBracketScore(
     "super_bowl",
   ];
 
+  // Identify all eliminated teams from completed games
+  const eliminatedTeams = new Set<string>();
+  for (const gid of allGameIds) {
+    const res = results[gid];
+    if (res?.isCompleted && res.winner) {
+      if (res.homeTeam && res.homeTeam !== res.winner) {
+        eliminatedTeams.add(res.homeTeam);
+      }
+      if (res.awayTeam && res.awayTeam !== res.winner) {
+        eliminatedTeams.add(res.awayTeam);
+      }
+    }
+  }
+
   for (const gid of allGameIds) {
     const res = results[gid];
     const pick = picks[gid];
+    const rKey = GAME_ROUNDS[gid];
+    const pts = roundPoints[rKey] ?? 1;
 
     if (!res || !res.isCompleted) {
       pendingGameIds.push(gid);
+      // If participant picked a team and that team has not been eliminated, pick is still alive
+      if (pick && !eliminatedTeams.has(pick)) {
+        potentialRemaining += pts;
+      }
     } else if (pick && pick === res.winner) {
-      score += 1;
+      score += pts;
       correctGameIds.push(gid);
     } else {
       wrongGameIds.push(gid);
     }
   }
 
-  const maxPossible = score + pendingGameIds.length;
+  const maxPossible = score + potentialRemaining;
 
   // Compute 3-Tier Tiebreaker Stats if Super Bowl completed and user entered tiebreaker
   let tiebreakerStats: TiebreakerStats | undefined = undefined;
@@ -567,7 +630,7 @@ export function calculateBracketScore(
 
 /**
  * Sorts participants and assigns ranks using the official 3-tier tiebreaker:
- * 1. Score descending (max 13 pts)
+ * 1. Score descending
  * 2. If tied and Super Bowl finished:
  *    - Tier 1: Total points diff (closest wins)
  *    - Tier 2: Home team score diff (closest wins)
@@ -575,14 +638,16 @@ export function calculateBracketScore(
  */
 export function rankBracketParticipants(
   participants: BracketParticipant[],
-  results: SimulationResults
+  results: SimulationResults,
+  roundPoints: BracketRoundPoints = DEFAULT_ROUND_POINTS
 ): BracketParticipant[] {
-  // 1. Calculate each participant's score & tiebreaker stats
+  // 1. Calculate each participant's score, maxPossible & tiebreaker stats
   const scored: BracketParticipant[] = participants.map((p) => {
-    const { score, tiebreakerStats } = calculateBracketScore(p.picks, results, p.tiebreaker);
+    const { score, maxPossible, tiebreakerStats } = calculateBracketScore(p.picks, results, p.tiebreaker, roundPoints);
     return {
       ...p,
       score,
+      maxPossible,
       tiebreakerStats,
       rank: 1,
       tiebreakerExplanation: undefined,
@@ -854,8 +919,71 @@ export interface BracketPool {
   results: SimulationResults;
   isSimulated: boolean;
   simulatedAt: string | null;
+  roundPoints?: BracketRoundPoints;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChampionConsensusItem {
+  team: PlayoffTeam;
+  count: number;
+  percentage: number;
+  isEliminated: boolean;
+}
+
+export function calculateChampionConsensus(
+  participants: BracketParticipant[],
+  results: SimulationResults = {}
+): ChampionConsensusItem[] {
+  if (!participants || participants.length === 0) return [];
+
+  // Identify eliminated teams
+  const eliminatedTeams = new Set<string>();
+  for (const gid of Object.keys(GAME_ROUNDS) as BracketGameId[]) {
+    const res = results[gid];
+    if (res?.isCompleted && res.winner) {
+      if (res.homeTeam && res.homeTeam !== res.winner) eliminatedTeams.add(res.homeTeam);
+      if (res.awayTeam && res.awayTeam !== res.winner) eliminatedTeams.add(res.awayTeam);
+    }
+  }
+
+  const counts: Record<string, number> = {};
+  let totalWithPick = 0;
+
+  for (const p of participants) {
+    const champ = p.superBowlWinner || p.picks?.super_bowl;
+    if (champ && TEAM_BY_ABBR[champ]) {
+      counts[champ] = (counts[champ] || 0) + 1;
+      totalWithPick++;
+    }
+  }
+
+  if (totalWithPick === 0) return [];
+
+  const items: ChampionConsensusItem[] = Object.entries(counts).map(([abbr, count]) => {
+    const team = TEAM_BY_ABBR[abbr] || {
+      seed: 0,
+      conference: "AFC" as const,
+      name: abbr,
+      abbr,
+      nickname: abbr,
+    };
+    const percentage = Math.round((count / totalWithPick) * 100);
+    return {
+      team,
+      count,
+      percentage,
+      isEliminated: eliminatedTeams.has(abbr),
+    };
+  });
+
+  // Sort by count descending, then team name
+  items.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.team.abbr.localeCompare(b.team.abbr);
+  });
+
+  return items;
 }
 
 export interface UserBracketPool {

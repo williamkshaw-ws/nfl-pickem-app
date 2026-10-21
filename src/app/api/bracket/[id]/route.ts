@@ -9,6 +9,8 @@ import {
   BracketPool,
   BracketPicks,
   TiebreakerPrediction,
+  BracketRoundPoints,
+  DEFAULT_ROUND_POINTS,
 } from "@/lib/playoff-bracket";
 
 const DEFAULT_LOCK_TIME = "2026-01-10T21:30:00.000Z";
@@ -112,7 +114,8 @@ export async function GET(
       userRole = "commissioner";
     }
 
-    const leaderboard = rankBracketParticipants(rawParticipants, results);
+    const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
+    const leaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
 
     return NextResponse.json({
       success: true,
@@ -127,6 +130,7 @@ export async function GET(
         results,
         isSimulated: !!poolData.isSimulated,
         simulatedAt: poolData.simulatedAt || null,
+        roundPoints,
       },
       leaderboard,
       currentUserEntry,
@@ -210,6 +214,93 @@ export async function POST(
       return NextResponse.json({ success: true, name: newName });
     }
 
+    // ACTION: Update custom round point values (Commissioner only)
+    if (body?.action === "update_scoring") {
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: "Unauthorized: only the commissioner can customize round point values" },
+          { status: 403 }
+        );
+      }
+      const rawRP = body.roundPoints || {};
+      const newRoundPoints: BracketRoundPoints = {
+        wild_card: Math.max(1, Math.min(50, Math.round(Number(rawRP.wild_card) || 1))),
+        divisional: Math.max(1, Math.min(50, Math.round(Number(rawRP.divisional) || 1))),
+        conference: Math.max(1, Math.min(50, Math.round(Number(rawRP.conference) || 1))),
+        super_bowl: Math.max(1, Math.min(50, Math.round(Number(rawRP.super_bowl) || 1))),
+      };
+      await poolRef.set({ roundPoints: newRoundPoints, updatedAt: new Date().toISOString() }, { merge: true });
+
+      const results = poolData.results || {};
+
+      // Recalculate scores for all memberships in batch
+      const membersSnap = await db
+        .collection("bracket_memberships")
+        .where("poolId", "==", poolId)
+        .get();
+
+      const userIds = Array.from(
+        new Set(membersSnap.docs.map((d) => d.data().userId).filter(Boolean))
+      );
+      const userMap = new Map<string, { name?: string; username?: string; avatarColor?: string }>();
+      if (userIds.length > 0) {
+        const userDocs = await Promise.all(
+          userIds.map((uid) => db.collection("users").doc(uid).get().catch(() => null))
+        );
+        userDocs.forEach((uDoc) => {
+          if (uDoc && uDoc.exists) {
+            const u = uDoc.data();
+            userMap.set(uDoc.id, {
+              name: u?.name,
+              username: u?.username,
+              avatarColor: u?.avatarColor,
+            });
+          }
+        });
+      }
+
+      const rawParticipants: BracketParticipant[] = [];
+      const batch = db.batch();
+
+      membersSnap.forEach((doc) => {
+        const d = doc.data();
+        const scoreResult = calculateBracketScore(
+          d.picks || {},
+          results,
+          d.tiebreaker || undefined,
+          newRoundPoints
+        );
+        batch.update(doc.ref, { score: scoreResult.score });
+
+        const uProfile = userMap.get(d.userId);
+        const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
+        const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
+        rawParticipants.push({
+          id: d.userId || doc.id,
+          userId: d.userId || doc.id,
+          userName: resolvedName,
+          userAvatar: resolvedAvatar,
+          picks: d.picks || {},
+          tiebreaker: d.tiebreaker || undefined,
+          score: scoreResult.score,
+          superBowlWinner: d.picks?.super_bowl || "",
+          updatedAt: d.updatedAt || "",
+        });
+      });
+
+      if (!membersSnap.empty) {
+        await batch.commit();
+      }
+
+      const rankedLeaderboard = rankBracketParticipants(rawParticipants, results, newRoundPoints);
+
+      return NextResponse.json({
+        success: true,
+        roundPoints: newRoundPoints,
+        leaderboard: rankedLeaderboard,
+      });
+    }
+
     // ACTION: Save picks & tiebreaker
     const { picks, tiebreaker, userName, userAvatar } = body || {};
     if (!picks || typeof picks !== "object") {
@@ -225,6 +316,7 @@ export async function POST(
     }
 
     const results = poolData.results || {};
+    const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
 
     // Validate tiebreaker if provided (only save non-zero scores)
     let cleanTiebreaker: TiebreakerPrediction | null = null;
@@ -241,7 +333,7 @@ export async function POST(
     }
 
     // Calculate score
-    const scoreResult = calculateBracketScore(picks as BracketPicks, results, cleanTiebreaker || undefined);
+    const scoreResult = calculateBracketScore(picks as BracketPicks, results, cleanTiebreaker || undefined, roundPoints);
     const now = new Date().toISOString();
 
     let finalUserName = userName?.trim();
@@ -326,7 +418,7 @@ export async function POST(
       });
     });
 
-    const rankedLeaderboard = rankBracketParticipants(rawParticipants, results);
+    const rankedLeaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
 
     return NextResponse.json({
       success: true,
