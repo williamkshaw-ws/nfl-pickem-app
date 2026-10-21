@@ -394,29 +394,7 @@ export function GameSwitcherDropdown({
                   )}
                 </div>
 
-                {/* 2. Squares Section */}
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    <span className="flex items-center gap-1.5">
-                      <Grid className="w-3 h-3" />
-                      Super Bowl Squares ({squaresPools.length})
-                    </span>
-                    <Link
-                      href="/squares"
-                      onClick={() => setIsOpen(false)}
-                      className="text-[9px] font-bold hover:underline opacity-80"
-                    >
-                      Open Game &rarr;
-                    </Link>
-                  </div>
-                  {squaresPools.length > 0 ? (
-                    <div className="space-y-0.5">{squaresPools.map(renderPoolRow)}</div>
-                  ) : (
-                    <div className="px-3 py-1 text-[11px] text-slate-400 italic">None joined</div>
-                  )}
-                </div>
-
-                {/* 3. Bracket Section */}
+                {/* 2. Bracket Section */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
                   <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
                     <span className="flex items-center gap-1.5">
@@ -433,6 +411,28 @@ export function GameSwitcherDropdown({
                   </div>
                   {bracketPools.length > 0 ? (
                     <div className="space-y-0.5">{bracketPools.map(renderPoolRow)}</div>
+                  ) : (
+                    <div className="px-3 py-1 text-[11px] text-slate-400 italic">None joined</div>
+                  )}
+                </div>
+
+                {/* 3. Squares Section */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    <span className="flex items-center gap-1.5">
+                      <Grid className="w-3 h-3" />
+                      Super Bowl Squares ({squaresPools.length})
+                    </span>
+                    <Link
+                      href="/squares"
+                      onClick={() => setIsOpen(false)}
+                      className="text-[9px] font-bold hover:underline opacity-80"
+                    >
+                      Open Game &rarr;
+                    </Link>
+                  </div>
+                  {squaresPools.length > 0 ? (
+                    <div className="space-y-0.5">{squaresPools.map(renderPoolRow)}</div>
                   ) : (
                     <div className="px-3 py-1 text-[11px] text-slate-400 italic">None joined</div>
                   )}
