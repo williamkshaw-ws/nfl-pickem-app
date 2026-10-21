@@ -61,7 +61,8 @@ export function LandingPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [loginJoinCode, setLoginJoinCode] = useState("");
+  const [prefilledJoinCode, setPrefilledJoinCode] = useState<string | null>(null);
+  const [loginManualJoinCode, setLoginManualJoinCode] = useState("");
   const [loginShowPassword, setLoginShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginResetMessage, setLoginResetMessage] = useState("");
@@ -83,6 +84,17 @@ export function LandingPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showJoinModal, showCreateModal, showLoginModal]);
+
+  useEffect(() => {
+    if (showLoginModal) {
+      try {
+        const pending = localStorage.getItem("pending_join_code");
+        if (pending && !prefilledJoinCode && !loginManualJoinCode) {
+          setPrefilledJoinCode(pending);
+        }
+      } catch {}
+    }
+  }, [showLoginModal]);
 
   const openStartPoolModal = (defaultType: PoolModeTab = "pickem") => {
     if (user) {
@@ -130,7 +142,8 @@ export function LandingPage() {
       } catch {
         // Ignore storage errors
       }
-      setLoginJoinCode(clean);
+      setPrefilledJoinCode(clean);
+      setLoginManualJoinCode("");
       setLoginError("");
       setShowLoginModal(true);
     }
@@ -215,7 +228,7 @@ export function LandingPage() {
 
       // Pre-resolve target join code BEFORE authentication to prevent race conditions
       // with page.tsx immediately redirecting to existing Pick'em leagues
-      const targetJoinCode = loginJoinCode.trim() || pendingJoin;
+      const targetJoinCode = loginManualJoinCode.trim() || prefilledJoinCode || pendingJoin;
       let resolvedSquaresCode: string | null = null;
       let resolvedBracketCode: string | null = null;
       let resolvedLeagueCode: string | null = null;
@@ -1971,12 +1984,12 @@ export function LandingPage() {
               Enter your username or email to access your leagues, brackets, and squares boards.
             </p>
 
-            {loginJoinCode && (
+            {prefilledJoinCode && (
               <div className="mt-4 p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between gap-3 shadow-xs">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 truncate">
                     <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span className="truncate">Joining pool with code: <strong className="font-mono font-black">{loginJoinCode}</strong></span>
+                    <span className="truncate">Joining pool with code: <strong className="font-mono font-black">{prefilledJoinCode}</strong></span>
                   </div>
                   <div className="text-[10px] text-emerald-700/90 dark:text-emerald-400/90 font-normal truncate mt-0.5">
                     Will enter your League or Squares board upon signing in.
@@ -1985,7 +1998,7 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setLoginJoinCode("");
+                    setPrefilledJoinCode(null);
                     try { localStorage.removeItem("pending_join_code"); } catch {}
                   }}
                   title="Remove code"
@@ -2074,7 +2087,7 @@ export function LandingPage() {
               </div>
 
               {/* Optional Join Code field if not already prefilled */}
-              {!loginJoinCode && (
+              {!prefilledJoinCode && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -2091,8 +2104,8 @@ export function LandingPage() {
                     autoCorrect="off"
                     spellCheck={false}
                     placeholder="e.g. U7VUF or 84920"
-                    value={loginJoinCode}
-                    onChange={(e) => setLoginJoinCode(e.target.value.toUpperCase())}
+                    value={loginManualJoinCode}
+                    onChange={(e) => setLoginManualJoinCode(e.target.value.toUpperCase())}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono uppercase text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
