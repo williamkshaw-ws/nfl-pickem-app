@@ -112,19 +112,20 @@ export async function POST(request: Request) {
       });
     }
 
-    const rawParticipants: BracketParticipant[] = [];
+    const participantMap = new Map<string, BracketParticipant>();
     const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
 
     entriesSnapshot.forEach((doc) => {
       const data = doc.data();
+      const uid = data.userId || doc.id;
       const scoreRes = calculateBracketScore(data.picks || {}, results, data.tiebreaker || undefined, roundPoints);
-      const uProfile = userMap.get(data.userId);
+      const uProfile = userMap.get(uid);
       const resolvedName = uProfile?.name || uProfile?.username || data.userName || "Participant";
       const resolvedAvatar = uProfile?.avatarColor || data.userAvatar || "bg-emerald-600";
 
-      rawParticipants.push({
-        id: data.userId || doc.id,
-        userId: data.userId || doc.id,
+      const p: BracketParticipant = {
+        id: uid,
+        userId: uid,
         userName: resolvedName,
         userAvatar: resolvedAvatar,
         picks: data.picks || {},
@@ -132,8 +133,21 @@ export async function POST(request: Request) {
         score: scoreRes.score,
         superBowlWinner: data.picks?.super_bowl || "",
         updatedAt: data.updatedAt || "",
-      });
+      };
+
+      const existing = participantMap.get(uid);
+      if (!existing) {
+        participantMap.set(uid, p);
+      } else {
+        const existingCount = Object.keys(existing.picks || {}).length;
+        const newCount = Object.keys(p.picks || {}).length;
+        if (newCount > existingCount || (newCount === existingCount && p.updatedAt > existing.updatedAt)) {
+          participantMap.set(uid, p);
+        }
+      }
     });
+
+    const rawParticipants = Array.from(participantMap.values());
 
     // Rank participants with 3-tier tiebreaker
     const rankedLeaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);

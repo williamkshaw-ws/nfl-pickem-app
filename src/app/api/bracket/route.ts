@@ -81,18 +81,19 @@ export async function GET(request: Request) {
         });
       }
 
-      const rawParticipants: BracketParticipant[] = [];
+      const participantMap = new Map<string, BracketParticipant>();
       let currentUserEntry: BracketParticipant | null = null;
       let userRole: "commissioner" | "member" | "viewer" = "viewer";
 
       membersSnap.forEach((doc) => {
         const d = doc.data();
-        const uProfile = userMap.get(d.userId);
+        const uid = d.userId || doc.id;
+        const uProfile = userMap.get(uid);
         const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
         const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
         const p: BracketParticipant = {
-          id: d.userId || doc.id,
-          userId: d.userId || doc.id,
+          id: uid,
+          userId: uid,
           userName: resolvedName,
           userAvatar: resolvedAvatar,
           picks: d.picks || {},
@@ -101,18 +102,31 @@ export async function GET(request: Request) {
           superBowlWinner: d.picks?.super_bowl || "",
           updatedAt: d.updatedAt || "",
         };
-        rawParticipants.push(p);
 
-        if (caller && d.userId === caller.uid) {
-          currentUserEntry = p;
+        const existing = participantMap.get(uid);
+        if (!existing) {
+          participantMap.set(uid, p);
+        } else {
+          const existingCount = Object.keys(existing.picks || {}).length;
+          const newCount = Object.keys(p.picks || {}).length;
+          if (newCount > existingCount || (newCount === existingCount && p.updatedAt > existing.updatedAt)) {
+            participantMap.set(uid, p);
+          }
+        }
+
+        if (caller && uid === caller.uid) {
           userRole = d.role === "commissioner" || isOwner ? "commissioner" : "member";
         }
       });
 
-      if (caller && isOwner && userRole === "viewer") {
-        userRole = "commissioner";
+      if (caller) {
+        currentUserEntry = participantMap.get(caller.uid) || null;
+        if (isOwner && userRole === "viewer") {
+          userRole = "commissioner";
+        }
       }
 
+      const rawParticipants = Array.from(participantMap.values());
       const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
 
       // Rank all participants using 3-tier tiebreaker
@@ -126,16 +140,28 @@ export async function GET(request: Request) {
           .where("userId", "==", caller.uid)
           .get();
 
+        const seenPoolIds = new Set<string>();
         userMemSnap.forEach((doc) => {
           const d = doc.data();
-          userPools.push({
-            id: d.poolId,
-            joinCode: d.joinCode || d.poolId,
-            name: d.poolName || "Playoff Bracket",
-            role: d.role || "member",
-          });
+          if (d.poolId && !seenPoolIds.has(d.poolId)) {
+            seenPoolIds.add(d.poolId);
+            userPools.push({
+              id: d.poolId,
+              joinCode: d.joinCode || d.poolId,
+              name: d.poolName || "Playoff Bracket",
+              role: d.role || "member",
+            });
+          }
         });
       }
+
+      const lockTime = poolData.lockTime || DEFAULT_LOCK_TIME;
+      const isAutoLocked = Boolean(
+        poolData.isSimulated ||
+        (results && Object.values(results).some((r: any) => r?.isCompleted)) ||
+        (new Date() >= new Date(lockTime)) ||
+        poolData.isLocked
+      );
 
       return NextResponse.json({
         success: true,
@@ -145,8 +171,8 @@ export async function GET(request: Request) {
           name: poolData.name || "Playoff Bracket Challenge",
           creatorUserId: poolData.creatorUserId,
           creatorName: poolData.creatorName,
-          isLocked: !!poolData.isLocked,
-          lockTime: poolData.lockTime || DEFAULT_LOCK_TIME,
+          isLocked: isAutoLocked,
+          lockTime,
           results,
           isSimulated: !!poolData.isSimulated,
           simulatedAt: poolData.simulatedAt || null,

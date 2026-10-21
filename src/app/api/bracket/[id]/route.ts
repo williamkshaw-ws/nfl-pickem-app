@@ -82,18 +82,19 @@ export async function GET(
       });
     }
 
-    const rawParticipants: BracketParticipant[] = [];
+    const participantMap = new Map<string, BracketParticipant>();
     let currentUserEntry: BracketParticipant | null = null;
     let userRole: "commissioner" | "member" | "viewer" = "viewer";
 
     membersSnap.forEach((doc) => {
       const d = doc.data();
-      const uProfile = userMap.get(d.userId);
+      const uid = d.userId || doc.id;
+      const uProfile = userMap.get(uid);
       const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
       const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
       const p: BracketParticipant = {
-        id: d.userId || doc.id,
-        userId: d.userId || doc.id,
+        id: uid,
+        userId: uid,
         userName: resolvedName,
         userAvatar: resolvedAvatar,
         picks: d.picks || {},
@@ -102,20 +103,43 @@ export async function GET(
         superBowlWinner: d.picks?.super_bowl || "",
         updatedAt: d.updatedAt || "",
       };
-      rawParticipants.push(p);
 
-      if (caller && d.userId === caller.uid) {
-        currentUserEntry = p;
+      // Deduplicate by userId: keep the one with picks or most recently updated
+      const existing = participantMap.get(uid);
+      if (!existing) {
+        participantMap.set(uid, p);
+      } else {
+        const existingCount = Object.keys(existing.picks || {}).length;
+        const newCount = Object.keys(p.picks || {}).length;
+        if (newCount > existingCount || (newCount === existingCount && p.updatedAt > existing.updatedAt)) {
+          participantMap.set(uid, p);
+        }
+      }
+
+      if (caller && uid === caller.uid) {
         userRole = d.role === "commissioner" || isOwner ? "commissioner" : "member";
       }
     });
 
-    if (caller && isOwner && userRole === "viewer") {
-      userRole = "commissioner";
+    if (caller) {
+      currentUserEntry = participantMap.get(caller.uid) || null;
+      if (isOwner && userRole === "viewer") {
+        userRole = "commissioner";
+      }
     }
 
+    const rawParticipants = Array.from(participantMap.values());
     const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
     const leaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
+
+    // Automatic lock: locks when first game begins or any game has completed or simulation is active
+    const lockTime = poolData.lockTime || DEFAULT_LOCK_TIME;
+    const isAutoLocked = Boolean(
+      poolData.isSimulated ||
+      (results && Object.values(results).some((r: any) => r?.isCompleted)) ||
+      (new Date() >= new Date(lockTime)) ||
+      poolData.isLocked
+    );
 
     return NextResponse.json({
       success: true,
@@ -125,8 +149,8 @@ export async function GET(
         name: poolData.name || "Playoff Bracket Challenge",
         creatorUserId: poolData.creatorUserId,
         creatorName: poolData.creatorName,
-        isLocked: !!poolData.isLocked,
-        lockTime: poolData.lockTime || DEFAULT_LOCK_TIME,
+        isLocked: isAutoLocked,
+        lockTime,
         results,
         isSimulated: !!poolData.isSimulated,
         simulatedAt: poolData.simulatedAt || null,
@@ -185,19 +209,6 @@ export async function POST(
     const poolData = poolDoc.data() as BracketPool;
     const poolId = poolDoc.id;
     const isOwner = caller.uid === poolData.creatorUserId;
-
-    // ACTION: Toggle lock (Commissioner only)
-    if (body?.action === "toggle_lock") {
-      if (!isOwner) {
-        return NextResponse.json(
-          { error: "Unauthorized: only the commissioner can lock or unlock this bracket" },
-          { status: 403 }
-        );
-      }
-      const nextLocked = body.isLocked !== undefined ? !!body.isLocked : !poolData.isLocked;
-      await poolRef.set({ isLocked: nextLocked, updatedAt: new Date().toISOString() }, { merge: true });
-      return NextResponse.json({ success: true, isLocked: nextLocked });
-    }
 
     // ACTION: Rename pool (Commissioner only)
     if (body?.action === "rename") {
@@ -259,11 +270,12 @@ export async function POST(
         });
       }
 
-      const rawParticipants: BracketParticipant[] = [];
+      const participantMap = new Map<string, BracketParticipant>();
       const batch = db.batch();
 
       membersSnap.forEach((doc) => {
         const d = doc.data();
+        const uid = d.userId || doc.id;
         const scoreResult = calculateBracketScore(
           d.picks || {},
           results,
@@ -272,12 +284,12 @@ export async function POST(
         );
         batch.update(doc.ref, { score: scoreResult.score });
 
-        const uProfile = userMap.get(d.userId);
+        const uProfile = userMap.get(uid);
         const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
         const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
-        rawParticipants.push({
-          id: d.userId || doc.id,
-          userId: d.userId || doc.id,
+        const p: BracketParticipant = {
+          id: uid,
+          userId: uid,
           userName: resolvedName,
           userAvatar: resolvedAvatar,
           picks: d.picks || {},
@@ -285,13 +297,25 @@ export async function POST(
           score: scoreResult.score,
           superBowlWinner: d.picks?.super_bowl || "",
           updatedAt: d.updatedAt || "",
-        });
+        };
+
+        const existing = participantMap.get(uid);
+        if (!existing) {
+          participantMap.set(uid, p);
+        } else {
+          const existingCount = Object.keys(existing.picks || {}).length;
+          const newCount = Object.keys(p.picks || {}).length;
+          if (newCount > existingCount || (newCount === existingCount && p.updatedAt > existing.updatedAt)) {
+            participantMap.set(uid, p);
+          }
+        }
       });
 
       if (!membersSnap.empty) {
         await batch.commit();
       }
 
+      const rawParticipants = Array.from(participantMap.values());
       const rankedLeaderboard = rankBracketParticipants(rawParticipants, results, newRoundPoints);
 
       return NextResponse.json({
@@ -307,15 +331,24 @@ export async function POST(
       return NextResponse.json({ error: "Missing picks payload" }, { status: 400 });
     }
 
-    // Check lock status
-    if (poolData.isLocked) {
+    const results = poolData.results || {};
+    const lockTime = poolData.lockTime || DEFAULT_LOCK_TIME;
+
+    // Automatic lock check: locks when first game begins, any game is completed, or pool is locked
+    const isAutoLocked = Boolean(
+      poolData.isSimulated ||
+      (results && Object.values(results).some((r: any) => r?.isCompleted)) ||
+      (new Date() >= new Date(lockTime)) ||
+      poolData.isLocked
+    );
+
+    if (isAutoLocked) {
       return NextResponse.json(
-        { error: "This bracket is locked. Picks cannot be changed." },
+        { error: "This bracket is locked. Picks cannot be changed once the first game has started." },
         { status: 403 }
       );
     }
 
-    const results = poolData.results || {};
     const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
 
     // Validate tiebreaker if provided (only save non-zero scores)
@@ -399,15 +432,16 @@ export async function POST(
       });
     }
 
-    const rawParticipants: BracketParticipant[] = [];
+    const participantMap = new Map<string, BracketParticipant>();
     membersSnap.forEach((doc) => {
       const d = doc.data();
-      const uProfile = userMap.get(d.userId);
+      const uid = d.userId || doc.id;
+      const uProfile = userMap.get(uid);
       const resolvedName = uProfile?.name || uProfile?.username || d.userName || "Participant";
       const resolvedAvatar = uProfile?.avatarColor || d.userAvatar || "bg-emerald-600";
-      rawParticipants.push({
-        id: d.userId || doc.id,
-        userId: d.userId || doc.id,
+      const p: BracketParticipant = {
+        id: uid,
+        userId: uid,
         userName: resolvedName,
         userAvatar: resolvedAvatar,
         picks: d.picks || {},
@@ -415,9 +449,21 @@ export async function POST(
         score: d.score || 0,
         superBowlWinner: d.picks?.super_bowl || "",
         updatedAt: d.updatedAt || "",
-      });
+      };
+
+      const existing = participantMap.get(uid);
+      if (!existing) {
+        participantMap.set(uid, p);
+      } else {
+        const existingCount = Object.keys(existing.picks || {}).length;
+        const newCount = Object.keys(p.picks || {}).length;
+        if (newCount > existingCount || (newCount === existingCount && p.updatedAt > existing.updatedAt)) {
+          participantMap.set(uid, p);
+        }
+      }
     });
 
+    const rawParticipants = Array.from(participantMap.values());
     const rankedLeaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
 
     return NextResponse.json({
