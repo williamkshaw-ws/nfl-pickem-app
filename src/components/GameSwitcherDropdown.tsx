@@ -374,19 +374,17 @@ export function GameSwitcherDropdown({
               <div className="space-y-3 px-1">
                 {/* 1. Pick'em Section */}
                 <div>
-                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <Link
+                    href="/"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:opacity-80 transition cursor-pointer"
+                    title="Open NFL Pick'em"
+                  >
                     <span className="flex items-center gap-1.5">
                       <FootballIcon className="w-4 h-4" />
                       NFL Pick&apos;em ({pickemPools.length})
                     </span>
-                    <Link
-                      href="/"
-                      onClick={() => setIsOpen(false)}
-                      className="text-[9px] font-bold hover:underline opacity-80"
-                    >
-                      Open Game &rarr;
-                    </Link>
-                  </div>
+                  </Link>
                   {pickemPools.length > 0 ? (
                     <div className="space-y-0.5">{pickemPools.map(renderPoolRow)}</div>
                   ) : (
@@ -396,19 +394,17 @@ export function GameSwitcherDropdown({
 
                 {/* 2. Bracket Section */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                  <Link
+                    href="/bracket"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:opacity-80 transition cursor-pointer"
+                    title="Open Playoff Brackets"
+                  >
                     <span className="flex items-center gap-1.5">
                       <Trophy className="w-3 h-3" />
                       Playoff Brackets ({bracketPools.length})
                     </span>
-                    <Link
-                      href="/bracket"
-                      onClick={() => setIsOpen(false)}
-                      className="text-[9px] font-bold hover:underline opacity-80"
-                    >
-                      Open Game &rarr;
-                    </Link>
-                  </div>
+                  </Link>
                   {bracketPools.length > 0 ? (
                     <div className="space-y-0.5">{bracketPools.map(renderPoolRow)}</div>
                   ) : (
@@ -418,19 +414,17 @@ export function GameSwitcherDropdown({
 
                 {/* 3. Squares Section */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                  <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  <Link
+                    href="/squares"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:opacity-80 transition cursor-pointer"
+                    title="Open Super Bowl Squares"
+                  >
                     <span className="flex items-center gap-1.5">
                       <Grid className="w-3 h-3" />
                       Super Bowl Squares ({squaresPools.length})
                     </span>
-                    <Link
-                      href="/squares"
-                      onClick={() => setIsOpen(false)}
-                      className="text-[9px] font-bold hover:underline opacity-80"
-                    >
-                      Open Game &rarr;
-                    </Link>
-                  </div>
+                  </Link>
                   {squaresPools.length > 0 ? (
                     <div className="space-y-0.5">{squaresPools.map(renderPoolRow)}</div>
                   ) : (
