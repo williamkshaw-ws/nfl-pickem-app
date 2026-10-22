@@ -2073,7 +2073,7 @@ function SquaresPoolApp() {
                   {liveGame?.status?.state === "in" ? (
                     <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black shrink-0 whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                      LIVE &bull; {liveGame.status.detail || "In Progress"}
+                      LIVE &bull; {(liveGame.status.detail || "In Progress").replace(/\bquarters?\b/gi, "QTR")}
                     </span>
                   ) : liveGame?.status?.completed || liveGame?.status?.state === "post" ? (
                     <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black shrink-0 whitespace-nowrap">

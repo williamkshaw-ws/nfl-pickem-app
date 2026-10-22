@@ -286,6 +286,11 @@ export function WeeklyPicks({
     }
   };
 
+  const formatLiveStatus = (detail?: string) => {
+    if (!detail) return "Live";
+    return detail.replace(/\bquarters?\b/gi, "QTR");
+  };
+
   const sortedGames = [...games].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
@@ -470,9 +475,9 @@ export function WeeklyPicks({
               }`}
             >
               {/* Game Status Header */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex-wrap">
-                  <Clock className="w-3.5 h-3.5" />
+              <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex-wrap min-w-0">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
                   <span>{formatGameDate(game.date)}</span>
                   {game.odds?.details && (
                     <>
@@ -483,27 +488,27 @@ export function WeeklyPicks({
                   {isGameLocked && (
                     <>
                       <span className="text-slate-300 dark:text-slate-600">|</span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide shrink-0">
                         <Lock className="w-3 h-3" />
                         Locked
                       </span>
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   {isTiebreaker && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1 shrink-0 whitespace-nowrap">
                       <Sparkles className="w-3 h-3" /> TB
                     </span>
                   )}
                   {isCompleted ? (
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 shrink-0 whitespace-nowrap">
                       {isTie ? "Final (Tie)" : "Final"}
                     </span>
                   ) : isLive ? (
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>{game.status.detail || "Live"}</span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 border border-emerald-300/60 dark:border-emerald-800/60 shrink-0 whitespace-nowrap">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span>{formatLiveStatus(game.status.detail || game.status.shortDetail)}</span>
                     </span>
                   ) : null}
                 </div>
