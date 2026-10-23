@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb, requireUser, HttpError } from "@/lib/server-auth";
+import { adminDb, requireUser, requireMember, HttpError } from "@/lib/server-auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { extractBracketCode } from "@/lib/playoff-bracket";
 
@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     let memberUserIds: string[] = [];
 
     if (gameType === "pickem") {
+      await requireMember(rawId, caller.uid);
       const snap = await db.collection("memberships").where("leagueId", "==", rawId).get();
       memberUserIds = snap.docs
         .map((d) => d.data().userId)
@@ -29,20 +30,43 @@ export async function GET(request: Request) {
       const lowerId = rawId.toLowerCase();
       const rawJoin = rawId.replace(/^sb-/, "").toUpperCase();
 
-      const snap = await db
-        .collection("squares_memberships")
-        .where("poolId", "in", [rawId, upperId, lowerId, rawJoin, `sb-${lowerId}`])
-        .get();
+      const [poolSnap, snap] = await Promise.all([
+        db.collection("squares_pools").doc(rawId).get(),
+        db
+          .collection("squares_memberships")
+          .where("poolId", "in", [rawId, upperId, lowerId, rawJoin, `sb-${lowerId}`])
+          .get(),
+      ]);
+
+      let poolData = poolSnap.exists ? poolSnap.data() : null;
+      if (!poolData && upperId !== rawId) {
+        const altSnap = await db.collection("squares_pools").doc(upperId).get();
+        if (altSnap.exists) poolData = altSnap.data();
+      }
+      const isCreator = poolData?.creatorUserId === caller.uid;
+      const isMember = snap.docs.some((d) => d.data().userId === caller.uid);
+      if (!isCreator && !isMember) {
+        throw new HttpError(403, "You are not a member of this board");
+      }
 
       memberUserIds = snap.docs
         .map((d) => d.data().userId)
         .filter((uid): uid is string => Boolean(uid && uid !== caller.uid));
     } else if (gameType === "bracket") {
       const cleanId = extractBracketCode(rawId);
-      const snap = await db
-        .collection("bracket_memberships")
-        .where("poolId", "==", cleanId)
-        .get();
+      const [poolSnap, snap] = await Promise.all([
+        db.collection("bracket_pools").doc(cleanId).get(),
+        db
+          .collection("bracket_memberships")
+          .where("poolId", "==", cleanId)
+          .get(),
+      ]);
+
+      const isCreator = poolSnap.exists && poolSnap.data()?.creatorUserId === caller.uid;
+      const isMember = snap.docs.some((d) => d.data().userId === caller.uid);
+      if (!isCreator && !isMember) {
+        throw new HttpError(403, "You are not a member of this bracket pool");
+      }
 
       memberUserIds = snap.docs
         .map((d) => d.data().userId)

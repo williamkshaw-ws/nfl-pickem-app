@@ -8,9 +8,12 @@ import {
   BracketParticipant,
   BracketPool,
   BracketPicks,
+  BracketGameId,
   TiebreakerPrediction,
   BracketRoundPoints,
   DEFAULT_ROUND_POINTS,
+  GAME_ROUNDS,
+  TEAM_BY_ABBR,
 } from "@/lib/playoff-bracket";
 
 const DEFAULT_LOCK_TIME = "2026-01-10T21:30:00.000Z";
@@ -20,6 +23,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`bracket_id_get:${ip}`, 120, 60_000);
+
     const { id } = await params;
     const cleanId = extractBracketCode(id || "");
     if (!cleanId) {
@@ -179,6 +185,8 @@ export async function POST(
 ) {
   try {
     const caller = await requireUser(request);
+    enforceRateLimit(`bracket_post:${caller.uid}`, 60, 60_000, "Too many bracket updates. Please slow down.");
+
     const { id } = await params;
     const cleanId = extractBracketCode(id || "");
     if (!cleanId) {
@@ -327,8 +335,24 @@ export async function POST(
 
     // ACTION: Save picks & tiebreaker
     const { picks, tiebreaker, userName, userAvatar } = body || {};
-    if (!picks || typeof picks !== "object") {
+    if (!picks || typeof picks !== "object" || Array.isArray(picks)) {
       return NextResponse.json({ error: "Missing picks payload" }, { status: 400 });
+    }
+
+    const validGameIds = new Set<string>(Object.keys(GAME_ROUNDS));
+    const safePicks: BracketPicks = {};
+    const entries = Object.entries(picks);
+    if (entries.length > 20) {
+      return NextResponse.json({ error: "Too many picks in payload" }, { status: 400 });
+    }
+    for (const [gameId, teamAbbr] of entries) {
+      if (!validGameIds.has(gameId)) continue;
+      if (typeof teamAbbr === "string") {
+        const cleanAbbr = teamAbbr.trim().toUpperCase();
+        if (TEAM_BY_ABBR[cleanAbbr]) {
+          safePicks[gameId as BracketGameId] = cleanAbbr;
+        }
+      }
     }
 
     const results = poolData.results || {};
@@ -366,11 +390,11 @@ export async function POST(
     }
 
     // Calculate score
-    const scoreResult = calculateBracketScore(picks as BracketPicks, results, cleanTiebreaker || undefined, roundPoints);
+    const scoreResult = calculateBracketScore(safePicks, results, cleanTiebreaker || undefined, roundPoints);
     const now = new Date().toISOString();
 
-    let finalUserName = userName?.trim();
-    let finalUserAvatar = userAvatar;
+    let finalUserName = typeof userName === "string" ? userName.trim().slice(0, 50) : "";
+    let finalUserAvatar = typeof userAvatar === "string" ? userAvatar.trim().slice(0, 40) : "";
     if (!finalUserName || !finalUserAvatar) {
       try {
         const uDoc = await db.collection("users").doc(caller.uid).get();
@@ -397,10 +421,10 @@ export async function POST(
         joinCode: poolData.joinCode || poolId,
         poolName: poolData.name,
         role: isOwner ? "commissioner" : "member",
-        picks,
+        picks: safePicks,
         tiebreaker: cleanTiebreaker,
         score: scoreResult.score,
-        superBowlWinner: picks.super_bowl || "",
+        superBowlWinner: safePicks.super_bowl || "",
         updatedAt: now,
       },
       { merge: true }
@@ -472,10 +496,10 @@ export async function POST(
         id: caller.uid,
         userId: caller.uid,
         userName: finalUserName,
-        picks,
+        picks: safePicks,
         tiebreaker: cleanTiebreaker,
         score: scoreResult.score,
-        superBowlWinner: picks.super_bowl || "",
+        superBowlWinner: safePicks.super_bowl || "",
         updatedAt: now,
       },
       leaderboard: rankedLeaderboard,

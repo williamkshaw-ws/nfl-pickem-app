@@ -12,6 +12,7 @@ import { getDatabase, syncWeekFromEspn, detectCurrentWeek } from "@/lib/storage"
 import { hashLeaguePassword } from "@/lib/league-password";
 import { calculateWeeklyResults, calculateSeasonStandings, calculateSurvivorStatus } from "@/lib/scoring";
 import { normalizeVenmoHandle } from "@/lib/payouts";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Throttle automatic ESPN sync on page load to at most once every 60 seconds per week
 const lastAutoSyncByWeek: Record<number, number> = {};
@@ -21,6 +22,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`league_get:${ip}`, 120, 60_000);
+
     const { id: leagueId } = await params;
     if (!/^[A-Za-z0-9_-]{3,20}$/.test(leagueId)) {
       throw new HttpError(404, "League not found");
@@ -67,7 +71,7 @@ export async function GET(
     const effectiveCurrentWeek = detectedWeek;
 
     // Keep Firestore settings.currentWeek synced with the Tuesday-detected week
-    if (detectedWeek !== (rawSettings.currentWeek || 1)) {
+    if (caller.uid !== "guest" && detectedWeek !== (rawSettings.currentWeek || 1)) {
       adminDb().collection("leagues").doc(leagueId).update({
         "settings.currentWeek": detectedWeek,
       }).catch((err) => console.warn("Auto-update currentWeek warning:", err));
