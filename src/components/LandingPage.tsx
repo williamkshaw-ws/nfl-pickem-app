@@ -38,6 +38,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+import { useUserAllPools } from "@/lib/useUserAllPools";
 import { extractSquaresCode } from "@/lib/squares-validation";
 
 type PoolModeTab = "pickem" | "bracket" | "squares";
@@ -45,7 +46,24 @@ type PoolModeTab = "pickem" | "bracket" | "squares";
 export function LandingPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { pickemPools, bracketPools, squaresPools } = useUserAllPools();
   const [showSettings, setShowSettings] = useState(false);
+
+  const resumePool = React.useMemo(() => {
+    if (!user) return null;
+    if (typeof window !== "undefined") {
+      try {
+        const lastLeague = localStorage.getItem("last_active_league");
+        if (lastLeague) {
+          const found = pickemPools.find(
+            (p) => p.id.toLowerCase() === lastLeague.toLowerCase()
+          );
+          if (found) return found;
+        }
+      } catch {}
+    }
+    return pickemPools[0] || bracketPools[0] || squaresPools[0] || null;
+  }, [user, pickemPools, bracketPools, squaresPools]);
   const [inviteCode, setInviteCode] = useState("");
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [modalCode, setModalCode] = useState("");
@@ -520,13 +538,24 @@ export function LandingPage() {
                   <Settings className="w-3.5 h-3.5 text-slate-400" />
                 </button>
 
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap"
-                >
-                  <span>My Pools</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                {resumePool ? (
+                  <Link
+                    href={resumePool.href}
+                    className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap"
+                  >
+                    <span>My Pools</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openStartPoolModal("pickem")}
+                    className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <span>Start a Pool</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -600,7 +629,20 @@ export function LandingPage() {
           </p>
 
           {/* Call to action buttons */}
-          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md sm:max-w-none mx-auto">
+          {user && resumePool && (
+            <div className="mt-5 sm:mt-6 flex justify-center">
+              <Link
+                href={resumePool.href}
+                className="inline-flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/15 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-extrabold shadow-xs transition-all active:scale-95"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span>Continue to {resumePool.name}</span>
+                <ArrowRight className="w-4 h-4 shrink-0" />
+              </Link>
+            </div>
+          )}
+
+          <div className="mt-5 sm:mt-7 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md sm:max-w-none mx-auto">
             <button
               type="button"
               onClick={() => openStartPoolModal(previewTab)}

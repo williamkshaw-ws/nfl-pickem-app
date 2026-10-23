@@ -35,6 +35,9 @@ const CommissionerHub = dynamic(
 import { authFetch } from "@/lib/api-client";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { getPayoutConfig, formatMoney, describeDues, buildVenmoPayUrl } from "@/lib/payouts";
+import { calculateWeeklyResults } from "@/lib/scoring";
+
+const VALID_TABS: TabType[] = ["picks", "season", "matrix", "eliminator", "commissioner"];
 
 interface LeagueApiResponse {
   settings: LeagueSettings;
@@ -62,8 +65,27 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<TabType>("picks");
-  const [activeWeek, setActiveWeek] = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (typeof window !== "undefined") {
+      const t = new URLSearchParams(window.location.search).get("tab") as TabType | null;
+      if (t && VALID_TABS.includes(t)) return t;
+    }
+    return "picks";
+  });
+  const [activeWeek, setActiveWeek] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const w = parseInt(new URLSearchParams(window.location.search).get("week") || "", 10);
+      if (Number.isInteger(w) && w >= 1 && w <= 18) return w;
+    }
+    return 1;
+  });
+  const [hasUrlWeek] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const w = parseInt(new URLSearchParams(window.location.search).get("week") || "", 10);
+      return Number.isInteger(w) && w >= 1 && w <= 18;
+    }
+    return false;
+  });
   const [data, setData] = useState<LeagueApiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -124,8 +146,36 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     if (authLoading) return;
-    loadLeagueData();
+    loadLeagueData(hasUrlWeek ? activeWeek : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, loadLeagueData]);
+
+  // Sync activeTab and activeWeek into URL query params without triggering full page reloads
+  useEffect(() => {
+    if (typeof window === "undefined" || loading || !data) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", activeTab);
+    url.searchParams.set("week", String(activeWeek));
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, [activeTab, activeWeek, loading, data]);
+
+  // Listen to browser Back/Forward navigation for tab & week state
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get("tab") as TabType | null;
+      if (t && VALID_TABS.includes(t)) {
+        setActiveTab(t);
+      }
+      const w = parseInt(params.get("week") || "", 10);
+      if (Number.isInteger(w) && w >= 1 && w <= 18) {
+        setActiveWeek(w);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // Default guest visitors to the Season Standings tab
   useEffect(() => {
@@ -187,6 +237,26 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
 
   const handleWeekChange = (week: number) => {
     setActiveWeek(week);
+    // Optimistically compute weeklyResults and activeUserPicks from cached data for 0ms instant week switching
+    setData((prev) => {
+      if (!prev) return prev;
+      const gamesForTargetWeek = prev.gamesByWeek[week] || [];
+      const nextWeeklyResults = calculateWeeklyResults(
+        gamesForTargetWeek,
+        prev.users,
+        prev.allPicks,
+        week
+      );
+      const nextActiveUserPicks = prev.allPicks.find(
+        (p) => p.userId === prev.currentUserId && p.week === week
+      );
+      return {
+        ...prev,
+        activeWeek: week,
+        weeklyResults: nextWeeklyResults,
+        activeUserPicks: nextActiveUserPicks,
+      };
+    });
     loadLeagueData(week, true);
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   };
