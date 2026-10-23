@@ -230,6 +230,19 @@ export async function POST(
         ? body.name.trim().slice(0, 60)
         : poolData.name;
       await poolRef.set({ name: newName, updatedAt: new Date().toISOString() }, { merge: true });
+
+      const memSnap = await db
+        .collection("bracket_memberships")
+        .where("poolId", "==", poolId)
+        .get();
+      if (!memSnap.empty) {
+        const batch = db.batch();
+        memSnap.docs.forEach((mDoc) => {
+          batch.update(mDoc.ref, { poolName: newName });
+        });
+        await batch.commit().catch(() => {});
+      }
+
       return NextResponse.json({ success: true, name: newName });
     }
 

@@ -196,3 +196,112 @@ export async function reassignLeagueCommissioner(
     return { newCommissionerId: null, leagueDeleted: true };
   }
 }
+
+/**
+ * Reassigns commissioner role or deletes empty Bracket and Squares pools owned by a user
+ * who is being deleted or banned.
+ */
+export async function reassignUserBracketAndSquaresPools(
+  db: FirebaseFirestore.Firestore,
+  userId: string
+): Promise<void> {
+  // 1. Handle owned Bracket Pools
+  const ownedBracketsSnap = await db
+    .collection("bracket_pools")
+    .where("creatorUserId", "==", userId)
+    .get();
+
+  for (const poolDoc of ownedBracketsSnap.docs) {
+    const poolId = poolDoc.id;
+    const memSnap = await db
+      .collection("bracket_memberships")
+      .where("poolId", "==", poolId)
+      .get();
+
+    const otherDocs = memSnap.docs.filter((d) => {
+      const uid = d.data().userId;
+      return uid && uid !== userId;
+    });
+
+    let promoted = false;
+    for (const candidateDoc of otherDocs) {
+      const candidateUid = candidateDoc.data().userId as string;
+      const uSnap = await db.collection("users").doc(candidateUid).get();
+      if (uSnap.exists && uSnap.data()?.banned) continue;
+
+      const uData = uSnap.data();
+      const nextName =
+        uData?.name || uData?.username || candidateDoc.data().userName || "Commissioner";
+      const batch = db.batch();
+      batch.update(poolDoc.ref, {
+        creatorUserId: candidateUid,
+        creatorName: nextName,
+        creatorEmail: uData?.email || candidateDoc.data().userEmail || "",
+        commissionerName: nextName,
+      });
+      batch.set(candidateDoc.ref, { role: "commissioner" }, { merge: true });
+      await batch.commit();
+      promoted = true;
+      break;
+    }
+
+    if (!promoted) {
+      const batch = db.batch();
+      batch.delete(poolDoc.ref);
+      memSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+
+  // 2. Handle owned Squares Pools
+  const ownedSquaresSnap = await db
+    .collection("squares_pools")
+    .where("creatorUserId", "==", userId)
+    .get();
+
+  for (const poolDoc of ownedSquaresSnap.docs) {
+    const poolId = poolDoc.id;
+    const pData = poolDoc.data();
+    const joinCode = pData.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+    const possibleIds = Array.from(
+      new Set([poolId, poolId.toUpperCase(), poolId.toLowerCase(), joinCode, `sb-${poolId.toLowerCase()}`])
+    );
+
+    const memSnap = await db
+      .collection("squares_memberships")
+      .where("poolId", "in", possibleIds)
+      .get();
+
+    const otherDocs = memSnap.docs.filter((d) => {
+      const uid = d.data().userId;
+      return uid && uid !== userId;
+    });
+
+    let promoted = false;
+    for (const candidateDoc of otherDocs) {
+      const candidateUid = candidateDoc.data().userId as string;
+      const uSnap = await db.collection("users").doc(candidateUid).get();
+      if (uSnap.exists && uSnap.data()?.banned) continue;
+
+      const uData = uSnap.data();
+      const nextName = uData?.name || uData?.username || "Commissioner";
+      const batch = db.batch();
+      batch.update(poolDoc.ref, {
+        creatorUserId: candidateUid,
+        creatorName: nextName,
+        creatorEmail: uData?.email || "",
+      });
+      batch.set(candidateDoc.ref, { role: "commissioner" }, { merge: true });
+      await batch.commit();
+      promoted = true;
+      break;
+    }
+
+    if (!promoted) {
+      const batch = db.batch();
+      batch.delete(poolDoc.ref);
+      memSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+}

@@ -460,10 +460,28 @@ export async function PUT(
     }
 
     const newSettings = { ...currentSettings, ...sanitizedUpdates };
+    const updatedName = newSettings.leagueName || docSnap.data()?.name;
     await leagueRef.update({
       settings: newSettings,
-      name: newSettings.leagueName || docSnap.data()?.name,
+      name: updatedName,
     });
+
+    if (
+      sanitizedUpdates.leagueName &&
+      sanitizedUpdates.leagueName !== currentSettings.leagueName
+    ) {
+      const memSnap = await db
+        .collection("memberships")
+        .where("leagueId", "==", leagueId)
+        .get();
+      if (!memSnap.empty) {
+        const batch = db.batch();
+        memSnap.docs.forEach((mDoc) => {
+          batch.update(mDoc.ref, { leagueName: sanitizedUpdates.leagueName });
+        });
+        await batch.commit().catch(() => {});
+      }
+    }
 
     const publicSettings = { ...newSettings };
     delete (publicSettings as any).leaguePassword;

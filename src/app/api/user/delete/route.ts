@@ -5,6 +5,7 @@ import {
   errorResponse,
   HttpError,
   reassignLeagueCommissioner,
+  reassignUserBracketAndSquaresPools,
 } from "@/lib/server-auth";
 import { adminAuth } from "@/lib/firebase-admin";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
       await reassignLeagueCommissioner(db, leagueDoc.id, userId);
     }
 
+    // Also reassign or clean up any owned Bracket or Squares pools
+    await reassignUserBracketAndSquaresPools(db, userId);
+
     // 2. Delete user from Firebase Auth
     try {
       await adminAuth.deleteUser(userId);
@@ -55,15 +59,17 @@ export async function POST(request: Request) {
     }
     await db.collection("users").doc(userId).delete().catch(() => {});
 
-    // 4. Delete all league memberships for this user
-    const memSnap = await db
-      .collection("memberships")
-      .where("userId", "==", userId)
-      .get();
+    // 4. Delete all league, bracket, and squares memberships for this user
+    const [memSnap, bracketMemSnap, squaresMemSnap] = await Promise.all([
+      db.collection("memberships").where("userId", "==", userId).get(),
+      db.collection("bracket_memberships").where("userId", "==", userId).get(),
+      db.collection("squares_memberships").where("userId", "==", userId).get(),
+    ]);
 
-    if (!memSnap.empty) {
+    const memDocs = [...memSnap.docs, ...bracketMemSnap.docs, ...squaresMemSnap.docs];
+    if (memDocs.length > 0) {
       const batch = db.batch();
-      memSnap.docs.forEach((doc) => batch.delete(doc.ref));
+      memDocs.forEach((doc) => batch.delete(doc.ref));
       await batch.commit().catch(() => {});
     }
 

@@ -254,6 +254,9 @@ export async function POST(
     }
 
     const now = new Date().toISOString();
+    const oldTitle = docData?.board?.title || docData?.title || "";
+    const newTitle = typeof board?.title === "string" ? board.title.trim() : "";
+
     await poolRef.set(
       {
         id: poolId,
@@ -262,6 +265,24 @@ export async function POST(
       },
       { merge: true }
     );
+
+    if (newTitle && newTitle !== oldTitle) {
+      const joinCode = docData?.joinCode || poolId.replace(/^sb-/, "").toUpperCase();
+      const possibleIds = Array.from(
+        new Set([poolId, poolId.toUpperCase(), poolId.toLowerCase(), joinCode, `sb-${poolId.toLowerCase()}`])
+      );
+      const memSnap = await db
+        .collection("squares_memberships")
+        .where("poolId", "in", possibleIds)
+        .get();
+      if (!memSnap.empty) {
+        const batch = db.batch();
+        memSnap.docs.forEach((mDoc) => {
+          batch.update(mDoc.ref, { poolTitle: newTitle });
+        });
+        await batch.commit().catch(() => {});
+      }
+    }
 
     return NextResponse.json({ success: true, id: poolId });
   } catch (err: unknown) {

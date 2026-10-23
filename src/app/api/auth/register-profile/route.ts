@@ -64,6 +64,10 @@ export async function POST(request: Request) {
       const now = new Date().toISOString();
 
       if (existingUserSnap.exists) {
+        const oldUsername = existingUserSnap.data()?.username;
+        if (typeof oldUsername === "string" && oldUsername && oldUsername !== cleanUsername) {
+          tx.delete(db.collection("usernames").doc(oldUsername));
+        }
         tx.update(userDocRef, {
           name: cleanName,
           username: cleanUsername,

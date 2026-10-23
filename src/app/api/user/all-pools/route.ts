@@ -10,18 +10,33 @@ export async function GET(request: Request) {
     const pickemPromise = (async () => {
       try {
         const snap = await db.collection("memberships").where("userId", "==", caller.uid).get();
-        return snap.docs.map((doc) => {
-          const data = doc.data();
-          const leagueId = data.leagueId || doc.id.split("_")[0];
-          return {
-            id: leagueId,
-            name: data.leagueName || "Pick'em League",
-            gameType: "pickem" as const,
-            role: data.role === "commissioner" || data.role === "admin" ? ("commissioner" as const) : ("member" as const),
-            href: `/league/${encodeURIComponent(leagueId)}`,
-            badge: data.role === "commissioner" || data.role === "admin" ? "Commish" : undefined,
-          };
-        });
+        const items = await Promise.all(
+          snap.docs.map(async (doc) => {
+            const data = doc.data();
+            const leagueId = data.leagueId || doc.id.split("_")[0];
+            let canonicalName = data.leagueName || "Pick'em League";
+            let isCommish = data.role === "commissioner" || data.role === "admin";
+            try {
+              const lDoc = await db.collection("leagues").doc(leagueId).get();
+              if (!lDoc.exists) return null;
+              const lData = lDoc.data();
+              canonicalName =
+                lData?.settings?.leagueName || lData?.name || canonicalName;
+              if (lData?.commissionerId) {
+                isCommish = lData.commissionerId === caller.uid;
+              }
+            } catch {}
+            return {
+              id: leagueId,
+              name: canonicalName,
+              gameType: "pickem" as const,
+              role: isCommish ? ("commissioner" as const) : ("member" as const),
+              href: `/league/${encodeURIComponent(leagueId)}`,
+              badge: isCommish ? "Commish" : undefined,
+            };
+          })
+        );
+        return items.filter((item): item is NonNullable<typeof item> => item !== null);
       } catch (err) {
         console.error("Error fetching pickem in all-pools:", err);
         return [];
@@ -55,22 +70,43 @@ export async function GET(request: Request) {
         });
 
         // Joined pools from memberships
-        memberSnap.docs.forEach((doc) => {
-          const data = doc.data();
-          const poolId = data.poolId;
-          if (!poolId) return;
-          const cleanId = poolId.replace(/^sb-/, "").toUpperCase();
-          if (!map.has(cleanId)) {
-            map.set(cleanId, {
-              id: cleanId,
-              name: data.poolTitle || "Super Bowl Squares",
-              gameType: "squares" as const,
-              role: data.role === "commissioner" ? ("commissioner" as const) : ("member" as const),
-              href: `/squares?id=${encodeURIComponent(cleanId)}`,
-              badge: data.role === "commissioner" ? "Commish" : undefined,
-            });
-          }
-        });
+        await Promise.all(
+          memberSnap.docs.map(async (doc) => {
+            const data = doc.data();
+            const poolId = data.poolId;
+            if (!poolId) return;
+            const cleanId = poolId.replace(/^sb-/, "").toUpperCase();
+            if (map.has(cleanId)) return;
+
+            let canonicalTitle = data.poolTitle || "Super Bowl Squares";
+            let isCommish = data.role === "commissioner";
+            try {
+              let pDoc = await db.collection("squares_pools").doc(poolId).get();
+              if (!pDoc.exists && poolId !== cleanId) {
+                pDoc = await db.collection("squares_pools").doc(cleanId).get();
+              }
+              if (pDoc.exists) {
+                const pData = pDoc.data();
+                canonicalTitle =
+                  pData?.board?.title || pData?.title || canonicalTitle;
+                if (pData?.creatorUserId) {
+                  isCommish = pData.creatorUserId === caller.uid;
+                }
+              }
+            } catch {}
+
+            if (!map.has(cleanId)) {
+              map.set(cleanId, {
+                id: cleanId,
+                name: canonicalTitle,
+                gameType: "squares" as const,
+                role: isCommish ? ("commissioner" as const) : ("member" as const),
+                href: `/squares?id=${encodeURIComponent(cleanId)}`,
+                badge: isCommish ? "Commish" : undefined,
+              });
+            }
+          })
+        );
 
         return Array.from(map.values());
       } catch (err) {
@@ -89,7 +125,7 @@ export async function GET(request: Request) {
 
         const poolsMap = new Map<string, any>();
 
-        // For each membership, get pool title
+        // For each membership, get canonical pool title and role
         await Promise.all(
           memberSnap.docs.map(async (mDoc) => {
             const mData = mDoc.data();
@@ -97,20 +133,24 @@ export async function GET(request: Request) {
             if (!poolId) return;
 
             let poolName = mData.poolName;
-            if (!poolName) {
+            let isCommish = mData.role === "commissioner";
+            try {
               const pDoc = await db.collection("bracket_pools").doc(poolId).get();
-              if (pDoc.exists) {
-                poolName = pDoc.data()?.name;
+              if (!pDoc.exists) return;
+              const pData = pDoc.data();
+              poolName = pData?.name || poolName;
+              if (pData?.creatorUserId) {
+                isCommish = pData.creatorUserId === caller.uid;
               }
-            }
+            } catch {}
 
             poolsMap.set(poolId, {
               id: poolId,
               name: poolName || "Playoff Bracket",
               gameType: "bracket" as const,
-              role: mData.role === "commissioner" ? ("commissioner" as const) : ("member" as const),
+              role: isCommish ? ("commissioner" as const) : ("member" as const),
               href: `/bracket?id=${encodeURIComponent(poolId)}`,
-              badge: mData.role === "commissioner" ? "Commish" : undefined,
+              badge: isCommish ? "Commish" : undefined,
             });
           })
         );

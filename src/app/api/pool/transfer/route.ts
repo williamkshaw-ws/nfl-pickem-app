@@ -51,13 +51,52 @@ export async function POST(request: Request) {
         );
       }
 
-      const callerMemRef = db.collection("memberships").doc(`${cleanId}_${caller.uid}`);
-      const targetMemRef = db.collection("memberships").doc(`${cleanId}_${newCommissionerId}`);
+      const callerMemIdRef = db.collection("memberships").doc(`${cleanId}_${caller.uid}`);
+      const targetMemIdRef = db.collection("memberships").doc(`${cleanId}_${newCommissionerId}`);
+      const [callerMemSnap, targetMemSnap] = await Promise.all([
+        callerMemIdRef.get(),
+        targetMemIdRef.get(),
+      ]);
+
+      let resolvedTargetRef = targetMemSnap.exists ? targetMemIdRef : null;
+      if (!resolvedTargetRef) {
+        const legacyTarget = await db
+          .collection("memberships")
+          .where("leagueId", "==", cleanId)
+          .where("userId", "==", newCommissionerId)
+          .limit(1)
+          .get();
+        if (!legacyTarget.empty) {
+          resolvedTargetRef = legacyTarget.docs[0].ref;
+        }
+      }
+
+      if (!resolvedTargetRef) {
+        return NextResponse.json(
+          { error: "Selected user is not a member of this league" },
+          { status: 400 }
+        );
+      }
+
+      let resolvedCallerRef = callerMemSnap.exists ? callerMemIdRef : null;
+      if (!resolvedCallerRef) {
+        const legacyCaller = await db
+          .collection("memberships")
+          .where("leagueId", "==", cleanId)
+          .where("userId", "==", caller.uid)
+          .limit(1)
+          .get();
+        if (!legacyCaller.empty) {
+          resolvedCallerRef = legacyCaller.docs[0].ref;
+        }
+      }
 
       const batch = db.batch();
       batch.update(leagueRef, { commissionerId: newCommissionerId });
-      batch.update(callerMemRef, { role: "member" });
-      batch.update(targetMemRef, { role: "commissioner" });
+      if (resolvedCallerRef) {
+        batch.set(resolvedCallerRef, { role: "member" }, { merge: true });
+      }
+      batch.set(resolvedTargetRef, { role: "commissioner" }, { merge: true });
       await batch.commit();
 
       return NextResponse.json({ success: true, message: "Commissioner role transferred" });
@@ -95,18 +134,60 @@ export async function POST(request: Request) {
         );
       }
 
+      const joinCode = poolData.joinCode || cleanId.replace(/^sb-/, "").toUpperCase();
+      const poolTitle = poolData.board?.title || poolData.title || "Super Bowl Squares";
+      const possibleIds = Array.from(
+        new Set([cleanId, cleanId.toUpperCase(), cleanId.toLowerCase(), joinCode, `sb-${cleanId.toLowerCase()}`])
+      );
+
+      // Verify target user is a member of this Squares board
+      const targetMemQuery = await db
+        .collection("squares_memberships")
+        .where("userId", "==", newCommissionerId)
+        .where("poolId", "in", possibleIds)
+        .limit(1)
+        .get();
+
+      if (targetMemQuery.empty) {
+        return NextResponse.json(
+          { error: "Selected user is not a member of this Squares board" },
+          { status: 400 }
+        );
+      }
+
+      const nextCreatorName = targetUserData.name || targetUserData.username || "Commissioner";
       const batch = db.batch();
       batch.update(poolRef, {
         creatorUserId: newCommissionerId,
         creatorEmail: targetUserData.email || "",
-        creatorName: targetUserData.name || targetUserData.username || "Commissioner",
+        creatorName: nextCreatorName,
       });
 
       // Update memberships
       const callerMemRef = db.collection("squares_memberships").doc(`${caller.uid}_${cleanId}`);
-      const targetMemRef = db.collection("squares_memberships").doc(`${newCommissionerId}_${cleanId}`);
-      batch.set(callerMemRef, { role: "member" }, { merge: true });
-      batch.set(targetMemRef, { role: "commissioner" }, { merge: true });
+      const targetMemRef = targetMemQuery.docs[0].ref;
+      batch.set(
+        callerMemRef,
+        {
+          userId: caller.uid,
+          poolId: cleanId,
+          joinCode,
+          poolTitle,
+          role: "member",
+        },
+        { merge: true }
+      );
+      batch.set(
+        targetMemRef,
+        {
+          userId: newCommissionerId,
+          poolId: cleanId,
+          joinCode,
+          poolTitle,
+          role: "commissioner",
+        },
+        { merge: true }
+      );
 
       await batch.commit();
       return NextResponse.json({ success: true, message: "Board ownership transferred" });
@@ -135,16 +216,40 @@ export async function POST(request: Request) {
         );
       }
 
+      const targetMemRef = db.collection("bracket_memberships").doc(`${newCommissionerId}_${poolDoc.id}`);
+      const targetMemSnap = await targetMemRef.get();
+      let resolvedTargetRef = targetMemSnap.exists ? targetMemRef : null;
+      if (!resolvedTargetRef) {
+        const qMem = await db
+          .collection("bracket_memberships")
+          .where("poolId", "==", poolDoc.id)
+          .where("userId", "==", newCommissionerId)
+          .limit(1)
+          .get();
+        if (!qMem.empty) {
+          resolvedTargetRef = qMem.docs[0].ref;
+        }
+      }
+
+      if (!resolvedTargetRef) {
+        return NextResponse.json(
+          { error: "Selected user is not a member of this bracket pool" },
+          { status: 400 }
+        );
+      }
+
+      const nextCreatorName = targetUserData.name || targetUserData.username || "Commissioner";
       const batch = db.batch();
       batch.update(poolRef, {
         creatorUserId: newCommissionerId,
-        commissionerName: targetUserData.name || targetUserData.username || "Commissioner",
+        creatorName: nextCreatorName,
+        creatorEmail: targetUserData.email || "",
+        commissionerName: nextCreatorName,
       });
 
       const callerMemRef = db.collection("bracket_memberships").doc(`${caller.uid}_${poolDoc.id}`);
-      const targetMemRef = db.collection("bracket_memberships").doc(`${newCommissionerId}_${poolDoc.id}`);
       batch.set(callerMemRef, { role: "member" }, { merge: true });
-      batch.set(targetMemRef, { role: "commissioner" }, { merge: true });
+      batch.set(resolvedTargetRef, { role: "commissioner" }, { merge: true });
 
       await batch.commit();
       return NextResponse.json({ success: true, message: "Bracket commissioner transferred" });
