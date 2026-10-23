@@ -6,44 +6,61 @@ export async function GET(request: Request) {
     const caller = await requireUser(request);
     const db = adminDb();
 
-    // 1. Fetch Pick'em Leagues
+    // 1. Fetch Pick'em Leagues (batched with db.getAll)
     const pickemPromise = (async () => {
       try {
         const snap = await db.collection("memberships").where("userId", "==", caller.uid).get();
-        const items = await Promise.all(
-          snap.docs.map(async (doc) => {
-            const data = doc.data();
-            const leagueId = data.leagueId || doc.id.split("_")[0];
-            let canonicalName = data.leagueName || "Pick'em League";
-            let isCommish = data.role === "commissioner" || data.role === "admin";
-            try {
-              const lDoc = await db.collection("leagues").doc(leagueId).get();
-              if (!lDoc.exists) return null;
-              const lData = lDoc.data();
-              canonicalName =
-                lData?.settings?.leagueName || lData?.name || canonicalName;
-              if (lData?.commissionerId) {
-                isCommish = lData.commissionerId === caller.uid;
-              }
-            } catch {}
-            return {
-              id: leagueId,
-              name: canonicalName,
-              gameType: "pickem" as const,
-              role: isCommish ? ("commissioner" as const) : ("member" as const),
-              href: `/league/${encodeURIComponent(leagueId)}`,
-              badge: isCommish ? "Commish" : undefined,
-            };
-          })
-        );
-        return items.filter((item): item is NonNullable<typeof item> => item !== null);
+        if (snap.empty) return [];
+
+        const rawEntries = snap.docs.map((doc) => {
+          const data = doc.data();
+          const leagueId = String(data.leagueId || doc.id.split("_")[0] || "").trim();
+          return { data, leagueId };
+        }).filter((e) => Boolean(e.leagueId));
+
+        const uniqueIds = Array.from(new Set(rawEntries.map((e) => e.leagueId)));
+        const leagueMap = new Map<string, FirebaseFirestore.DocumentData>();
+        if (uniqueIds.length > 0) {
+          const refs = uniqueIds.map((id) => db.collection("leagues").doc(id));
+          const docs = await db.getAll(...refs);
+          docs.forEach((d) => {
+            if (d.exists) {
+              leagueMap.set(d.id, d.data() || {});
+            }
+          });
+        }
+
+        const results: any[] = [];
+        const seen = new Set<string>();
+        for (const { data, leagueId } of rawEntries) {
+          if (seen.has(leagueId)) continue;
+          const lData = leagueMap.get(leagueId);
+          if (!lData) continue;
+          seen.add(leagueId);
+
+          const canonicalName =
+            lData.settings?.leagueName || lData.name || data.leagueName || "Pick'em League";
+          const isCommish = lData.commissionerId
+            ? lData.commissionerId === caller.uid
+            : data.role === "commissioner" || data.role === "admin";
+
+          results.push({
+            id: leagueId,
+            name: canonicalName,
+            gameType: "pickem" as const,
+            role: isCommish ? ("commissioner" as const) : ("member" as const),
+            href: `/league/${encodeURIComponent(leagueId)}`,
+            badge: isCommish ? "Commish" : undefined,
+          });
+        }
+        return results;
       } catch (err) {
         console.error("Error fetching pickem in all-pools:", err);
         return [];
       }
     })();
 
-    // 2. Fetch Squares Boards
+    // 2. Fetch Squares Boards (batched with db.getAll)
     const squaresPromise = (async () => {
       try {
         const [createdSnap, memberSnap] = await Promise.all([
@@ -69,44 +86,64 @@ export async function GET(request: Request) {
           });
         });
 
-        // Joined pools from memberships
-        await Promise.all(
-          memberSnap.docs.map(async (doc) => {
-            const data = doc.data();
-            const poolId = data.poolId;
-            if (!poolId) return;
-            const cleanId = poolId.replace(/^sb-/, "").toUpperCase();
-            if (map.has(cleanId)) return;
+        // Joined pools from memberships not already in createdSnap
+        const pendingMemberships = memberSnap.docs
+          .map((doc) => doc.data())
+          .filter((data) => {
+            if (!data.poolId) return false;
+            const cleanId = String(data.poolId).replace(/^sb-/, "").toUpperCase();
+            return !map.has(cleanId);
+          });
 
-            let canonicalTitle = data.poolTitle || "Super Bowl Squares";
-            let isCommish = data.role === "commissioner";
-            try {
-              let pDoc = await db.collection("squares_pools").doc(poolId).get();
-              if (!pDoc.exists && poolId !== cleanId) {
-                pDoc = await db.collection("squares_pools").doc(cleanId).get();
+        if (pendingMemberships.length > 0) {
+          const candidateRefs: FirebaseFirestore.DocumentReference[] = [];
+          const seenRefIds = new Set<string>();
+          for (const data of pendingMemberships) {
+            const rawPoolId = String(data.poolId);
+            const cleanId = rawPoolId.replace(/^sb-/, "").toUpperCase();
+            for (const candidateId of [rawPoolId, cleanId]) {
+              if (!seenRefIds.has(candidateId)) {
+                seenRefIds.add(candidateId);
+                candidateRefs.push(db.collection("squares_pools").doc(candidateId));
               }
-              if (pDoc.exists) {
-                const pData = pDoc.data();
-                canonicalTitle =
-                  pData?.board?.title || pData?.title || canonicalTitle;
-                if (pData?.creatorUserId) {
-                  isCommish = pData.creatorUserId === caller.uid;
-                }
-              }
-            } catch {}
-
-            if (!map.has(cleanId)) {
-              map.set(cleanId, {
-                id: cleanId,
-                name: canonicalTitle,
-                gameType: "squares" as const,
-                role: isCommish ? ("commissioner" as const) : ("member" as const),
-                href: `/squares?id=${encodeURIComponent(cleanId)}`,
-                badge: isCommish ? "Commish" : undefined,
-              });
             }
-          })
-        );
+          }
+
+          const poolMap = new Map<string, FirebaseFirestore.DocumentData>();
+          if (candidateRefs.length > 0) {
+            const poolDocs = await db.getAll(...candidateRefs);
+            poolDocs.forEach((d) => {
+              if (d.exists) {
+                const pData = d.data() || {};
+                const cleanKey = (pData.joinCode || d.id.replace(/^sb-/, "")).toUpperCase();
+                poolMap.set(d.id, pData);
+                poolMap.set(cleanKey, pData);
+              }
+            });
+          }
+
+          for (const data of pendingMemberships) {
+            const rawPoolId = String(data.poolId);
+            const cleanId = rawPoolId.replace(/^sb-/, "").toUpperCase();
+            if (map.has(cleanId)) continue;
+
+            const pData = poolMap.get(rawPoolId) || poolMap.get(cleanId);
+            const canonicalTitle =
+              pData?.board?.title || pData?.title || data.poolTitle || "Super Bowl Squares";
+            const isCommish = pData?.creatorUserId
+              ? pData.creatorUserId === caller.uid
+              : data.role === "commissioner";
+
+            map.set(cleanId, {
+              id: cleanId,
+              name: canonicalTitle,
+              gameType: "squares" as const,
+              role: isCommish ? ("commissioner" as const) : ("member" as const),
+              href: `/squares?id=${encodeURIComponent(cleanId)}`,
+              badge: isCommish ? "Commish" : undefined,
+            });
+          }
+        }
 
         return Array.from(map.values());
       } catch (err) {
@@ -115,7 +152,7 @@ export async function GET(request: Request) {
       }
     })();
 
-    // 3. Fetch Playoff Brackets
+    // 3. Fetch Playoff Brackets (batched with db.getAll)
     const bracketPromise = (async () => {
       try {
         const memberSnap = await db
@@ -123,37 +160,45 @@ export async function GET(request: Request) {
           .where("userId", "==", caller.uid)
           .get();
 
+        if (memberSnap.empty) return [];
+
+        const rawMemberships = memberSnap.docs
+          .map((d) => d.data())
+          .filter((d) => Boolean(d.poolId));
+
+        const uniquePoolIds = Array.from(new Set(rawMemberships.map((d) => String(d.poolId))));
+        const bracketMap = new Map<string, FirebaseFirestore.DocumentData>();
+        if (uniquePoolIds.length > 0) {
+          const refs = uniquePoolIds.map((id) => db.collection("bracket_pools").doc(id));
+          const docs = await db.getAll(...refs);
+          docs.forEach((d) => {
+            if (d.exists) {
+              bracketMap.set(d.id, d.data() || {});
+            }
+          });
+        }
+
         const poolsMap = new Map<string, any>();
+        for (const mData of rawMemberships) {
+          const poolId = String(mData.poolId);
+          if (poolsMap.has(poolId)) continue;
+          const pData = bracketMap.get(poolId);
+          if (!pData) continue;
 
-        // For each membership, get canonical pool title and role
-        await Promise.all(
-          memberSnap.docs.map(async (mDoc) => {
-            const mData = mDoc.data();
-            const poolId = mData.poolId;
-            if (!poolId) return;
+          const poolName = pData.name || mData.poolName || "Playoff Bracket";
+          const isCommish = pData.creatorUserId
+            ? pData.creatorUserId === caller.uid
+            : mData.role === "commissioner";
 
-            let poolName = mData.poolName;
-            let isCommish = mData.role === "commissioner";
-            try {
-              const pDoc = await db.collection("bracket_pools").doc(poolId).get();
-              if (!pDoc.exists) return;
-              const pData = pDoc.data();
-              poolName = pData?.name || poolName;
-              if (pData?.creatorUserId) {
-                isCommish = pData.creatorUserId === caller.uid;
-              }
-            } catch {}
-
-            poolsMap.set(poolId, {
-              id: poolId,
-              name: poolName || "Playoff Bracket",
-              gameType: "bracket" as const,
-              role: isCommish ? ("commissioner" as const) : ("member" as const),
-              href: `/bracket?id=${encodeURIComponent(poolId)}`,
-              badge: isCommish ? "Commish" : undefined,
-            });
-          })
-        );
+          poolsMap.set(poolId, {
+            id: poolId,
+            name: poolName,
+            gameType: "bracket" as const,
+            role: isCommish ? ("commissioner" as const) : ("member" as const),
+            href: `/bracket?id=${encodeURIComponent(poolId)}`,
+            badge: isCommish ? "Commish" : undefined,
+          });
+        }
 
         return Array.from(poolsMap.values());
       } catch (err) {

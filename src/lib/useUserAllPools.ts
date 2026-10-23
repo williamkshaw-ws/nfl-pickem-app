@@ -25,11 +25,58 @@ export interface UserAllPoolsState {
   refetch: () => Promise<void>;
 }
 
+interface CachedPoolsPayload {
+  uid: string;
+  pickemPools: UnifiedPoolItem[];
+  squaresPools: UnifiedPoolItem[];
+  bracketPools: UnifiedPoolItem[];
+  fetchedAt: number;
+}
+
+let memoryPoolsCache: CachedPoolsPayload | null = null;
+const SESSION_CACHE_KEY = "pp_user_all_pools_cache_v1";
+
+function readCachedPools(uid: string | undefined): CachedPoolsPayload | null {
+  if (!uid) return null;
+  if (memoryPoolsCache && memoryPoolsCache.uid === uid) {
+    return memoryPoolsCache;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as CachedPoolsPayload;
+        if (parsed && parsed.uid === uid) {
+          memoryPoolsCache = parsed;
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function writeCachedPools(payload: CachedPoolsPayload) {
+  memoryPoolsCache = payload;
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(payload));
+    } catch {}
+  }
+}
+
 export function useUserAllPools(): UserAllPoolsState {
   const { user } = useAuth();
-  const [pickemPools, setPickemPools] = useState<UnifiedPoolItem[]>([]);
-  const [squaresPools, setSquaresPools] = useState<UnifiedPoolItem[]>([]);
-  const [bracketPools, setBracketPools] = useState<UnifiedPoolItem[]>([]);
+  const initialCache = readCachedPools(user?.id);
+  const [pickemPools, setPickemPools] = useState<UnifiedPoolItem[]>(
+    () => initialCache?.pickemPools || []
+  );
+  const [squaresPools, setSquaresPools] = useState<UnifiedPoolItem[]>(
+    () => initialCache?.squaresPools || []
+  );
+  const [bracketPools, setBracketPools] = useState<UnifiedPoolItem[]>(
+    () => initialCache?.bracketPools || []
+  );
   const [loading, setLoading] = useState(false);
 
   const getValidToken = useCallback(async (): Promise<string | null> => {
@@ -60,6 +107,12 @@ export function useUserAllPools(): UserAllPoolsState {
 
   const fetchPools = useCallback(async () => {
     if (!user) {
+      memoryPoolsCache = null;
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.removeItem(SESSION_CACHE_KEY);
+        } catch {}
+      }
       setPickemPools([]);
       setSquaresPools([]);
       setBracketPools([]);
@@ -67,7 +120,15 @@ export function useUserAllPools(): UserAllPoolsState {
       return;
     }
 
-    setLoading(true);
+    const cached = readCachedPools(user.id);
+    if (cached) {
+      setPickemPools(cached.pickemPools);
+      setSquaresPools(cached.squaresPools);
+      setBracketPools(cached.bracketPools);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const token = await getValidToken();
       if (!token) {
@@ -81,9 +142,19 @@ export function useUserAllPools(): UserAllPoolsState {
 
       if (res.ok) {
         const data = await res.json();
-        setPickemPools(data.pickemPools || []);
-        setSquaresPools(data.squaresPools || []);
-        setBracketPools(data.bracketPools || []);
+        const nextPickem = data.pickemPools || [];
+        const nextSquares = data.squaresPools || [];
+        const nextBracket = data.bracketPools || [];
+        setPickemPools(nextPickem);
+        setSquaresPools(nextSquares);
+        setBracketPools(nextBracket);
+        writeCachedPools({
+          uid: user.id,
+          pickemPools: nextPickem,
+          squaresPools: nextSquares,
+          bracketPools: nextBracket,
+          fetchedAt: Date.now(),
+        });
       }
     } catch (err) {
       console.error("Error loading user all-pools:", err);

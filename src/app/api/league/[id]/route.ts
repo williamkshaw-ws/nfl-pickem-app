@@ -61,6 +61,7 @@ export async function GET(
 
     const url = new URL(request.url);
     const weekParam = url.searchParams.get("week");
+    const isPollMode = url.searchParams.get("mode") === "poll";
 
     const jsonDb = getDatabase();
     const gamesByWeek = jsonDb.gamesByWeek;
@@ -310,11 +311,14 @@ export async function GET(
     }
 
     const isGuest = caller.uid === "guest";
+    const responseGamesByWeek = isPollMode
+      ? { [activeWeek]: gamesForWeek }
+      : gamesByWeek;
 
     return NextResponse.json({
       settings: isGuest ? { ...settings, venmoHandle: "" } : settings,
       users,
-      gamesByWeek,
+      gamesByWeek: responseGamesByWeek,
       activeWeek,
       currentUserId: caller.uid,
       allPicks,

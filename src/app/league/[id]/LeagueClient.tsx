@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, use } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { auth } from "@/lib/firebase";
@@ -17,11 +18,20 @@ import {
 import { Header } from "@/components/Header";
 import { NavigationTabs, TabType } from "@/components/NavigationTabs";
 import { WeeklyPicks } from "@/components/WeeklyPicks";
-import { OverallStandings } from "@/components/OverallStandings";
-import { PickMatrix } from "@/components/PickMatrix";
-import { EliminatorPool } from "@/components/EliminatorPool";
-import { CommissionerHub } from "@/components/CommissionerHub";
 import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight } from "lucide-react";
+
+const OverallStandings = dynamic(
+  () => import("@/components/OverallStandings").then((m) => m.OverallStandings)
+);
+const PickMatrix = dynamic(
+  () => import("@/components/PickMatrix").then((m) => m.PickMatrix)
+);
+const EliminatorPool = dynamic(
+  () => import("@/components/EliminatorPool").then((m) => m.EliminatorPool)
+);
+const CommissionerHub = dynamic(
+  () => import("@/components/CommissionerHub").then((m) => m.CommissionerHub)
+);
 import { authFetch } from "@/lib/api-client";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { getPayoutConfig, formatMoney, describeDues, buildVenmoPayUrl } from "@/lib/payouts";
@@ -80,13 +90,25 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
 
   const loadLeagueData = useCallback(async (week?: number, isBackground = false) => {
     try {
-      const url = week !== undefined
-        ? `/api/league/${leagueId}?week=${week}`
-        : `/api/league/${leagueId}`;
+      const params = new URLSearchParams();
+      if (week !== undefined) params.set("week", String(week));
+      if (isBackground) params.set("mode", "poll");
+      const qs = params.toString();
+      const url = qs ? `/api/league/${leagueId}?${qs}` : `/api/league/${leagueId}`;
+
       const res = await authFetch(url);
       if (!res.ok) throw new Error("Failed to fetch league data");
       const json: LeagueApiResponse = await res.json();
-      setData(json);
+      setData((prev) => {
+        if (!prev) return json;
+        return {
+          ...json,
+          gamesByWeek: {
+            ...prev.gamesByWeek,
+            ...json.gamesByWeek,
+          },
+        };
+      });
       // Only set initial activeWeek if week was not explicitly requested
       if (week === undefined) {
         setActiveWeek(json.activeWeek);
