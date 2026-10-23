@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, useSyncExternalStore, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -41,8 +42,12 @@ import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
-import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { auth } from "@/lib/firebase";
+
+const UserSettingsModal = dynamic(
+  () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
+  { ssr: false }
+);
 import { signOut } from "firebase/auth";
 import { SquaresBoardState, extractSquaresCode } from "@/lib/squares-validation";
 
@@ -310,6 +315,14 @@ function SquaresPoolApp() {
   }, []);
   const [publishedPoolId, setPublishedPoolId] = useState<string | null>(null);
   const poolId = searchParams.get("id") || publishedPoolId;
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && poolId) {
+      try {
+        localStorage.setItem("last_active_squares", poolId.replace(/^sb-/, "").toUpperCase());
+      } catch {}
+    }
+  }, [poolId]);
   const [currentJoinCode, setCurrentJoinCode] = useState<string>("");
   const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "local">("local");
   const [isLoadingOnline, setIsLoadingOnline] = useState<boolean>(() => Boolean(searchParams.get("id")));

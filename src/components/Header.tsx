@@ -29,11 +29,16 @@ import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/api-client";
-import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { FootballIcon } from "@/components/FootballIcon";
+
+const UserSettingsModal = dynamic(
+  () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
+  { ssr: false }
+);
 
 interface HeaderProps {
   settings: LeagueSettings;

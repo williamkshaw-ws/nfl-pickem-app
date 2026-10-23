@@ -33,9 +33,13 @@ const CommissionerHub = dynamic(
   () => import("@/components/CommissionerHub").then((m) => m.CommissionerHub)
 );
 import { authFetch } from "@/lib/api-client";
-import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { getPayoutConfig, formatMoney, describeDues, buildVenmoPayUrl } from "@/lib/payouts";
 import { calculateWeeklyResults } from "@/lib/scoring";
+
+const UserSettingsModal = dynamic(
+  () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
+  { ssr: false }
+);
 
 const VALID_TABS: TabType[] = ["picks", "season", "matrix", "eliminator", "commissioner"];
 

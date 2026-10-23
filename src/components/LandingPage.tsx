@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -36,10 +37,14 @@ import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
-import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { useUserAllPools } from "@/lib/useUserAllPools";
 import { extractSquaresCode } from "@/lib/squares-validation";
+
+const UserSettingsModal = dynamic(
+  () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
+  { ssr: false }
+);
 
 type PoolModeTab = "pickem" | "bracket" | "squares";
 

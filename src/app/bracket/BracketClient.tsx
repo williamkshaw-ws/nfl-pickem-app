@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -42,7 +43,11 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
-import { UserSettingsModal } from "@/components/UserSettingsModal";
+
+const UserSettingsModal = dynamic(
+  () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
+  { ssr: false }
+);
 import {
   BracketGameId,
   BracketPicks,
@@ -83,6 +88,14 @@ function BracketApp() {
   // Pool state
   const rawIdParam = searchParams.get("id");
   const poolId = useMemo(() => (rawIdParam ? extractBracketCode(rawIdParam) : ""), [rawIdParam]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && poolId) {
+      try {
+        localStorage.setItem("last_active_bracket", poolId);
+      } catch {}
+    }
+  }, [poolId]);
   const [poolData, setPoolData] = useState<BracketPool | null>(null);
   const [userPools, setUserPools] = useState<UserBracketPool[]>([]);
   const [poolsFetched, setPoolsFetched] = useState(false);
@@ -148,13 +161,25 @@ function BracketApp() {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
-  const [activeTab, setActiveTab] = useState<"bracket" | "leaderboard">("bracket");
+  const [activeTab, setActiveTab] = useState<"bracket" | "leaderboard">(() => {
+    const t = searchParams.get("tab");
+    return t === "leaderboard" ? "leaderboard" : "bracket";
+  });
   const tabScrollMap = useRef<Record<string, number>>({ bracket: 0, leaderboard: 0 });
 
   const handleTabChange = useCallback((newTab: "bracket" | "leaderboard") => {
     if (newTab === activeTab) return;
     tabScrollMap.current[activeTab] = window.scrollY;
     setActiveTab(newTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (newTab === "leaderboard") {
+        url.searchParams.set("tab", "leaderboard");
+      } else {
+        url.searchParams.delete("tab");
+      }
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
     requestAnimationFrame(() => {
       window.scrollTo({
         top: tabScrollMap.current[newTab] ?? 0,

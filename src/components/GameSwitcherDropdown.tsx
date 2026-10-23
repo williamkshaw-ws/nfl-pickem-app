@@ -1,13 +1,18 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Trophy, ChevronDown, Check, Grid, Shield, Loader2, LogIn, PlusCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useUserAllPools, UnifiedPoolItem } from "@/lib/useUserAllPools";
 import { FootballIcon } from "@/components/FootballIcon";
-import { PoolLeaveModal } from "@/components/PoolLeaveModal";
+
+const PoolLeaveModal = dynamic(
+  () => import("@/components/PoolLeaveModal").then((m) => m.PoolLeaveModal),
+  { ssr: false }
+);
 
 export type GameKey = "pickem" | "bracket" | "squares";
 
@@ -274,6 +279,28 @@ export function GameSwitcherDropdown({
     );
   };
 
+  const getSectionDefaultHref = (
+    pools: UnifiedPoolItem[],
+    storageKey: string,
+    fallbackHref: string
+  ) => {
+    if (pools.length === 0) return fallbackHref;
+    if (typeof window !== "undefined") {
+      try {
+        const lastId = localStorage.getItem(storageKey)?.toLowerCase();
+        if (lastId) {
+          const match = pools.find((p) => p.id.toLowerCase() === lastId);
+          if (match) return match.href;
+        }
+      } catch {}
+    }
+    return pools[0].href;
+  };
+
+  const pickemHeaderHref = getSectionDefaultHref(pickemPools, "last_active_league", "/");
+  const bracketHeaderHref = getSectionDefaultHref(bracketPools, "last_active_bracket", "/bracket");
+  const squaresHeaderHref = getSectionDefaultHref(squaresPools, "last_active_squares", "/squares");
+
   // If not mounted or user is not signed in, render simple home logo without dropdown
   if (!mounted || !user) {
     return (
@@ -375,7 +402,7 @@ export function GameSwitcherDropdown({
                 {/* 1. Pick'em Section */}
                 <div>
                   <Link
-                    href="/"
+                    href={pickemHeaderHref}
                     onClick={() => setIsOpen(false)}
                     className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:opacity-80 transition cursor-pointer"
                     title="Open NFL Pick'em"
@@ -395,7 +422,7 @@ export function GameSwitcherDropdown({
                 {/* 2. Bracket Section */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
                   <Link
-                    href="/bracket"
+                    href={bracketHeaderHref}
                     onClick={() => setIsOpen(false)}
                     className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:opacity-80 transition cursor-pointer"
                     title="Open Playoff Brackets"
@@ -415,7 +442,7 @@ export function GameSwitcherDropdown({
                 {/* 3. Squares Section */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
                   <Link
-                    href="/squares"
+                    href={squaresHeaderHref}
                     onClick={() => setIsOpen(false)}
                     className="flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:opacity-80 transition cursor-pointer"
                     title="Open Super Bowl Squares"
@@ -438,15 +465,17 @@ export function GameSwitcherDropdown({
       )}
 
       {/* Pool Leave & Commissioner Reassign/Delete Modal */}
-      <PoolLeaveModal
-        isOpen={Boolean(poolToLeave)}
-        onClose={() => setPoolToLeave(null)}
-        pool={poolToLeave}
-        onSuccess={() => {
-          refetch();
-          setPoolToLeave(null);
-        }}
-      />
+      {poolToLeave && (
+        <PoolLeaveModal
+          isOpen={Boolean(poolToLeave)}
+          onClose={() => setPoolToLeave(null)}
+          pool={poolToLeave}
+          onSuccess={() => {
+            refetch();
+            setPoolToLeave(null);
+          }}
+        />
+      )}
     </div>
   );
 }
