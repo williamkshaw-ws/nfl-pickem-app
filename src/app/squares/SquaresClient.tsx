@@ -10,7 +10,6 @@ import {
   Printer,
   RotateCcw,
   Shuffle,
-  Trash2,
   CheckCircle2,
   Search,
   Users,
@@ -2319,7 +2318,7 @@ function SquaresPoolApp() {
               </div>
 
               {/* Action buttons side-by-side */}
-              <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+              <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => randomizeNumbers("both")}
@@ -2349,18 +2348,6 @@ function SquaresPoolApp() {
                   <Eraser className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span>Clear<span className="hidden md:inline"> Names</span></span>
                 </button>
-
-                {poolId && isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteBoard()}
-                    className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                    title="Permanently delete this board"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span>Delete<span className="hidden md:inline"> Board</span></span>
-                  </button>
-                )}
               </div>
             </div>
           </div>
