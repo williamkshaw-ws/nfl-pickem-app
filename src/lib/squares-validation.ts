@@ -17,6 +17,7 @@ export interface SquaresBoardState {
   q3Score: { top: string; left: string };
   finalScore: { top: string; left: string };
   venmoHandle?: string;
+  maxSquaresPerUser?: number;
 }
 
 const DEFAULT_TOP_NUMBERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -103,6 +104,7 @@ export function validateAndSanitizeBoard(raw: unknown): SquaresBoardState {
     q3Score: parseScore(obj.q3Score),
     finalScore: parseScore(obj.finalScore),
     venmoHandle: obj.venmoHandle ? sanitizeString(obj.venmoHandle, 30).replace(/^@+/, "").trim() : undefined,
+    maxSquaresPerUser: sanitizeNumber(obj.maxSquaresPerUser, 0, 100, 0),
   };
 }
 

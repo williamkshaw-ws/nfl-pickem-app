@@ -37,6 +37,7 @@ import {
   Eraser,
   PlusCircle,
   CreditCard,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -44,6 +45,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { auth } from "@/lib/firebase";
 import { buildVenmoPayUrl } from "@/lib/payouts";
+import { fireCelebrationConfetti } from "@/lib/confetti";
 
 const UserSettingsModal = dynamic(
   () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
@@ -63,6 +65,7 @@ const INITIAL_STATE: SquaresBoardState = {
   leftNumbers: [...DEFAULT_LEFT_NUMBERS],
   grid: {},
   costPerSquare: 10,
+  maxSquaresPerUser: 0,
   payouts: {
     q1: "",
     q2: "",
@@ -194,41 +197,51 @@ const SquareCell = React.memo(function SquareCell({
   let winnerBorderColor = "";
   let winnerBgColor = "";
   if (isFinalWinner) {
-    winnerBorderColor = "border-emerald-600";
-    winnerBgColor = "bg-emerald-50/80 dark:bg-emerald-950/40";
+    winnerBorderColor = "border-emerald-500 dark:border-emerald-400";
+    winnerBgColor = "bg-gradient-to-br from-emerald-100 via-amber-50 to-emerald-200/90 dark:from-emerald-950/90 dark:via-emerald-900/40 dark:to-emerald-950/90 shadow-[inset_0_0_12px_rgba(16,185,129,0.35)]";
   } else if (isQ3Winner) {
-    winnerBorderColor = "border-purple-500";
-    winnerBgColor = "bg-purple-50/80 dark:bg-purple-950/40";
+    winnerBorderColor = "border-purple-500 dark:border-purple-400";
+    winnerBgColor = "bg-gradient-to-br from-purple-100 via-amber-50 to-purple-200/90 dark:from-purple-950/90 dark:via-purple-900/40 dark:to-purple-950/90 shadow-[inset_0_0_12px_rgba(168,85,247,0.35)]";
   } else if (isQ2Winner) {
-    winnerBorderColor = "border-sky-500";
-    winnerBgColor = "bg-sky-50/80 dark:bg-sky-950/40";
+    winnerBorderColor = "border-sky-500 dark:border-sky-400";
+    winnerBgColor = "bg-gradient-to-br from-sky-100 via-amber-50 to-sky-200/90 dark:from-sky-950/90 dark:via-sky-900/40 dark:to-sky-950/90 shadow-[inset_0_0_12px_rgba(14,165,233,0.35)]";
   } else if (isQ1Winner) {
-    winnerBorderColor = "border-amber-500";
-    winnerBgColor = "bg-amber-50/80 dark:bg-amber-950/40";
+    winnerBorderColor = "border-amber-500 dark:border-amber-400";
+    winnerBgColor = "bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-200/90 dark:from-amber-950/90 dark:via-amber-900/40 dark:to-amber-950/90 shadow-[inset_0_0_12px_rgba(245,158,11,0.35)]";
   }
+
+  const handleCellClick = () => {
+    if (isAnyWinner && !isSelected) {
+      fireCelebrationConfetti();
+    }
+    if (!isReadOnly) {
+      onSelect(rIdx, cIdx);
+    }
+  };
 
   return (
     <td
-      onClick={() => !isReadOnly && onSelect(rIdx, cIdx)}
+      onClick={handleCellClick}
       className={`p-0.5 border-b border-r border-slate-200 dark:border-slate-700/80 text-center align-middle relative transition select-none overflow-hidden last:border-r-0 ${
-        isReadOnly ? "cursor-default" : "cursor-pointer"
+        isReadOnly ? (isAnyWinner ? "cursor-pointer" : "cursor-default") : "cursor-pointer"
       } ${
         isSelected
           ? "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
           : isAnyWinner
-          ? winnerBgColor
+          ? `${winnerBgColor} z-10`
           : isFilterMatch
           ? "bg-amber-100/90 dark:bg-amber-950/60"
           : name
           ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
           : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
       }`}
+      title={isAnyWinner ? "🏆 Winning Quarter Square! Click to celebrate." : undefined}
     >
       {/* Symmetrical Uniform 2px Border Highlight (Equal thickness on top, bottom, left, and right) */}
       {isSelected ? (
         <div className="absolute inset-0 border-2 border-emerald-500 pointer-events-none z-20" />
       ) : isAnyWinner ? (
-        <div className={`absolute inset-0 border-2 ${winnerBorderColor} pointer-events-none z-20`} />
+        <div className={`absolute inset-0 border-2 ${winnerBorderColor} pointer-events-none z-20 animate-pulse ring-1 ring-amber-400/50`} />
       ) : isFilterMatch ? (
         <div className="absolute inset-0 border-2 border-amber-400 pointer-events-none z-20" />
       ) : null}
@@ -255,14 +268,18 @@ const SquareCell = React.memo(function SquareCell({
                 {name.split(" ").filter(Boolean).map((part, pIdx) => (
                   <span
                     key={pIdx}
-                    className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full"
+                    className={`text-[11px] sm:text-xs font-bold truncate max-w-full ${
+                      isAnyWinner ? "text-amber-950 dark:text-amber-200 font-extrabold" : "text-slate-900 dark:text-white"
+                    }`}
                   >
                     {part}
                   </span>
                 ))}
               </div>
             ) : (
-              <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
+              <span className={`text-[11px] sm:text-xs font-bold truncate max-w-full ${
+                isAnyWinner ? "text-amber-950 dark:text-amber-200 font-extrabold" : "text-slate-900 dark:text-white"
+              }`}>
                 {name}
               </span>
             )
@@ -272,27 +289,27 @@ const SquareCell = React.memo(function SquareCell({
             </span>
           )}
 
-          {/* Winner Badge on square with matched color */}
+          {/* Celebratory Winner Badge on square with matched color & trophy */}
           {isAnyWinner && (
-            <div className="absolute top-0.5 right-0.5 flex gap-0.5 no-print z-10">
+            <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5 no-print z-10 animate-in fade-in duration-300">
               {isQ1Winner && (
-                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-amber-500 text-white shadow-2xs">
-                  Q1
+                <span className="text-[7.5px] font-black px-1 py-0.5 rounded bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-2xs inline-flex items-center gap-0.5">
+                  <span>🏆</span> Q1
                 </span>
               )}
               {isQ2Winner && (
-                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-sky-500 text-white shadow-2xs">
-                  Q2
+                <span className="text-[7.5px] font-black px-1 py-0.5 rounded bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-2xs inline-flex items-center gap-0.5">
+                  <span>🏆</span> Q2
                 </span>
               )}
               {isQ3Winner && (
-                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-purple-500 text-white shadow-2xs">
-                  Q3
+                <span className="text-[7.5px] font-black px-1 py-0.5 rounded bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-2xs inline-flex items-center gap-0.5">
+                  <span>🏆</span> Q3
                 </span>
               )}
               {isFinalWinner && (
-                <span className="text-[7px] font-black px-1 py-0.2 rounded bg-emerald-600 text-white shadow-2xs">
-                  FINAL
+                <span className="text-[7.5px] font-black px-1 py-0.5 rounded bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-2xs inline-flex items-center gap-0.5">
+                  <span>🏆</span> FINAL
                 </span>
               )}
             </div>
@@ -351,6 +368,7 @@ function SquaresPoolApp() {
   const [createSelectedGameId, setCreateSelectedGameId] = useState("");
   const [hasManualTitle, setHasManualTitle] = useState(false);
   const [newBoardCost, setNewBoardCost] = useState(10);
+  const [newBoardMaxSquares, setNewBoardMaxSquares] = useState(0);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [createBoardError, setCreateBoardError] = useState("");
   const [joinInput, setJoinInput] = useState("");
@@ -409,12 +427,12 @@ function SquaresPoolApp() {
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
-  };
+  }, []);
 
   const { user, loading: authLoading } = useAuth();
   const [poolCreatorId, setPoolCreatorId] = useState<string | null>(null);
@@ -633,6 +651,7 @@ function SquaresPoolApp() {
               leftNumbers: Array.isArray(data.board.leftNumbers) && data.board.leftNumbers.length === 10 ? data.board.leftNumbers : DEFAULT_LEFT_NUMBERS,
               grid: data.board.grid || {},
               costPerSquare: typeof data.board.costPerSquare === "number" ? data.board.costPerSquare : 10,
+              maxSquaresPerUser: typeof data.board.maxSquaresPerUser === "number" ? data.board.maxSquaresPerUser : 0,
               payouts: data.board.payouts || { q1: "", q2: "", q3: "", final: "" },
             });
             if (data.creatorUserId) {
@@ -745,6 +764,7 @@ function SquaresPoolApp() {
         leftNumbers: [...DEFAULT_LEFT_NUMBERS],
         grid: {}, // Guaranteed 100% blank grid!
         costPerSquare: typeof newBoardCost === "number" ? newBoardCost : 10,
+        maxSquaresPerUser: typeof newBoardMaxSquares === "number" ? newBoardMaxSquares : 0,
         payouts: { q1: "", q2: "", q3: "", final: "" },
         q1Score: { top: "", left: "" },
         q2Score: { top: "", left: "" },
@@ -813,6 +833,7 @@ function SquaresPoolApp() {
       setCreateSelectedGameId("");
     }
     setNewBoardCost(10);
+    setNewBoardMaxSquares(0);
     setCreateBoardError("");
     setHasManualTitle(false);
     setShowCreateBoardModal(true);
@@ -1183,13 +1204,31 @@ function SquaresPoolApp() {
   const handleCellChange = useCallback((r: number, c: number, name: string) => {
     const key = `${r}_${c}`;
     const nextGrid = { ...boardRef.current.grid };
-    if (name === "") {
+    const trimmed = name.trim();
+
+    if (trimmed === "") {
       delete nextGrid[key];
-    } else {
-      nextGrid[key] = name;
+      saveStateRef.current({ ...boardRef.current, grid: nextGrid });
+      return;
     }
+
+    const maxLimit = boardRef.current.maxSquaresPerUser || 0;
+    if (maxLimit > 0) {
+      let count = 0;
+      for (const [k, v] of Object.entries(nextGrid)) {
+        if (k !== key && v.trim().toLowerCase() === trimmed.toLowerCase()) {
+          count++;
+        }
+      }
+      if (count >= maxLimit) {
+        showToast(`Limit reached: "${trimmed}" already has ${count}/${maxLimit} squares (max ${maxLimit}).`);
+        return;
+      }
+    }
+
+    nextGrid[key] = name;
     saveStateRef.current({ ...boardRef.current, grid: nextGrid });
-  }, []);
+  }, [showToast]);
 
   // Header Updates
   const openHeaderEdit = (type: "top" | "left", index: number) => {
@@ -1435,6 +1474,29 @@ function SquaresPoolApp() {
       final: getWinner(board.finalScore.top, board.finalScore.left),
     };
   }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore, board.topNumbers, board.leftNumbers, board.grid]);
+
+  // Auto-celebrate once when a new quarter winner is detected
+  useEffect(() => {
+    const winners = [
+      { q: "q1", w: quarterWinners.q1?.winnerName },
+      { q: "q2", w: quarterWinners.q2?.winnerName },
+      { q: "q3", w: quarterWinners.q3?.winnerName },
+      { q: "final", w: quarterWinners.final?.winnerName },
+    ].filter((item) => Boolean(item.w));
+
+    if (winners.length === 0) return;
+
+    const boardKey = poolId || "local";
+    const key = `sq_celeb_${boardKey}_${winners.map((x) => `${x.q}:${x.w}`).join("_")}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      // ignore storage errors
+    }
+
+    fireCelebrationConfetti();
+  }, [poolId, quarterWinners.q1?.winnerName, quarterWinners.q2?.winnerName, quarterWinners.q3?.winnerName, quarterWinners.final?.winnerName]);
 
   // Keyboard navigation across cells (memoized)
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, r: number, c: number) => {
@@ -1958,6 +2020,14 @@ function SquaresPoolApp() {
                       <span className="font-bold truncate">Free</span>
                     )}
                   </div>
+
+                  {Boolean(board.maxSquaresPerUser && board.maxSquaresPerUser > 0) && (
+                    <div className="bg-amber-50 dark:bg-amber-950/40 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 flex items-center justify-center gap-1 sm:gap-1.5 text-amber-900 dark:text-amber-300 min-w-0 whitespace-nowrap" title={`Limit: max ${board.maxSquaresPerUser} squares per person`}>
+                      <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0" />
+                      <span className="font-extrabold truncate">Max {board.maxSquaresPerUser}</span>
+                      <span className="opacity-80 truncate hidden sm:inline">/person</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2084,15 +2154,15 @@ function SquaresPoolApp() {
                 />
               </div>
 
-              {/* Quick Metrics & Price per square - 4 cols on mobile without horizontal scroll */}
-              <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-2 text-[10px] sm:text-xs w-full lg:w-auto shrink-0">
-                <div className="bg-slate-50 dark:bg-slate-800/80 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
+              {/* Quick Metrics & Price per square & Max per person - 5 cols on mobile without horizontal scroll */}
+              <div className="grid grid-cols-5 gap-1 sm:flex sm:items-center sm:gap-2 text-[10px] sm:text-xs w-full lg:w-auto shrink-0">
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-1 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
                   <Grid className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
                   <span className="font-extrabold text-slate-900 dark:text-white truncate">{stats.totalClaimed}</span>
                   <span className="text-slate-500 dark:text-slate-400 text-[9px] sm:text-xs truncate">/100<span className="hidden sm:inline"> Sq</span></span>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-800/80 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-1 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
                   <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-500 shrink-0" />
                   <span className="font-extrabold text-slate-900 dark:text-white truncate">{stats.userList.length}</span>
                   <span className="text-slate-500 dark:text-slate-400 text-[9px] sm:text-xs truncate hidden min-[370px]:inline"><span className="hidden sm:inline"> Players</span><span className="sm:hidden"> Plyr</span></span>
@@ -2112,9 +2182,28 @@ function SquaresPoolApp() {
                       saveState({ ...board, costPerSquare: num });
                     }}
                     placeholder="0"
-                    className="w-7 sm:w-11 text-[11px] sm:text-sm font-black text-center text-slate-900 dark:text-white bg-transparent focus:outline-hidden"
+                    className="w-6 sm:w-10 text-[11px] sm:text-sm font-black text-center text-slate-900 dark:text-white bg-transparent focus:outline-hidden"
                   />
                   <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">/sq</span>
+                </div>
+
+                {/* Max / Person input */}
+                <div className="bg-slate-50 dark:bg-slate-800/80 px-1 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center gap-0.5 sm:gap-1 min-w-0" title="Max squares per person (0 or blank = unlimited)">
+                  <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={!board.maxSquaresPerUser ? "" : board.maxSquaresPerUser.toString()}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, "").slice(0, 3);
+                      const num = clean === "" ? 0 : Math.min(100, parseInt(clean, 10));
+                      saveState({ ...board, maxSquaresPerUser: num });
+                    }}
+                    placeholder="∞"
+                    className="w-5 sm:w-7 text-[11px] sm:text-sm font-black text-center text-slate-900 dark:text-white bg-transparent focus:outline-hidden"
+                  />
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">max</span>
                 </div>
 
                 {/* Pot */}
@@ -2411,6 +2500,158 @@ function SquaresPoolApp() {
             {stats.cost > 0 && ` • $${stats.cost} per square`}
             {isPrintingBlank && " • Blank Grid Sheet"}
           </p>
+        </div>
+
+        {/* Prominent Quarter Winners & Payouts Celebration Showcase Banner */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-4 sm:mb-6 no-print space-y-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+                <Trophy className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>Quarter Winners &amp; Payouts</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Winning squares and payouts for each quarter
+                </p>
+              </div>
+            </div>
+
+            {/* If any quarter has a winner, show celebration button */}
+            {Boolean(
+              quarterWinners.q1?.winnerName ||
+              quarterWinners.q2?.winnerName ||
+              quarterWinners.q3?.winnerName ||
+              quarterWinners.final?.winnerName
+            ) && (
+              <button
+                type="button"
+                onClick={() => fireCelebrationConfetti()}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-xs transition cursor-pointer self-start sm:self-auto"
+                title="Celebrate winning squares with confetti!"
+              >
+                <span>🎉</span>
+                <span>Celebrate Winners!</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            {[
+              {
+                key: "q1" as const,
+                tag: "Q1",
+                label: "1st Quarter",
+                tagClass: "bg-amber-500 text-white",
+                score: board.q1Score,
+                winner: quarterWinners.q1,
+                payout: board.payouts?.q1 || "",
+              },
+              {
+                key: "q2" as const,
+                tag: "Q2",
+                label: "Halftime",
+                tagClass: "bg-sky-500 text-white",
+                score: board.q2Score,
+                winner: quarterWinners.q2,
+                payout: board.payouts?.q2 || "",
+              },
+              {
+                key: "q3" as const,
+                tag: "Q3",
+                label: "3rd Quarter",
+                tagClass: "bg-purple-500 text-white",
+                score: board.q3Score,
+                winner: quarterWinners.q3,
+                payout: board.payouts?.q3 || "",
+              },
+              {
+                key: "final" as const,
+                tag: "FINAL",
+                label: "Final Score",
+                tagClass: "bg-emerald-600 text-white",
+                score: board.finalScore,
+                winner: quarterWinners.final,
+                payout: board.payouts?.final || "",
+              },
+            ].map(({ key, tag, label, tagClass, score, winner, payout }) => {
+              const hasScore = score.top !== "" && score.left !== "";
+              const hasWinner = Boolean(winner?.winnerName);
+              const dollarPayout = payout ? `$${Number(payout).toLocaleString()}` : "";
+
+              return (
+                <div
+                  key={key}
+                  onClick={() => {
+                    if (hasWinner) fireCelebrationConfetti();
+                  }}
+                  className={`p-3 rounded-2xl border transition flex flex-col justify-between gap-2.5 relative select-none ${
+                    hasWinner
+                      ? "bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-slate-50/50 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-slate-900 border-amber-300 dark:border-amber-700/60 shadow-xs ring-1 ring-amber-400/40 cursor-pointer hover:shadow-md"
+                      : "bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${tagClass}`}>
+                        {tag}
+                      </span>
+                      <span className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">
+                        {label}
+                      </span>
+                    </div>
+
+                    {dollarPayout && (
+                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg shrink-0 ${
+                        hasWinner
+                          ? "bg-emerald-500 text-white shadow-2xs"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                      }`}>
+                        {hasWinner ? `Wins ${dollarPayout}` : `${dollarPayout} Prize`}
+                      </span>
+                    )}
+                  </div>
+
+                  {winner?.winnerName ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base">🏆</span>
+                        <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                          {winner.winnerName}
+                        </span>
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between bg-amber-500/10 dark:bg-amber-950/60 px-2 py-1 rounded-lg">
+                        <span>Score: {score.top} - {score.left}</span>
+                        <span>Digits: {winner.topDigit}, {winner.leftDigit}</span>
+                      </div>
+                    </div>
+                  ) : hasScore ? (
+                    <div className="space-y-1">
+                      <div className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
+                        Unclaimed Square
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center justify-between bg-slate-200/50 dark:bg-slate-800/80 px-2 py-1 rounded-lg">
+                        <span>Score: {score.top} - {score.left}</span>
+                        <span>No player</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 italic">
+                        {liveGame?.quarters?.[key]?.completed ? "Calculating..." : "Awaiting score"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center justify-between bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded-lg">
+                        <span>{board.topTeam ? getTeamNickname(board.topTeam) : "AFC"} vs {board.leftTeam ? getTeamNickname(board.leftTeam) : "NFC"}</span>
+                        <span>Pending</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* 10x10 Super Bowl Squares Grid Table Card */}
@@ -2781,8 +3022,13 @@ function SquaresPoolApp() {
                 <Users className="w-4 h-4 text-emerald-500" />
                 <span>Participants ({stats.userList.length})</span>
               </span>
-              <span className="text-xs text-slate-400 font-medium">
-                {stats.totalClaimed} / 100 Squares
+              <span className="text-xs text-slate-400 font-medium flex items-center gap-2">
+                {Boolean(board.maxSquaresPerUser && board.maxSquaresPerUser > 0) && (
+                  <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 text-[11px]">
+                    Max {board.maxSquaresPerUser} / person
+                  </span>
+                )}
+                <span>{stats.totalClaimed} / 100 Squares</span>
               </span>
             </h3>
 
@@ -2810,9 +3056,19 @@ function SquaresPoolApp() {
                     >
                       <span className="text-xs font-bold truncate max-w-[150px]">{name}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
-                          {count} {count === 1 ? "sq" : "sqs"}
-                        </span>
+                        {board.maxSquaresPerUser && board.maxSquaresPerUser > 0 && count >= board.maxSquaresPerUser ? (
+                          <span className="text-[10px] font-black bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                            Max ({count}/{board.maxSquaresPerUser})
+                          </span>
+                        ) : board.maxSquaresPerUser && board.maxSquaresPerUser > 0 ? (
+                          <span className="text-xs font-black bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                            {count}/{board.maxSquaresPerUser} sqs
+                          </span>
+                        ) : (
+                          <span className="text-xs font-black bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                            {count} {count === 1 ? "sq" : "sqs"}
+                          </span>
+                        )}
                         <span className="text-[10px] text-slate-400 font-medium">
                           {Math.round((count / 100) * 100)}%
                         </span>
@@ -3126,6 +3382,40 @@ function SquaresPoolApp() {
                   max="10000"
                   value={newBoardCost}
                   onChange={(e) => setNewBoardCost(Number(e.target.value) || 0)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Square Limit Per Person
+                  </label>
+                  <span className="text-[10px] font-semibold text-slate-400">0 = Unlimited</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                  {[0, 1, 2, 5, 10].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setNewBoardMaxSquares(preset)}
+                      className={`py-1.5 text-xs font-black rounded-xl border transition cursor-pointer ${
+                        newBoardMaxSquares === preset
+                          ? "bg-amber-500 text-white border-amber-500 shadow-2xs"
+                          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600"
+                      }`}
+                    >
+                      {preset === 0 ? "Any" : preset}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={newBoardMaxSquares === 0 ? "" : newBoardMaxSquares}
+                  onChange={(e) => setNewBoardMaxSquares(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                  placeholder="0 (Unlimited)"
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
