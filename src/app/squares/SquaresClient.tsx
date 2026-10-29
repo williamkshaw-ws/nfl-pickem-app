@@ -2549,7 +2549,7 @@ function SquaresPoolApp() {
           </p>
         </div>
 
-        {/* Prominent Quarter Winners & Payouts Celebration Showcase Banner */}
+        {/* Unified Quarter Winners & Live Score Tracker Showcase Banner */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs mb-4 sm:mb-6 no-print space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
             <div className="flex items-center gap-2">
@@ -2558,34 +2558,48 @@ function SquaresPoolApp() {
               </div>
               <div>
                 <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <span>Quarter Winners &amp; Payouts</span>
+                  <span>Quarter Winners &amp; Live Score Tracker</span>
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Winning squares and payouts for each quarter
+                  {isReadOnly
+                    ? "Winning squares and payouts for each quarter"
+                    : "Enter quarter scores and payouts or let ESPN auto-sync"}
                 </p>
               </div>
             </div>
 
-            {/* If any quarter has a winner, show celebration button */}
-            {Boolean(
-              quarterWinners.q1?.winnerName ||
-              quarterWinners.q2?.winnerName ||
-              quarterWinners.q3?.winnerName ||
-              quarterWinners.final?.winnerName
-            ) && (
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {/* If any quarter has a winner, show celebration button */}
+              {Boolean(
+                quarterWinners.q1?.winnerName ||
+                quarterWinners.q2?.winnerName ||
+                quarterWinners.q3?.winnerName ||
+                quarterWinners.final?.winnerName
+              ) && (
+                <button
+                  type="button"
+                  onClick={() => fireCelebrationConfetti()}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-xs transition cursor-pointer"
+                  title="Celebrate winning squares with confetti!"
+                >
+                  <span>🎉</span>
+                  <span>Celebrate Winners!</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => fireCelebrationConfetti()}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-xs transition cursor-pointer self-start sm:self-auto"
-                title="Celebrate winning squares with confetti!"
+                onClick={() => setShowRulesModal(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                title="How scoring works / Rules"
               >
-                <span>🎉</span>
-                <span>Celebrate Winners!</span>
+                <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Scoring Rules</span>
               </button>
-            )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               {
                 key: "q1" as const,
@@ -2631,15 +2645,13 @@ function SquaresPoolApp() {
               return (
                 <div
                   key={key}
-                  onClick={() => {
-                    if (hasWinner) fireCelebrationConfetti();
-                  }}
-                  className={`p-3 rounded-2xl border transition flex flex-col justify-between gap-2.5 relative select-none ${
+                  className={`p-3.5 rounded-2xl border transition flex flex-col justify-between gap-2.5 relative ${
                     hasWinner
-                      ? "bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-slate-50/50 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-slate-900 border-amber-300 dark:border-amber-700/60 shadow-xs ring-1 ring-amber-400/40 cursor-pointer hover:shadow-md"
+                      ? "bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-slate-50/50 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-slate-900 border-amber-300 dark:border-amber-700/60 shadow-xs ring-1 ring-amber-400/40"
                       : "bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
                   }`}
                 >
+                  {/* Card Header: Tag, Label, Live Badge, and Payout */}
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${tagClass}`}>
@@ -2648,53 +2660,143 @@ function SquaresPoolApp() {
                       <span className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">
                         {label}
                       </span>
+                      {liveGame?.quarters?.[key]?.completed && (
+                        <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/60 dark:border-emerald-800/60 px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                          <Check className="w-2.5 h-2.5 shrink-0" />
+                          <span>Live</span>
+                        </span>
+                      )}
                     </div>
 
-                    {dollarPayout && (
-                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg shrink-0 ${
-                        hasWinner
-                          ? "bg-emerald-500 text-white shadow-2xs"
-                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                      }`}>
-                        {hasWinner ? `Wins ${dollarPayout}` : `${dollarPayout} Prize`}
-                      </span>
-                    )}
+                    {/* Quarter Payout */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isReadOnly ? (
+                        dollarPayout ? (
+                          <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg shrink-0 ${
+                            hasWinner
+                              ? "bg-emerald-500 text-white shadow-2xs"
+                              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                          }`}>
+                            {hasWinner ? `Wins ${dollarPayout}` : `${dollarPayout} Prize`}
+                          </span>
+                        ) : null
+                      ) : (
+                        <div className="relative flex items-center">
+                          <span className="text-xs font-bold text-slate-400 mr-0.5">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="Payout"
+                            value={payout}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                              const nextPayouts = { ...(board.payouts || {}), [key]: clean };
+                              saveState({ ...board, payouts: nextPayouts });
+                            }}
+                            className="w-16 px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-black text-right text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
+                  {/* Winner Banner if Decided */}
                   {winner?.winnerName ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5">
+                    <div
+                      onClick={() => fireCelebrationConfetti()}
+                      className="p-2 rounded-xl bg-amber-500/15 dark:bg-amber-950/60 border border-amber-500/30 flex items-center justify-between cursor-pointer hover:bg-amber-500/25 transition"
+                      title="Click to celebrate this winner!"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <span className="text-base">🏆</span>
-                        <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                        <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">
                           {winner.winnerName}
                         </span>
                       </div>
-                      <div className="text-[10px] sm:text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between bg-amber-500/10 dark:bg-amber-950/60 px-2 py-1 rounded-lg">
-                        <span>Score: {score.top} - {score.left}</span>
-                        <span>Digits: {winner.topDigit}, {winner.leftDigit}</span>
-                      </div>
+                      {dollarPayout && (
+                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg shrink-0">
+                          {dollarPayout}
+                        </span>
+                      )}
                     </div>
                   ) : hasScore ? (
-                    <div className="space-y-1">
-                      <div className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
-                        Unclaimed Square
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center justify-between bg-slate-200/50 dark:bg-slate-800/80 px-2 py-1 rounded-lg">
-                        <span>Score: {score.top} - {score.left}</span>
-                        <span>No player</span>
-                      </div>
+                    <div className="p-2 rounded-xl bg-slate-200/50 dark:bg-slate-800/80 border border-slate-300/50 dark:border-slate-700/50 flex items-center justify-between text-xs">
+                      <span className="font-extrabold text-slate-500 dark:text-slate-400">Unclaimed Square</span>
+                      <span className="text-[10px] text-slate-400 italic">Rollover</span>
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 italic">
-                        {liveGame?.quarters?.[key]?.completed ? "Calculating..." : "Awaiting score"}
-                      </div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center justify-between bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded-lg">
-                        <span>{board.topTeam ? getTeamNickname(board.topTeam) : "AFC"} vs {board.leftTeam ? getTeamNickname(board.leftTeam) : "NFC"}</span>
-                        <span>Pending</span>
-                      </div>
+                    <div className="p-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/40 text-center text-xs text-slate-400 italic">
+                      {liveGame?.quarters?.[key]?.completed ? "Calculating winner..." : "Awaiting score"}
                     </div>
                   )}
+
+                  {/* Score Inputs / Displays */}
+                  <div className="space-y-1.5 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[10px] text-red-600 dark:text-red-400 uppercase font-bold block truncate">
+                          {getTeamNickname(board.topTeam) || "AFC"}
+                        </span>
+                        {isReadOnly ? (
+                          <div className="w-full mt-0.5 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-center text-xs text-slate-900 dark:text-white">
+                            {score.top !== "" ? score.top : "—"}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="0"
+                            value={score.top}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                              const next = { ...board, [`${key}Score`]: { ...score, top: val } };
+                              saveState(next);
+                            }}
+                            className="w-full mt-0.5 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-center text-xs focus:outline-hidden focus:ring-1 focus:ring-red-500"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-sky-600 dark:text-sky-400 uppercase font-bold block truncate">
+                          {getTeamNickname(board.leftTeam) || "NFC"}
+                        </span>
+                        {isReadOnly ? (
+                          <div className="w-full mt-0.5 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-center text-xs text-slate-900 dark:text-white">
+                            {score.left !== "" ? score.left : "—"}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="0"
+                            value={score.left}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                              const next = { ...board, [`${key}Score`]: { ...score, left: val } };
+                              saveState(next);
+                            }}
+                            className="w-full mt-0.5 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-center text-xs focus:outline-hidden focus:ring-1 focus:ring-sky-500"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {winner?.winnerName ? (
+                      <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-0.5">
+                        <span>Winning digits:</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          {winner.topDigit} ({getTeamNickname(board.topTeam) || "AFC"}), {winner.leftDigit} ({getTeamNickname(board.leftTeam) || "NFC"})
+                        </span>
+                      </div>
+                    ) : hasScore ? (
+                      <div className="text-[10px] text-slate-400 italic text-center pt-0.5">
+                        Digits: {score.top.slice(-1)}, {score.left.slice(-1)} (Unclaimed)
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}
@@ -2873,204 +2975,8 @@ function SquaresPoolApp() {
           </div>
         </div>
 
-        {/* Players List & Quarter Winners Tracker with Payout Inputs */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
-          {/* Quarter Score & Winner Calculator with Payouts */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="truncate">Quarter Winners &amp; Live Score Tracker</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowRulesModal(true)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0 cursor-pointer p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                title="How scoring works / Rules"
-              >
-                <HelpCircle className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline whitespace-nowrap">How scoring works</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-              {[
-                {
-                  key: "q1" as const,
-                  tag: "Q1",
-                  label: "1st Quarter",
-                  tagClass: "bg-amber-500 text-white",
-                  cardBorder: "border-amber-200/80 dark:border-amber-900/60",
-                  winnerBg: "bg-amber-100/90 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200",
-                  state: board.q1Score,
-                  winner: quarterWinners.q1,
-                  payout: board.payouts?.q1 || "",
-                },
-                {
-                  key: "q2" as const,
-                  tag: "Q2",
-                  label: "Halftime (2nd Q)",
-                  tagClass: "bg-sky-500 text-white",
-                  cardBorder: "border-sky-200/80 dark:border-sky-900/60",
-                  winnerBg: "bg-sky-100/90 text-sky-900 dark:bg-sky-950/80 dark:text-sky-200",
-                  state: board.q2Score,
-                  winner: quarterWinners.q2,
-                  payout: board.payouts?.q2 || "",
-                },
-                {
-                  key: "q3" as const,
-                  tag: "Q3",
-                  label: "3rd Quarter",
-                  tagClass: "bg-purple-500 text-white",
-                  cardBorder: "border-purple-200/80 dark:border-purple-900/60",
-                  winnerBg: "bg-purple-100/90 text-purple-900 dark:bg-purple-950/80 dark:text-purple-200",
-                  state: board.q3Score,
-                  winner: quarterWinners.q3,
-                  payout: board.payouts?.q3 || "",
-                },
-                {
-                  key: "final" as const,
-                  tag: "FINAL",
-                  label: "Final Score",
-                  tagClass: "bg-emerald-600 text-white",
-                  cardBorder: "border-emerald-200/80 dark:border-emerald-900/60",
-                  winnerBg: "bg-emerald-100/90 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-200",
-                  state: board.finalScore,
-                  winner: quarterWinners.final,
-                  payout: board.payouts?.final || "",
-                },
-              ].map(({ key, tag, label, tagClass, cardBorder, winnerBg, state, winner, payout }) => (
-                <div
-                  key={key}
-                  className={`p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border ${cardBorder} flex flex-col justify-between gap-3`}
-                >
-                  {/* Card Header with Quarter Tag & Payout Input */}
-                  <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-black shadow-2xs shrink-0 ${tagClass}`}>
-                        {tag}
-                      </span>
-                      <span className="text-xs font-black text-slate-900 dark:text-white shrink-0 whitespace-nowrap">{label}</span>
-                      {liveGame?.quarters?.[key]?.completed && (
-                        <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/60 dark:border-emerald-800/60 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 shrink-0 whitespace-nowrap">
-                          <Check className="w-2.5 h-2.5 shrink-0" />
-                          <span>ESPN Live</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Quarter Payout Input / Display */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Payout</span>
-                      {isReadOnly ? (
-                        <span className="text-xs font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                          {payout ? `$${Number(payout).toLocaleString()}` : "—"}
-                        </span>
-                      ) : (
-                        <div className="relative flex items-center">
-                          <span className="text-xs font-bold text-slate-400 mr-0.5">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            placeholder="0"
-                            value={payout}
-                            onChange={(e) => {
-                              const clean = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
-                              const nextPayouts = { ...(board.payouts || {}), [key]: clean };
-                              saveState({ ...board, payouts: nextPayouts });
-                            }}
-                            className="w-16 px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-black text-right text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Winner Banner if Score is entered */}
-                  {winner?.winnerName && (
-                    <div className={`px-2.5 py-1.5 rounded-xl flex items-center justify-between text-xs font-black ${winnerBg}`}>
-                      <span className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Winner: {winner.winnerName}
-                      </span>
-                      {payout && (
-                        <span className="bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded-lg text-slate-900 dark:text-white">
-                          ${Number(payout).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Score inputs or displays for AFC and NFC */}
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-[10px] text-red-600 dark:text-red-400 uppercase font-bold block truncate">
-                        {getTeamNickname(board.topTeam) || "AFC"}
-                      </span>
-                      {isReadOnly ? (
-                        <div className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm text-slate-900 dark:text-white">
-                          {state.top !== "" ? state.top : "—"}
-                        </div>
-                      ) : (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={state.top}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, "").slice(0, 3);
-                            const next = { ...board, [`${key}Score`]: { ...state, top: val } };
-                            saveState(next);
-                          }}
-                          className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500"
-                        />
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-sky-600 dark:text-sky-400 uppercase font-bold block truncate">
-                        {getTeamNickname(board.leftTeam) || "NFC"}
-                      </span>
-                      {isReadOnly ? (
-                        <div className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm text-slate-900 dark:text-white">
-                          {state.left !== "" ? state.left : "—"}
-                        </div>
-                      ) : (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={state.left}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, "").slice(0, 3);
-                            const next = { ...board, [`${key}Score`]: { ...state, left: val } };
-                            saveState(next);
-                          }}
-                          className="w-full mt-0.5 px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-center text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-500"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {winner?.winnerName ? (
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                      <span>Winning square digits:</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-300">
-                        {winner.topDigit} ({getTeamNickname(board.topTeam) || "AFC"}), {winner.leftDigit} ({getTeamNickname(board.leftTeam) || "NFC"})
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-slate-400 italic pt-1">
-                      {state.top && state.left ? "No square matching digits" : "Enter scores to calculate winner"}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
+        {/* Participants & Rules Section below Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
           {/* Player Square Leaderboard / Count Breakdown */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center justify-between mb-4">
@@ -3136,6 +3042,65 @@ function SquaresPoolApp() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* How Squares Scoring Works & Pool Rules Guide */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center justify-between mb-4">
+                <span className="flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-emerald-500" />
+                  <span>How Squares Scoring Works</span>
+                </span>
+                <span className="text-xs text-slate-400 font-medium">Official Rules</span>
+              </h3>
+              <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex items-start gap-2.5">
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 shrink-0 text-sm">1.</span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white block mb-0.5">Last-Digit Match</strong>
+                    Each quarter winner is decided by matching the final digit of each team&apos;s score with the top ({getTeamNickname(board.topTeam) || "AFC"}) and left ({getTeamNickname(board.leftTeam) || "NFC"}) numbers.
+                  </div>
+                </div>
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex items-start gap-2.5">
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 shrink-0 text-sm">2.</span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white block mb-0.5">4 Quarters of Winners</strong>
+                    Winners are determined for Q1, Halftime, Q3, and Final Score. A square can win multiple quarters if the digits repeat.
+                  </div>
+                </div>
+                {Boolean(board.maxSquaresPerUser && board.maxSquaresPerUser > 0) && (
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block mb-0.5">Square Limit: Max {board.maxSquaresPerUser} Per Person</strong>
+                      Players are limited to a maximum of {board.maxSquaresPerUser} squares to keep the pool fair. Over-limit squares are highlighted in red.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {effectiveVenmoHandle && (
+              <div className="p-3.5 rounded-2xl bg-[#008cff]/10 border border-[#008cff]/20 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold">
+                  <CreditCard className="w-4 h-4 text-[#008cff]" />
+                  <span>Commissioner Venmo: @{effectiveVenmoHandle}</span>
+                </div>
+                <a
+                  href={buildVenmoPayUrl(
+                    effectiveVenmoHandle,
+                    board.costPerSquare > 0 ? board.costPerSquare : 0,
+                    `PocketPicks Squares - ${board.title || "Squares"}`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-extrabold text-[#008cff] hover:underline"
+                >
+                  Pay Now &rarr;
+                </a>
               </div>
             )}
           </div>
