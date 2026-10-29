@@ -151,6 +151,47 @@ export async function GET(
 
     const db = adminDb();
 
+    // Ensure all completed past weeks (prior to currentWeek) have finalized games for season standings
+    const stalePastWeeks: number[] = [];
+    for (let w = 1; w < settings.currentWeek; w++) {
+      const pastGames = gamesByWeek[w] || [];
+      const isUnfinalized = pastGames.length === 0 || pastGames.some((g: any) => !g.status?.completed);
+      if (isUnfinalized) {
+        stalePastWeeks.push(w);
+      }
+    }
+
+    if (stalePastWeeks.length > 0) {
+      await Promise.all(
+        stalePastWeeks.map(async (w) => {
+          try {
+            // 1. First check if Firestore has finalized games for this past week
+            const cachedDoc = await db.collection("system_nfl_games").doc(String(w)).get();
+            if (cachedDoc.exists) {
+              const cachedGames = cachedDoc.data()?.games;
+              if (Array.isArray(cachedGames) && cachedGames.length > 0 && cachedGames.every((g: any) => g.status?.completed)) {
+                gamesByWeek[w] = cachedGames;
+                return;
+              }
+            }
+
+            // 2. Otherwise sync from ESPN and persist
+            const syncRes = await syncWeekFromEspn(w, settings.seasonYear || 2026);
+            if (syncRes.synced && syncRes.games?.length > 0) {
+              gamesByWeek[w] = syncRes.games;
+              await db
+                .collection("system_nfl_games")
+                .doc(String(w))
+                .set({ week: w, games: syncRes.games, updatedAt: new Date().toISOString() }, { merge: true })
+                .catch(() => {});
+            }
+          } catch (pastSyncErr) {
+            console.warn(`Failed to finalize past week ${w} scores:`, pastSyncErr);
+          }
+        })
+      );
+    }
+
     // Fetch memberships and picks in parallel
     const [memSnap, picksSnap] = await Promise.all([
       db.collection("memberships").where("leagueId", "==", leagueId).get(),

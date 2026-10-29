@@ -102,6 +102,26 @@ export async function syncWeekFromEspn(
   if (espnResult.source === "espn" && espnResult.games.length > 0) {
     db.gamesByWeek[weekNumber] = espnResult.games;
     saveDatabase(db);
+
+    // Also persist to Firestore so all serverless instances immediately share finalized scores
+    try {
+      const { adminDb } = await import("./server-auth");
+      await adminDb()
+        .collection("system_nfl_games")
+        .doc(String(weekNumber))
+        .set(
+          {
+            week: weekNumber,
+            games: espnResult.games,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        )
+        .catch(() => {});
+    } catch {
+      // Non-blocking in non-admin contexts
+    }
+
     return { games: espnResult.games, synced: true };
   }
 
