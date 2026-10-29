@@ -40,7 +40,6 @@ import {
   getPayoutConfig,
   formatMoney,
   describeDues,
-  normalizeVenmoHandle,
   buildVenmoPayUrl,
   buildPrizeLedger,
 } from "@/lib/payouts";
@@ -140,9 +139,6 @@ export function CommissionerHub({
   );
   const [survivorFeeInput, setSurvivorFeeInput] = useState<string>(
     typeof settings.survivorFee === "number" ? settings.survivorFee.toString() : ""
-  );
-  const [venmoHandleInput, setVenmoHandleInput] = useState<string>(
-    settings.venmoHandle || ""
   );
   const [isNudging, setIsNudging] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || "");
@@ -382,20 +378,11 @@ export function CommissionerHub({
     const s = Number(seasonFeeInput) || 0;
     const sv = Number(survivorFeeInput) || 0;
     const ef = typeof settings.entryFee === "number" ? settings.entryFee : 0;
-    const handle = normalizeVenmoHandle(venmoHandleInput);
-    if (venmoHandleInput.trim() && handle === null) {
-      setAlertModal({
-        title: "Invalid Venmo Handle",
-        message: "Please enter a valid Venmo handle (3-30 letters, numbers, - or _)",
-      });
-      return;
-    }
     await onUpdateSettings({
       weeklyFee: w,
       seasonFee: s,
       survivorFee: sv,
       entryFee: ef,
-      venmoHandle: handle || "",
     });
   };
 
@@ -1696,33 +1683,17 @@ export function CommissionerHub({
                   </div>
                 </div>
 
-                {/* Venmo Handle Input */}
-                <div>
-                  <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                    Commissioner Venmo Username
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">@</span>
-                      <input
-                        type="text"
-                        value={venmoHandleInput}
-                        onChange={(e) => setVenmoHandleInput(e.target.value)}
-                        placeholder="username"
-                        className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSavePayoutSettings}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0 cursor-pointer shadow-xs"
-                    >
-                      Save
-                    </button>
-                  </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Shown to unpaid members on their league dashboard banner and in dues reminder emails so they can pay in 1 tap.
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Venmo handle is set in your <span className="font-semibold text-slate-700 dark:text-slate-300">User Profile</span>{settings.venmoHandle ? ` (@${settings.venmoHandle})` : ""}.
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleSavePayoutSettings}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0 cursor-pointer shadow-xs self-end sm:self-auto"
+                  >
+                    Save Fees
+                  </button>
                 </div>
               </div>
 

@@ -1204,7 +1204,6 @@ function BracketApp() {
                   >
                     <CreditCard className="w-3 h-3 text-[#008cff] shrink-0" />
                     <span>Venmo</span>
-                    <span className="hidden sm:inline font-mono font-semibold">@{effectiveVenmoHandle}</span>
                   </a>
                 )}
               </div>
