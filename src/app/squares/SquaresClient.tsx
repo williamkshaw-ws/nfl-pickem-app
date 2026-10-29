@@ -38,6 +38,7 @@ import {
   PlusCircle,
   CreditCard,
   ShieldAlert,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -623,6 +624,25 @@ function SquaresPoolApp() {
 
   // Computed read-only status
   const isReadOnly = !isOwner || isViewerPreview;
+
+  // Whether the connected live game has already started (in-progress or completed)
+  const isGameStarted = useMemo(() => {
+    if (
+      liveGame &&
+      (liveGame.status?.state === "in" ||
+        liveGame.status?.state === "post" ||
+        liveGame.status?.completed)
+    ) {
+      return true;
+    }
+    if (selectedGameId && availableGames.length > 0) {
+      const matched = availableGames.find((g) => g.id === selectedGameId);
+      if (matched && (matched.state === "in" || matched.state === "post")) {
+        return true;
+      }
+    }
+    return false;
+  }, [liveGame, selectedGameId, availableGames]);
 
   // Effective commissioner Venmo handle
   const effectiveVenmoHandle = (isOwner && user?.venmoHandle)
@@ -1268,12 +1288,21 @@ function SquaresPoolApp() {
 
   // Header Updates
   const openHeaderEdit = (type: "top" | "left", index: number) => {
+    if (isGameStarted) {
+      showToast("Headers are locked once the game has started.");
+      return;
+    }
     setEditingHeader({ type, index });
     setHeaderInputValue(type === "top" ? board.topNumbers[index] : board.leftNumbers[index]);
   };
 
   const saveHeaderEdit = () => {
     if (!editingHeader) return;
+    if (isGameStarted) {
+      showToast("Headers are locked once the game has started.");
+      setEditingHeader(null);
+      return;
+    }
     const { type, index } = editingHeader;
     const val = headerInputValue.trim().slice(0, 4);
     if (type === "top") {
@@ -1290,6 +1319,11 @@ function SquaresPoolApp() {
 
   // Randomize 0-9
   const randomizeNumbers = (type: "both" | "top" | "left") => {
+    if (isGameStarted) {
+      showToast("Headers are locked once the game has started.");
+      return;
+    }
+
     const shuffle = () => {
       const digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
       for (let i = digits.length - 1; i > 0; i--) {
@@ -1318,6 +1352,11 @@ function SquaresPoolApp() {
 
   // Reset to default headers
   const resetHeadersToDefault = () => {
+    if (isGameStarted) {
+      showToast("Headers are locked once the game has started.");
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
       title: "Reset Headers?",
@@ -1339,18 +1378,70 @@ function SquaresPoolApp() {
     });
   };
 
-  // Clear all names
-  const clearAllSquares = () => {
+  // Clear / Reset Board to Start Over (only works before the start of the first game)
+  const clearBoardToStartOver = () => {
+    if (isGameStarted) {
+      showToast("Cannot clear board: the game has already started.");
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
-      title: "Clear All Squares?",
-      message: "Are you sure you want to remove all player names from this board? This action cannot be undone.",
+      title: "Clear Board to Start Over?",
+      message:
+        "Are you sure you want to clear your board and start over? This will remove all claimed player squares, reset row and column digits to default, and clear out all Super Bowl quarter scores. This action cannot be undone.",
       actionLabel: "Clear Board",
       actionVariant: "danger",
       onConfirm: () => {
-        saveState({ ...board, grid: {} }, true);
+        saveState(
+          {
+            ...board,
+            grid: {},
+            topNumbers: [...DEFAULT_TOP_NUMBERS],
+            leftNumbers: [...DEFAULT_LEFT_NUMBERS],
+            q1Score: { top: "", left: "" },
+            q2Score: { top: "", left: "" },
+            q3Score: { top: "", left: "" },
+            finalScore: { top: "", left: "" },
+          },
+          true
+        );
+        setSelectedCell(null);
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
-        showToast("All squares cleared.");
+        showToast("Board cleared: all squares, headers, and scores reset to start over.");
+      },
+    });
+  };
+
+  const clearAllSquares = clearBoardToStartOver;
+
+  // Clear only Super Bowl quarter scores (only works before the start of the game)
+  const clearQuarterScores = () => {
+    if (isGameStarted) {
+      showToast("Scores cannot be cleared once the game has started.");
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear Super Bowl Scores?",
+      message:
+        "Are you sure you want to clear out the scores defined for each quarter? Claimed player squares and headers will remain intact.",
+      actionLabel: "Clear Scores",
+      actionVariant: "danger",
+      onConfirm: () => {
+        saveState(
+          {
+            ...board,
+            q1Score: { top: "", left: "" },
+            q2Score: { top: "", left: "" },
+            q3Score: { top: "", left: "" },
+            finalScore: { top: "", left: "" },
+          },
+          true
+        );
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        showToast("Super Bowl quarter scores cleared.");
       },
     });
   };
@@ -1521,6 +1612,20 @@ function SquaresPoolApp() {
       final: getWinner(board.finalScore.top, board.finalScore.left),
     };
   }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore, board.topNumbers, board.leftNumbers, board.grid]);
+
+  // Whether any Super Bowl quarter score has been entered
+  const hasAnyScores = useMemo(() => {
+    return Boolean(
+      board.q1Score?.top ||
+      board.q1Score?.left ||
+      board.q2Score?.top ||
+      board.q2Score?.left ||
+      board.q3Score?.top ||
+      board.q3Score?.left ||
+      board.finalScore?.top ||
+      board.finalScore?.left
+    );
+  }, [board.q1Score, board.q2Score, board.q3Score, board.finalScore]);
 
   // Auto-celebrate once when a new quarter winner is detected
   useEffect(() => {
@@ -2504,36 +2609,60 @@ function SquaresPoolApp() {
               </div>
 
               {/* Action buttons side-by-side */}
-              <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => randomizeNumbers("both")}
-                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                  title="Randomly assign 0-9 digits to rows and columns"
-                >
-                  <Shuffle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>Randomize<span className="hidden md:inline"> (0-9)</span></span>
-                </button>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                {isGameStarted && (
+                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded-xl border border-amber-500/20 mr-auto sm:mr-0">
+                    <Lock className="w-3 h-3" />
+                    <span>Game in progress (Locked)</span>
+                  </span>
+                )}
 
-                <button
-                  type="button"
-                  onClick={resetHeadersToDefault}
-                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                  title="Reset Top to 1-0 and First Column to A-J"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                  <span>Reset<span className="hidden md:inline"> Headers</span></span>
-                </button>
+                <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => randomizeNumbers("both")}
+                    disabled={isGameStarted}
+                    className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition whitespace-nowrap ${
+                      isGameStarted
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-60 cursor-not-allowed"
+                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    }`}
+                    title={isGameStarted ? "Game has started - digits are locked" : "Randomly assign 0-9 digits to rows and columns"}
+                  >
+                    <Shuffle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>Randomize<span className="hidden md:inline"> (0-9)</span></span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={clearAllSquares}
-                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] sm:text-xs font-bold transition whitespace-nowrap"
-                  title="Clear all names on the board"
-                >
-                  <Eraser className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>Clear<span className="hidden md:inline"> Names</span></span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={resetHeadersToDefault}
+                    disabled={isGameStarted}
+                    className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition whitespace-nowrap ${
+                      isGameStarted
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-60 cursor-not-allowed"
+                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    }`}
+                    title={isGameStarted ? "Game has started - headers are locked" : "Reset Top to 1-0 and First Column to A-J"}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                    <span>Reset<span className="hidden md:inline"> Headers</span></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={clearBoardToStartOver}
+                    disabled={isGameStarted}
+                    className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition whitespace-nowrap ${
+                      isGameStarted
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-60 cursor-not-allowed"
+                        : "bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/60 cursor-pointer"
+                    }`}
+                    title={isGameStarted ? "Board cannot be cleared once the game has started" : "Clear all claimed squares, headers, and Super Bowl scores to start over"}
+                  >
+                    <Eraser className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>Clear<span className="hidden md:inline"> Board</span></span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2584,6 +2713,18 @@ function SquaresPoolApp() {
                 >
                   <span>🎉</span>
                   <span>Celebrate Winners!</span>
+                </button>
+              )}
+
+              {!isReadOnly && hasAnyScores && !isGameStarted && (
+                <button
+                  type="button"
+                  onClick={clearQuarterScores}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                  title="Clear all entered Super Bowl quarter scores"
+                >
+                  <Eraser className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Clear Scores</span>
                 </button>
               )}
 
