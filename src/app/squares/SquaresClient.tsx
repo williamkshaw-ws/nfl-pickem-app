@@ -3071,6 +3071,13 @@ function SquaresPoolApp() {
                     Winners are determined for Q1, Halftime, Q3, and Final Score. A square can win multiple quarters if the digits repeat.
                   </div>
                 </div>
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex items-start gap-2.5">
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 shrink-0 text-sm">3.</span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white block mb-0.5">Quarter Payouts</strong>
+                    Whoever owns the intersecting square at each quarter mark takes home the prize or pot for that quarter.
+                  </div>
+                </div>
                 {Boolean(board.maxSquaresPerUser && board.maxSquaresPerUser > 0) && (
                   <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
                     <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -3082,27 +3089,6 @@ function SquaresPoolApp() {
                 )}
               </div>
             </div>
-
-            {effectiveVenmoHandle && (
-              <div className="p-3.5 rounded-2xl bg-[#008cff]/10 border border-[#008cff]/20 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold">
-                  <CreditCard className="w-4 h-4 text-[#008cff]" />
-                  <span>Commissioner Venmo: @{effectiveVenmoHandle}</span>
-                </div>
-                <a
-                  href={buildVenmoPayUrl(
-                    effectiveVenmoHandle,
-                    board.costPerSquare > 0 ? board.costPerSquare : 0,
-                    `PocketPicks Squares - ${board.title || "Squares"}`
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-extrabold text-[#008cff] hover:underline"
-                >
-                  Pay Now &rarr;
-                </a>
-              </div>
-            )}
           </div>
         </div>
       </>
