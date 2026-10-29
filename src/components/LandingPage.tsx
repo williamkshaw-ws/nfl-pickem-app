@@ -31,6 +31,7 @@ import {
   Loader2,
   Settings,
   Share2,
+  AlertTriangle,
 } from "lucide-react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { auth, db } from "@/lib/firebase";
@@ -48,11 +49,84 @@ const UserSettingsModal = dynamic(
 
 type PoolModeTab = "pickem" | "bracket" | "squares";
 
+export type FootballSeasonPhase = "regular" | "playoffs" | "superbowl" | "offseason";
+
+export interface SeasonalContext {
+  phase: FootballSeasonPhase;
+  defaultTab: PoolModeTab;
+  badgeText: string;
+  badgeHighlight: PoolModeTab;
+  headlineHighlight: string;
+}
+
+export function getSeasonalContext(): SeasonalContext {
+  const now = new Date();
+  const month = now.getMonth(); // 0 = Jan, 1 = Feb, 8 = Sept, 9 = Oct, 10 = Nov, 11 = Dec
+  const day = now.getDate();
+
+  // Super Bowl Season: Late Jan (approx Jan 22) through Feb 20
+  if ((month === 0 && day >= 22) || (month === 1 && day <= 20)) {
+    return {
+      phase: "superbowl",
+      defaultTab: "squares",
+      badgeText: "Super Bowl Season • 100-Square Pools",
+      badgeHighlight: "squares",
+      headlineHighlight: "Super Bowl Squares",
+    };
+  }
+
+  // NFL Playoffs: Early to mid January (Jan 1 - Jan 21)
+  if (month === 0 && day < 22) {
+    return {
+      phase: "playoffs",
+      defaultTab: "bracket",
+      badgeText: "NFL Playoffs Active • Playoff Bracket Challenge",
+      badgeHighlight: "bracket",
+      headlineHighlight: "Playoff Brackets",
+    };
+  }
+
+  // Regular Season: September (8) through December (11)
+  if (month >= 8 && month <= 11) {
+    return {
+      phase: "regular",
+      defaultTab: "pickem",
+      badgeText: "NFL Season Active • Pick'em & Survivor",
+      badgeHighlight: "pickem",
+      headlineHighlight: "Pick'em & Survivor",
+    };
+  }
+
+  // Off-season / Preseason (March to August)
+  return {
+    phase: "offseason",
+    defaultTab: "pickem",
+    badgeText: "NFL Pools & Squares • 100% Free",
+    badgeHighlight: "pickem",
+    headlineHighlight: "NFL Pools",
+  };
+}
+
+export interface ResolvedCodeInfo {
+  found: boolean;
+  type?: "squares" | "bracket" | "league";
+  id?: string;
+  code?: string;
+  title?: string;
+  name?: string;
+  creatorName?: string | null;
+  topTeam?: string | null;
+  leftTeam?: string | null;
+  error?: string;
+}
+
 export function LandingPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { pickemPools, bracketPools, squaresPools } = useUserAllPools();
   const [showSettings, setShowSettings] = useState(false);
+
+  const seasonal = React.useMemo(() => getSeasonalContext(), []);
 
   const resumePool = React.useMemo(() => {
     if (!user) return null;
@@ -74,10 +148,22 @@ export function LandingPage() {
   const [modalCode, setModalCode] = useState("");
   const [modalError, setModalError] = useState("");
 
-  // Interactive Hero Preview Tab & Create Modal Pool Type
-  const [previewTab, setPreviewTab] = useState<PoolModeTab>("pickem");
+  // Auto-detect code preview states for Join Modal
+  const [modalResolved, setModalResolved] = useState<ResolvedCodeInfo | null>(null);
+  const [isModalResolving, setIsModalResolving] = useState(false);
+  const [isDirectJoining, setIsDirectJoining] = useState(false);
+  const modalResolveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-detect code preview states for Hero Quick Join
+  const [heroCode, setHeroCode] = useState("");
+  const [heroResolved, setHeroResolved] = useState<ResolvedCodeInfo | null>(null);
+  const [isHeroResolving, setIsHeroResolving] = useState(false);
+  const heroResolveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Interactive Hero Preview Tab & Create Modal Pool Type (initialized with seasonal context)
+  const [previewTab, setPreviewTab] = useState<PoolModeTab>(() => getSeasonalContext().defaultTab);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createPoolType, setCreatePoolType] = useState<PoolModeTab>("pickem");
+  const [createPoolType, setCreatePoolType] = useState<PoolModeTab>(() => getSeasonalContext().defaultTab);
   const [createLeagueName, setCreateLeagueName] = useState("");
   const [createFormat, setCreateFormat] = useState<"both" | "pickem" | "survivor">("both");
 
@@ -118,6 +204,136 @@ export function LandingPage() {
       } catch {}
     }
   }, [showLoginModal]);
+
+  const lookupCode = React.useCallback(async (raw: string): Promise<ResolvedCodeInfo | null> => {
+    const clean = extractSquaresCode(raw);
+    if (!clean || clean.length < 3) return null;
+    try {
+      const res = await fetch("/api/auth/resolve-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: clean }),
+      });
+      const data = await res.json();
+      return data;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const executeDirectJoin = React.useCallback(
+    async (targetCode: string, resolved?: ResolvedCodeInfo | null) => {
+      const clean = extractSquaresCode(targetCode);
+      if (!clean) return;
+
+      if (!user) {
+        setModalCode(clean);
+        setShowJoinModal(true);
+        return;
+      }
+
+      setIsDirectJoining(true);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        let info = resolved;
+        if (!info || !info.found) {
+          info = await lookupCode(clean);
+        }
+
+        if (info?.found) {
+          const poolCode = info.code || clean;
+          if (info.type === "squares") {
+            if (token) {
+              await fetch("/api/squares/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ code: poolCode }),
+              }).catch(() => null);
+            }
+            router.push(`/squares?id=${encodeURIComponent(poolCode)}`);
+            return;
+          } else if (info.type === "bracket") {
+            if (token) {
+              await fetch("/api/bracket/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ code: poolCode }),
+              }).catch(() => null);
+            }
+            router.push(`/bracket?id=${encodeURIComponent(poolCode)}`);
+            return;
+          } else if (info.type === "league") {
+            if (token) {
+              await fetch("/api/league/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ code: poolCode }),
+              }).catch(() => null);
+            }
+            router.push(`/league/${encodeURIComponent(info.id || poolCode)}`);
+            return;
+          }
+        }
+
+        // Fallback
+        setModalCode(clean);
+        setShowJoinModal(true);
+      } catch (err) {
+        console.error("Direct join error:", err);
+        setModalError("Failed to join pool. Please try again.");
+      } finally {
+        setIsDirectJoining(false);
+      }
+    },
+    [user, lookupCode, router]
+  );
+
+  useEffect(() => {
+    const clean = extractSquaresCode(modalCode);
+    if (modalResolveTimerRef.current) clearTimeout(modalResolveTimerRef.current);
+    if (!clean || clean.length < 3) {
+      setModalResolved(null);
+      setIsModalResolving(false);
+      return;
+    }
+
+    setIsModalResolving(true);
+    modalResolveTimerRef.current = setTimeout(async () => {
+      const res = await lookupCode(clean);
+      if (res && res.found) {
+        setModalResolved(res);
+        setModalError("");
+      } else {
+        setModalResolved(res || { found: false, error: "No pool found with that code" });
+      }
+      setIsModalResolving(false);
+    }, 250);
+
+    return () => {
+      if (modalResolveTimerRef.current) clearTimeout(modalResolveTimerRef.current);
+    };
+  }, [modalCode, lookupCode]);
+
+  useEffect(() => {
+    const clean = extractSquaresCode(heroCode);
+    if (heroResolveTimerRef.current) clearTimeout(heroResolveTimerRef.current);
+    if (!clean || clean.length < 3) {
+      setHeroResolved(null);
+      setIsHeroResolving(false);
+      return;
+    }
+
+    setIsHeroResolving(true);
+    heroResolveTimerRef.current = setTimeout(async () => {
+      const res = await lookupCode(clean);
+      setHeroResolved(res);
+      setIsHeroResolving(false);
+    }, 250);
+
+    return () => {
+      if (heroResolveTimerRef.current) clearTimeout(heroResolveTimerRef.current);
+    };
+  }, [heroCode, lookupCode]);
 
   const openStartPoolModal = (defaultType: PoolModeTab = "pickem") => {
     if (user) {
@@ -604,18 +820,30 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           {/* Pill Badge */}
           <div className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-[10px] sm:text-xs font-bold mb-5 shadow-2xs whitespace-nowrap">
-            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shrink-0" />
+            <span className={`inline-flex items-center gap-1 sm:gap-1.5 ${
+              seasonal.badgeHighlight === "pickem" ? "text-emerald-600 dark:text-emerald-400 font-extrabold" : "text-slate-500 dark:text-slate-400"
+            }`}>
+              <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
+                seasonal.badgeHighlight === "pickem" ? "bg-emerald-500 animate-pulse" : "bg-emerald-500/40"
+              } shrink-0`} />
               <span>Pick&apos;em<span className="hidden sm:inline"> &amp; Survivor</span></span>
             </span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500 shrink-0" />
+            <span className={`inline-flex items-center gap-1 sm:gap-1.5 ${
+              seasonal.badgeHighlight === "bracket" ? "text-purple-600 dark:text-purple-400 font-extrabold" : "text-slate-500 dark:text-slate-400"
+            }`}>
+              <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
+                seasonal.badgeHighlight === "bracket" ? "bg-purple-500 animate-pulse" : "bg-purple-500/40"
+              } shrink-0`} />
               <span><span className="hidden sm:inline">Playoff </span>Bracket</span>
             </span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-500 shrink-0" />
+            <span className={`inline-flex items-center gap-1 sm:gap-1.5 ${
+              seasonal.badgeHighlight === "squares" ? "text-amber-600 dark:text-amber-400 font-extrabold" : "text-slate-500 dark:text-slate-400"
+            }`}>
+              <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
+                seasonal.badgeHighlight === "squares" ? "bg-amber-500 animate-pulse" : "bg-amber-500/40"
+              } shrink-0`} />
               <span><span className="hidden sm:inline">Super Bowl </span>Squares</span>
             </span>
           </div>
@@ -647,28 +875,101 @@ export function LandingPage() {
             </div>
           )}
 
-          <div className="mt-5 sm:mt-7 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-md sm:max-w-none mx-auto">
+          <div className="mt-5 sm:mt-7 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 max-w-lg mx-auto">
             <button
               type="button"
               onClick={() => openStartPoolModal(previewTab)}
-              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
             >
               <span>Start a Free Pool</span>
               <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setModalError("");
-                setShowJoinModal(true);
+            {/* Quick 5-Char Join Box */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const clean = extractSquaresCode(heroCode);
+                if (clean) {
+                  if (user && heroResolved?.found) {
+                    executeDirectJoin(clean, heroResolved);
+                  } else {
+                    setModalCode(clean);
+                    setShowJoinModal(true);
+                  }
+                } else {
+                  setModalCode("");
+                  setShowJoinModal(true);
+                }
               }}
-              className="w-full sm:w-auto px-5 py-3.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm border border-slate-200 dark:border-slate-800 shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
+              className="w-full sm:w-auto flex items-center bg-white dark:bg-slate-900 rounded-2xl sm:rounded-xl border border-slate-200 dark:border-slate-800 p-1 shadow-xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all"
             >
-              <span>Join League with Code</span>
-              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-            </button>
+              <div className="relative flex items-center flex-1 sm:flex-initial">
+                <input
+                  type="text"
+                  maxLength={30}
+                  value={heroCode}
+                  onChange={(e) => setHeroCode(e.target.value.toUpperCase())}
+                  placeholder="Enter 5-digit code..."
+                  className="w-full sm:w-48 px-3 py-1.5 text-xs sm:text-sm font-mono font-bold bg-transparent text-slate-900 dark:text-white placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none uppercase"
+                />
+                {isHeroResolving && (
+                  <Loader2 className="w-3.5 h-3.5 text-emerald-500 animate-spin absolute right-2" />
+                )}
+              </div>
+              <button
+                type="submit"
+                className="px-3.5 py-1.5 rounded-xl sm:rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-black transition cursor-pointer shrink-0"
+              >
+                Join
+              </button>
+            </form>
           </div>
+
+          {/* Quick Hero Code Auto-Detected Pill */}
+          {heroResolved && heroCode.trim().length >= 3 && (
+            <div className="mt-2.5 flex items-center justify-center animate-fade-in">
+              {heroResolved.found ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const code = heroResolved.code || heroCode;
+                    if (user) {
+                      executeDirectJoin(code, heroResolved);
+                    } else {
+                      setModalCode(code);
+                      setShowJoinModal(true);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border shadow-xs transition hover:scale-102 cursor-pointer ${
+                    heroResolved.type === "squares"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
+                      : heroResolved.type === "bracket"
+                      ? "bg-purple-500/10 border-purple-500/30 text-purple-900 dark:text-purple-200"
+                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${
+                    heroResolved.type === "squares" ? "bg-amber-500" :
+                    heroResolved.type === "bracket" ? "bg-purple-500" : "bg-emerald-500"
+                  }`} />
+                  <span>
+                    Found: <strong className="font-black">{heroResolved.title || heroResolved.name}</strong>
+                    {heroResolved.creatorName ? ` by ${heroResolved.creatorName}` : ""}
+                  </span>
+                  <span className="font-black text-[11px] underline ml-1">
+                    Click to Join &rarr;
+                  </span>
+                </button>
+              ) : (
+                extractSquaresCode(heroCode).length >= 5 && (
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                    No active pool found for code &quot;{extractSquaresCode(heroCode)}&quot;
+                  </span>
+                )
+              )}
+            </div>
+          )}
 
           <p className="mt-3 text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 font-medium">
             100% Free • Use any pool type independently • 30-second setup
@@ -692,6 +993,11 @@ export function LandingPage() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 <span className="sm:hidden">Pick&apos;em</span>
                 <span className="hidden sm:inline">Pick&apos;em &amp; Survivor</span>
+                {seasonal.badgeHighlight === "pickem" && (
+                  <span className="hidden lg:inline px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 ml-1">
+                    Active
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -705,6 +1011,11 @@ export function LandingPage() {
                 <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
                 <span className="sm:hidden">Bracket</span>
                 <span className="hidden sm:inline">Playoff Bracket</span>
+                {seasonal.badgeHighlight === "bracket" && (
+                  <span className="hidden lg:inline px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 ml-1">
+                    Active
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -718,6 +1029,11 @@ export function LandingPage() {
                 <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                 <span className="sm:hidden">Squares</span>
                 <span className="hidden sm:inline">Super Bowl Squares</span>
+                {seasonal.badgeHighlight === "squares" && (
+                  <span className="hidden lg:inline px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 ml-1">
+                    Active
+                  </span>
+                )}
               </button>
             </div>
 
@@ -1723,7 +2039,11 @@ export function LandingPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleModalSubmit("register");
+                if (user && modalResolved?.found) {
+                  executeDirectJoin(modalCode, modalResolved);
+                } else {
+                  handleModalSubmit("register");
+                }
               }}
               className="mt-6 space-y-4"
             >
@@ -1731,44 +2051,137 @@ export function LandingPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                   5-Digit Code or Share Link
                 </label>
-                <input
-                  type="text"
-                  maxLength={40}
-                  autoFocus
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="e.g. U7VUF or 84920"
-                  value={modalCode}
-                  onChange={(e) => {
-                    setModalCode(e.target.value.toUpperCase());
-                    if (modalError) setModalError("");
-                  }}
-                  className="w-full text-center tracking-[0.2em] font-mono text-2xl font-black py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 uppercase transition-colors"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={40}
+                    autoFocus
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="e.g. U7VUF or 84920"
+                    value={modalCode}
+                    onChange={(e) => {
+                      setModalCode(e.target.value.toUpperCase());
+                      if (modalError) setModalError("");
+                    }}
+                    className="w-full text-center tracking-[0.2em] font-mono text-2xl font-black py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 uppercase transition-colors"
+                  />
+                  {isModalResolving && (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto-detected pool preview card */}
+                {modalResolved && !isModalResolving && (
+                  modalResolved.found ? (
+                    <div className={`mt-3 p-3.5 sm:p-4 rounded-2xl border transition-all text-left animate-fade-in ${
+                      modalResolved.type === "squares"
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-100"
+                        : modalResolved.type === "bracket"
+                        ? "bg-purple-500/10 border-purple-500/30 text-purple-950 dark:text-purple-100"
+                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                              modalResolved.type === "squares"
+                                ? "bg-amber-500 text-white"
+                                : modalResolved.type === "bracket"
+                                ? "bg-purple-600 text-white"
+                                : "bg-emerald-600 text-white"
+                            }`}>
+                              {modalResolved.type === "squares" ? "Super Bowl Squares" : modalResolved.type === "bracket" ? "Playoff Bracket" : "Pick'em League"}
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">
+                              Code: {modalResolved.code}
+                            </span>
+                          </div>
+
+                          <h4 className="text-base font-black text-slate-900 dark:text-white truncate">
+                            {modalResolved.title || modalResolved.name}
+                          </h4>
+
+                          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 flex items-center gap-2 flex-wrap">
+                            {modalResolved.creatorName && (
+                              <span>Commissioner: <strong className="font-semibold text-slate-900 dark:text-white">{modalResolved.creatorName}</strong></span>
+                            )}
+                            {modalResolved.topTeam && modalResolved.leftTeam && (
+                              <span className="text-slate-500 dark:text-slate-400">&bull; {modalResolved.leftTeam} vs {modalResolved.topTeam}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          modalResolved.type === "squares"
+                            ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                            : modalResolved.type === "bracket"
+                            ? "bg-purple-500/20 text-purple-600 dark:text-purple-400"
+                            : "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        }`}>
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    extractSquaresCode(modalCode).length >= 5 && (
+                      <div className="mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span>{modalResolved.error || "No active league, squares board, or bracket found with that code."}</span>
+                      </div>
+                    )
+                  )
+                )}
+
                 {modalError && (
                   <p className="text-rose-500 text-xs font-semibold mt-2">{modalError}</p>
                 )}
               </div>
 
               <div className="pt-2 flex flex-col gap-2.5">
-                <button
-                  type="submit"
-                  disabled={modalCode.trim().length < 3}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Continue to Register &amp; Join</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                {user ? (
+                  <button
+                    type="button"
+                    disabled={modalCode.trim().length < 3 || isDirectJoining}
+                    onClick={() => executeDirectJoin(modalCode, modalResolved)}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isDirectJoining ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Joining Pool...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Join &amp; Open {modalResolved?.found ? (modalResolved.title || "Pool") : "Pool"}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={modalCode.trim().length < 3}
+                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Continue to Register &amp; Join</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleModalSubmit("login")}
-                  disabled={modalCode.trim().length < 3}
-                  className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
-                >
-                  Already have an account? Sign in and join →
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModalSubmit("login")}
+                      disabled={modalCode.trim().length < 3}
+                      className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
+                    >
+                      Already have an account? Sign in and join →
+                    </button>
+                  </>
+                )}
               </div>
             </form>
           </div>

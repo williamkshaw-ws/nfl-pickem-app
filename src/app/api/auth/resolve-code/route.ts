@@ -60,9 +60,10 @@ export async function POST(request: Request) {
         type: "squares",
         id: poolDoc.id,
         code: displayCode,
-        title: data.title || "Super Bowl Squares",
-        topTeam: data.topTeam,
-        leftTeam: data.leftTeam,
+        title: data.board?.title || data.title || "Super Bowl Squares",
+        creatorName: data.creatorName || null,
+        topTeam: data.topTeam || data.board?.topTeam || null,
+        leftTeam: data.leftTeam || data.board?.leftTeam || null,
       });
     }
 
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
         id: bracketDoc.id,
         code: displayCode,
         title: data.name || "Playoff Bracket Challenge",
+        creatorName: data.creatorName || null,
       });
     }
 
@@ -112,12 +114,15 @@ export async function POST(request: Request) {
 
     if (leagueDoc && leagueDoc.exists) {
       const data = leagueDoc.data()!;
+      const leagueTitle = data.name || data.settings?.leagueName || "Pick'em League";
       return NextResponse.json({
         found: true,
         type: "league",
         id: leagueDoc.id,
         code: upperCode,
-        name: data.name || "Pick'em League",
+        name: leagueTitle,
+        title: leagueTitle,
+        creatorName: data.commissionerName || null,
       });
     }
 
