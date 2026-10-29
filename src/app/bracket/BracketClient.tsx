@@ -850,8 +850,14 @@ function BracketApp() {
     }
   }, [poolId, poolData, showToast]);
 
-  // Clear user picks and tiebreaker via modal
+  // Clear user picks and Super Bowl score prediction via modal
   const handleConfirmClearPicks = () => {
+    if (isLocked) {
+      showToast("Cannot clear picks: the bracket is locked once the first game has started.");
+      setShowClearModal(false);
+      return;
+    }
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
     setPicks({});
     const emptyTb: TiebreakerPrediction = { homeScore: 0, awayScore: 0, totalScore: 0 };
     setTiebreaker(emptyTb);
@@ -859,10 +865,11 @@ function BracketApp() {
     setAwayScoreInput("");
     try {
       localStorage.removeItem(STORAGE_PICKS_KEY);
+      localStorage.removeItem(STORAGE_TIEBREAKER_KEY);
     } catch {}
     savePicksToBackend({}, emptyTb);
     setShowClearModal(false);
-    showToast("All picks and tiebreaker scores cleared");
+    showToast("Bracket cleared: all picks and Super Bowl scores reset.");
   };
 
   // Matchup resolvers: User Projected Picks vs Actual Tournament Field
@@ -886,6 +893,18 @@ function BracketApp() {
     [leaderboard, results]
   );
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
+
+  // Whether the participant has made any game picks or entered Super Bowl scores
+  const hasPicksOrScores = useMemo(() => {
+    return (
+      completedPicksCount > 0 ||
+      Boolean(
+        homeScoreInput ||
+        awayScoreInput ||
+        (tiebreaker && (Number(tiebreaker.homeScore) > 0 || Number(tiebreaker.awayScore) > 0 || Number(tiebreaker.totalScore || 0) > 0))
+      )
+    );
+  }, [completedPicksCount, homeScoreInput, awayScoreInput, tiebreaker]);
 
   // Current active playoff round resolver (for dynamic round indicator dots)
   const currentRound = useMemo<"wild_card" | "divisional" | "conference" | "super_bowl" | "completed">(() => {
@@ -1096,9 +1115,28 @@ function BracketApp() {
           <span className="font-black uppercase tracking-wider text-purple-700 dark:text-purple-400 text-[9px] xl:text-[10px]">
             Tiebreaker: Final Score
           </span>
-          <span className="text-[10px] text-slate-400 font-bold">
-            Total: {homeScoreInput || awayScoreInput ? (Number(homeScoreInput || 0) + Number(awayScoreInput || 0)) : "—"}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-400 font-bold">
+              Total: {homeScoreInput || awayScoreInput ? (Number(homeScoreInput || 0) + Number(awayScoreInput || 0)) : "—"}
+            </span>
+            {!isLocked && Boolean(homeScoreInput || awayScoreInput) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHomeScoreInput("");
+                  setAwayScoreInput("");
+                  const emptyTb: TiebreakerPrediction = { homeScore: 0, awayScore: 0, totalScore: 0 };
+                  setTiebreaker(emptyTb);
+                  debouncedSavePicksToBackend(picks, emptyTb, 200);
+                  showToast("Super Bowl score prediction cleared");
+                }}
+                className="text-[9px] font-bold text-slate-400 hover:text-rose-500 transition cursor-pointer px-1 py-0.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                title="Clear Super Bowl score prediction"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 text-left">
@@ -1241,16 +1279,16 @@ function BracketApp() {
               </>
             )}
 
-            {/* Clear Picks Button (available to all users who have active picks when bracket is not locked) */}
-            {!isLocked && completedPicksCount > 0 && (
+            {/* Clear Bracket / Start Over Button */}
+            {!isLocked && hasPicksOrScores && (
               <button
                 type="button"
                 onClick={() => setShowClearModal(true)}
-                className="inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer shrink-0"
-                title="Clear your picks"
+                className="inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 transition-colors cursor-pointer shrink-0"
+                title="Clear all picks and Super Bowl score to start over"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Clear</span>
+                <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+                <span className="hidden md:inline">Start Over</span>
               </button>
             )}
 
@@ -1395,6 +1433,19 @@ function BracketApp() {
                   <HelpCircle className="w-3.5 h-3.5 shrink-0" />
                   <span className="hidden sm:inline">Rules</span>
                 </button>
+
+                {/* Clear Bracket / Start Over Button */}
+                {activeTab === "bracket" && !isLocked && hasPicksOrScores && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearModal(true)}
+                    className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition whitespace-nowrap shrink-0 cursor-pointer"
+                    title="Clear bracket and Super Bowl score to start over"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>Start Over</span>
+                  </button>
+                )}
               </div>
 
               {/* Right: Desktop Controls & Indicators */}
@@ -2446,7 +2497,7 @@ function BracketApp() {
         );
       })()}
 
-      {/* MODAL 2: CLEAR PICKS */}
+      {/* MODAL 2: CLEAR BRACKET TO START OVER */}
       {showClearModal && (
         <div
           onClick={() => setShowClearModal(false)}
@@ -2456,9 +2507,12 @@ function BracketApp() {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative"
           >
-            <h3 className="font-extrabold text-lg text-slate-900 dark:text-white mb-2">Clear All Picks?</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-              This will remove all your game selections and reset the bracket canvas. You can make new picks anytime before the tournament locks.
+            <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
+              <RotateCcw className="w-5 h-5" />
+            </div>
+            <h3 className="font-extrabold text-lg text-slate-900 dark:text-white mb-2">Clear Bracket to Start Over?</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              This will remove all your playoff game selections and clear out the predicted score defined in the Super Bowl so you can start over fresh. This action cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
@@ -2473,7 +2527,7 @@ function BracketApp() {
                 onClick={handleConfirmClearPicks}
                 className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer shadow-xs"
               >
-                Clear Picks
+                Clear Bracket
               </button>
             </div>
           </div>

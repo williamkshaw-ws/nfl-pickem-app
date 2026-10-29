@@ -81,14 +81,8 @@ export async function loadBracketPoolPayload(
     };
 
     const existing = participantMap.get(uid);
-    if (!existing) {
+    if (!existing || (p.updatedAt && (!existing.updatedAt || p.updatedAt > existing.updatedAt))) {
       participantMap.set(uid, p);
-    } else {
-      const existingCount = Object.keys(existing.picks || {}).length;
-      const newCount = Object.keys(p.picks || {}).length;
-      if (newCount > existingCount || (newCount === existingCount && p.updatedAt > existing.updatedAt)) {
-        participantMap.set(uid, p);
-      }
     }
 
     if (caller && uid === caller.uid) {
