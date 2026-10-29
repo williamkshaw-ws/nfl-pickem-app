@@ -547,80 +547,6 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("last_active_league");
-    }
-    return (
-      <div className="flex-1 flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
-        <div className="text-center p-8 max-w-sm w-full bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
-          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <p className="text-slate-700 dark:text-slate-300 font-bold mb-1">League Unavailable</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Failed to load league. It may not exist or is unavailable.</p>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  localStorage.removeItem("last_active_league");
-                  window.location.href = "/?landing=true";
-                }
-              }}
-              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer"
-            >
-              Return to Landing Page
-            </button>
-            {user && (
-              <>
-                <button
-                  onClick={() => setShowFallbackSettings(true)}
-                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  Account Settings
-                </button>
-                <button
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      localStorage.removeItem("last_active_league");
-                      auth.signOut().then(() => {
-                        window.location.href = "/";
-                      });
-                    }
-                  }}
-                  className="w-full py-2 px-4 rounded-xl text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-bold text-xs transition cursor-pointer"
-                >
-                  Sign Out
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {showFallbackSettings && (
-          <UserSettingsModal
-            isOpen={showFallbackSettings}
-            onClose={() => setShowFallbackSettings(false)}
-            onProfileUpdated={() => router.refresh()}
-          />
-        )}
-      </div>
-    );
-  }
-
-  const isCommissioner = Boolean(user && (data.isCommissioner || data.settings.commissionerId === user.id));
-  const isSurvivorOnly = data.settings.pickemEnabled === false;
-  const usedEliminatorTeams = (data.allPicks || [])
-    .filter((p: any) => user && p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
-    .map((p: any) => p.eliminatorPick as string);
-
   const formatKickoffDetail = (timestamp: number, currentMs: number) => {
     const d = new Date(timestamp);
     const diffMs = timestamp - currentMs;
@@ -660,6 +586,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
 
     const lockPolicy = data.settings.lockPolicy;
     const now = currentTime;
+    const isSurvivorOnly = data.settings.pickemEnabled === false;
 
     // Compute lock status and lock timestamp for each game
     const unlockedGamesWithLockTime = games
@@ -746,7 +673,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
       earliestLockTime,
       title,
     };
-  }, [user, data, activeWeek, isSurvivorOnly, currentTime]);
+  }, [user, data, activeWeek, currentTime]);
 
   const handleGoToPicks = () => {
     if (activeTab !== "picks") {
@@ -759,6 +686,80 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
       }
     }, 100);
   };
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("last_active_league");
+    }
+    return (
+      <div className="flex-1 flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+        <div className="text-center p-8 max-w-sm w-full bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+          <p className="text-slate-700 dark:text-slate-300 font-bold mb-1">League Unavailable</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Failed to load league. It may not exist or is unavailable.</p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("last_active_league");
+                  window.location.href = "/?landing=true";
+                }
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer"
+            >
+              Return to Landing Page
+            </button>
+            {user && (
+              <>
+                <button
+                  onClick={() => setShowFallbackSettings(true)}
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Account Settings
+                </button>
+                <button
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      localStorage.removeItem("last_active_league");
+                      auth.signOut().then(() => {
+                        window.location.href = "/";
+                      });
+                    }
+                  }}
+                  className="w-full py-2 px-4 rounded-xl text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {showFallbackSettings && (
+          <UserSettingsModal
+            isOpen={showFallbackSettings}
+            onClose={() => setShowFallbackSettings(false)}
+            onProfileUpdated={() => router.refresh()}
+          />
+        )}
+      </div>
+    );
+  }
+
+  const isCommissioner = Boolean(user && (data.isCommissioner || data.settings.commissionerId === user.id));
+  const isSurvivorOnly = data.settings.pickemEnabled === false;
+  const usedEliminatorTeams = (data.allPicks || [])
+    .filter((p: any) => user && p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
+    .map((p: any) => p.eliminatorPick as string);
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
