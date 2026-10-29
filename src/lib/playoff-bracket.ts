@@ -914,6 +914,8 @@ export interface BracketPool {
   creatorUserId: string;
   creatorName: string;
   creatorEmail: string;
+  creatorVenmoHandle?: string;
+  venmoHandle?: string;
   isLocked: boolean;
   lockTime: string;
   results: SimulationResults;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser, adminDb, HttpError, errorResponse } from "@/lib/server-auth";
 import { adminAuth } from "@/lib/firebase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { normalizeVenmoHandle } from "@/lib/payouts";
 
 export async function PATCH(request: Request) {
   try {
@@ -9,7 +10,7 @@ export async function PATCH(request: Request) {
     enforceRateLimit(`profile-update:${caller.uid}`, 10, 10 * 60 * 1000, "Too many profile updates. Please wait a few minutes.");
 
     const body = await request.json();
-    const { name, username, avatarColor, emailNotifications } = body || {};
+    const { name, username, avatarColor, emailNotifications, venmoHandle } = body || {};
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       throw new HttpError(400, "Name cannot be empty");
@@ -46,6 +47,19 @@ export async function PATCH(request: Request) {
 
     if (avatarColor && typeof avatarColor === "string") {
       updateData.avatarColor = avatarColor.trim();
+    }
+
+    if (typeof venmoHandle === "string") {
+      const trimmed = venmoHandle.trim().replace(/^@/, "");
+      if (trimmed.length > 0) {
+        const normalized = normalizeVenmoHandle(trimmed);
+        if (!normalized) {
+          throw new HttpError(400, "Venmo username must be 3-30 letters, numbers, hyphens, or underscores");
+        }
+        updateData.venmoHandle = normalized;
+      } else {
+        updateData.venmoHandle = "";
+      }
     }
 
     await db.runTransaction(async (tx) => {
@@ -99,6 +113,7 @@ export async function PATCH(request: Request) {
         username: cleanUsername,
         avatarColor: updateData.avatarColor || undefined,
         emailNotifications: updateData.emailNotifications ?? false,
+        venmoHandle: updateData.venmoHandle ?? "",
       },
     });
   } catch (err: any) {

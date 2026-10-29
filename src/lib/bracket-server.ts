@@ -115,6 +115,21 @@ export async function loadBracketPoolPayload(
     poolData.isLocked
   );
 
+  let creatorVenmoHandle = poolData.creatorVenmoHandle || poolData.venmoHandle || "";
+  if (!creatorVenmoHandle && poolData.creatorUserId) {
+    try {
+      const creatorDoc = await db.collection("users").doc(poolData.creatorUserId).get();
+      if (creatorDoc.exists) {
+        const profileVenmo = (creatorDoc.data()?.venmoHandle || "").trim();
+        if (profileVenmo) {
+          creatorVenmoHandle = profileVenmo;
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
+
   return {
     pool: {
       id: poolId,
@@ -122,6 +137,7 @@ export async function loadBracketPoolPayload(
       name: poolData.name || "Playoff Bracket Challenge",
       creatorUserId: poolData.creatorUserId,
       creatorName: poolData.creatorName,
+      creatorVenmoHandle: creatorVenmoHandle || undefined,
       isLocked: isAutoLocked,
       lockTime,
       results,

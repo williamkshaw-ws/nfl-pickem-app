@@ -13,6 +13,7 @@ interface AppUser {
   emailVerified: boolean;
   avatarColor?: string;
   emailNotifications?: boolean;
+  venmoHandle?: string;
 }
 
 interface AuthContextType {
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailVerified: firebaseUser.emailVerified,
           avatarColor: data.avatarColor || "bg-emerald-600",
           emailNotifications: data.emailNotifications ?? false,
+          venmoHandle: data.venmoHandle || "",
         });
         return;
       }
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       emailVerified: firebaseUser.emailVerified,
       avatarColor: "bg-emerald-600",
       emailNotifications: false,
+      venmoHandle: "",
     });
   };
 

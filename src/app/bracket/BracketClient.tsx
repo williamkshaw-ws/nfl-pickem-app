@@ -36,6 +36,7 @@ import {
   PlusCircle,
   Shield,
   ExternalLink,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -43,6 +44,7 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
+import { buildVenmoPayUrl } from "@/lib/payouts";
 
 const UserSettingsModal = dynamic(
   () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
@@ -1147,6 +1149,9 @@ function BracketApp() {
   }
 
   const cleanDisplayCode = poolId ? (poolData?.joinCode || poolId).toUpperCase() : "";
+  const effectiveVenmoHandle = (isOwner && user?.venmoHandle)
+    ? user.venmoHandle
+    : (poolData?.creatorVenmoHandle || poolData?.venmoHandle || (isOwner ? (user?.venmoHandle || "") : ""));
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors font-sans w-full max-w-full">
@@ -1184,6 +1189,23 @@ function BracketApp() {
                   >
                     <span>{cleanDisplayCode}</span>
                   </button>
+                )}
+                {effectiveVenmoHandle && (
+                  <a
+                    href={buildVenmoPayUrl(
+                      effectiveVenmoHandle,
+                      0,
+                      `PocketPicks Bracket - ${poolData.name}`
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg bg-[#008cff]/10 hover:bg-[#008cff]/20 text-[#008cff] border border-[#008cff]/30 transition shrink-0 cursor-pointer"
+                    title={`Pay commissioner on Venmo (@${effectiveVenmoHandle})`}
+                  >
+                    <CreditCard className="w-3 h-3 text-[#008cff] shrink-0" />
+                    <span>Venmo</span>
+                    <span className="hidden sm:inline font-mono font-semibold">@{effectiveVenmoHandle}</span>
+                  </a>
                 )}
               </div>
             ) : null}

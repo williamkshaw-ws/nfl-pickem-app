@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { User, LeagueSettings } from "@/types/nfl";
 import {
   Trophy,
@@ -22,6 +22,7 @@ import {
   Copy,
   CheckCircle2,
   X,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -34,6 +35,7 @@ import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/api-client";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { FootballIcon } from "@/components/FootballIcon";
+import { buildVenmoPayUrl, getPayoutConfig } from "@/lib/payouts";
 
 const UserSettingsModal = dynamic(
   () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
@@ -77,6 +79,12 @@ export function Header({
   const { user } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
+
+  const isCommissioner = Boolean(user && settings.commissionerId && user.id === settings.commissionerId);
+  const effectiveVenmoHandle = (isCommissioner && user?.venmoHandle)
+    ? user.venmoHandle
+    : (settings.venmoHandle || (isCommissioner ? (user?.venmoHandle || "") : ""));
+  const payoutConfig = useMemo(() => getPayoutConfig(settings), [settings]);
   
   const [memberships, setMemberships] = useState<LeagueMembership[]>([]);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
@@ -305,6 +313,24 @@ export function Header({
                 >
                   <span>{currentLeagueId.toUpperCase()}</span>
                 </button>
+              )}
+
+              {effectiveVenmoHandle && (
+                <a
+                  href={buildVenmoPayUrl(
+                    effectiveVenmoHandle,
+                    payoutConfig.duesPerPlayer > 0 ? payoutConfig.duesPerPlayer : 0,
+                    `PocketPicks - ${settings.leagueName}`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg bg-[#008cff]/10 hover:bg-[#008cff]/20 text-[#008cff] border border-[#008cff]/30 transition shrink-0 cursor-pointer"
+                  title={`Pay commissioner on Venmo (@${effectiveVenmoHandle})`}
+                >
+                  <CreditCard className="w-3 h-3 text-[#008cff] shrink-0" />
+                  <span>Venmo</span>
+                  <span className="hidden sm:inline font-mono font-semibold">@{effectiveVenmoHandle}</span>
+                </a>
               )}
               
               {user && (

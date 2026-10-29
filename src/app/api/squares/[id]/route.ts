@@ -106,6 +106,22 @@ export async function GET(
       }
     }
 
+    let creatorVenmoHandle: string = data?.board?.venmoHandle || data?.venmoHandle || "";
+    const creatorUid = data?.creatorUserId || (isCreator && callerUser?.uid ? callerUser.uid : null);
+    if (!creatorVenmoHandle && creatorUid) {
+      try {
+        const creatorDoc = await db.collection("users").doc(creatorUid).get();
+        if (creatorDoc.exists) {
+          const profileVenmo = (creatorDoc.data()?.venmoHandle || "").trim();
+          if (profileVenmo) {
+            creatorVenmoHandle = profileVenmo;
+          }
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
     return NextResponse.json({
       success: true,
       id: poolId,
@@ -113,6 +129,7 @@ export async function GET(
       board: safeBoard,
       creatorUserId: data?.creatorUserId || null,
       creatorName: data?.creatorName || null,
+      creatorVenmoHandle: creatorVenmoHandle || null,
       isOwner: isCreator,
       role: isCreator ? "commissioner" : (callerUser ? "member" : "viewer"),
       updatedAt: data?.updatedAt,

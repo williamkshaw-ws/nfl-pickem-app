@@ -78,6 +78,21 @@ export async function GET(
       }).catch((err) => console.warn("Auto-update currentWeek warning:", err));
     }
 
+    let leagueVenmo = typeof rawSettings.venmoHandle === "string" ? rawSettings.venmoHandle.trim() : "";
+    if (!leagueVenmo && league.commissionerId) {
+      try {
+        const commishDoc = await adminDb().collection("users").doc(league.commissionerId).get();
+        if (commishDoc.exists) {
+          const profileVenmo = (commishDoc.data()?.venmoHandle || "").trim();
+          if (profileVenmo) {
+            leagueVenmo = profileVenmo;
+          }
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
     const settings = {
       leagueName: league.name || rawSettings.leagueName || "Untitled League",
       seasonYear: rawSettings.seasonYear || 2026,
@@ -94,7 +109,7 @@ export async function GET(
       seasonFee: typeof rawSettings.seasonFee === "number" ? rawSettings.seasonFee : 0,
       survivorFee: typeof rawSettings.survivorFee === "number" ? rawSettings.survivorFee : 0,
       weeklyStartWeek: typeof rawSettings.weeklyStartWeek === "number" ? rawSettings.weeklyStartWeek : 1,
-      venmoHandle: typeof rawSettings.venmoHandle === "string" ? rawSettings.venmoHandle : "",
+      venmoHandle: leagueVenmo,
     };
 
     const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;

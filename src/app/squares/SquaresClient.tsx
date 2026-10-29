@@ -36,12 +36,14 @@ import {
   LogOut,
   Eraser,
   PlusCircle,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { TeamLogo } from "@/components/TeamLogo";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { auth } from "@/lib/firebase";
+import { buildVenmoPayUrl } from "@/lib/payouts";
 
 const UserSettingsModal = dynamic(
   () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
@@ -417,6 +419,7 @@ function SquaresPoolApp() {
   const { user, loading: authLoading } = useAuth();
   const [poolCreatorId, setPoolCreatorId] = useState<string | null>(null);
   const [poolCreatorName, setPoolCreatorName] = useState<string | null>(null);
+  const [poolVenmoHandle, setPoolVenmoHandle] = useState<string | null>(null);
   const [serverIsOwner, setServerIsOwner] = useState<boolean | null>(null);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -565,6 +568,11 @@ function SquaresPoolApp() {
   // Computed read-only status
   const isReadOnly = !isOwner || isViewerPreview;
 
+  // Effective commissioner Venmo handle
+  const effectiveVenmoHandle = (isOwner && user?.venmoHandle)
+    ? user.venmoHandle
+    : (poolVenmoHandle || board.venmoHandle || (isOwner ? (user?.venmoHandle || "") : ""));
+
   // Sync document.title
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -629,6 +637,11 @@ function SquaresPoolApp() {
             });
             if (data.creatorUserId) {
               setPoolCreatorId(data.creatorUserId);
+            }
+            if (data.creatorVenmoHandle) {
+              setPoolVenmoHandle(data.creatorVenmoHandle);
+            } else if (data.board?.venmoHandle) {
+              setPoolVenmoHandle(data.board.venmoHandle);
             }
             if (typeof data.isOwner === "boolean") {
               setServerIsOwner(data.isOwner);
@@ -770,6 +783,7 @@ function SquaresPoolApp() {
       setBoard(freshBoard);
       setPublishedPoolId(data.id);
       setPoolCreatorId(user.id);
+      setPoolVenmoHandle(user.venmoHandle || null);
       if (data.joinCode) {
         setCurrentJoinCode(data.joinCode);
       }
@@ -1308,6 +1322,7 @@ function SquaresPoolApp() {
             setCurrentJoinCode("");
             setServerIsOwner(null);
             setPoolCreatorId(null);
+            setPoolVenmoHandle(null);
             setBoard(INITIAL_STATE);
             setIsAuthDenied(false);
             router.push("/squares");
@@ -1359,6 +1374,7 @@ function SquaresPoolApp() {
             setCurrentJoinCode("");
             setServerIsOwner(null);
             setPoolCreatorId(null);
+            setPoolVenmoHandle(null);
             setBoard(INITIAL_STATE);
             setIsAuthDenied(false);
             router.push("/squares");
@@ -1558,6 +1574,23 @@ function SquaresPoolApp() {
                 >
                   <span>{currentJoinCode || poolId.replace(/^sb-/, "").toUpperCase()}</span>
                 </button>
+              )}
+              {poolId && effectiveVenmoHandle && (
+                <a
+                  href={buildVenmoPayUrl(
+                    effectiveVenmoHandle,
+                    board.costPerSquare > 0 ? board.costPerSquare : 0,
+                    `PocketPicks Squares - ${board.title || "Squares"}`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg bg-[#008cff]/10 hover:bg-[#008cff]/20 text-[#008cff] border border-[#008cff]/30 transition shrink-0 cursor-pointer"
+                  title={`Pay commissioner on Venmo (@${effectiveVenmoHandle})`}
+                >
+                  <CreditCard className="w-3 h-3 text-[#008cff] shrink-0" />
+                  <span>Venmo</span>
+                  <span className="hidden sm:inline font-mono font-semibold">@{effectiveVenmoHandle}</span>
+                </a>
               )}
             </div>
             </div>
@@ -1878,8 +1911,26 @@ function SquaresPoolApp() {
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    100 Squares Pool &bull; {poolCreatorName ? `Commissioner: ${poolCreatorName}` : "View-only board"}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>100 Squares Pool &bull; {poolCreatorName ? `Commissioner: ${poolCreatorName}` : "View-only board"}</span>
+                    {effectiveVenmoHandle && (
+                      <>
+                        <span>&bull;</span>
+                        <a
+                          href={buildVenmoPayUrl(
+                            effectiveVenmoHandle,
+                            board.costPerSquare > 0 ? board.costPerSquare : 0,
+                            `PocketPicks Squares - ${board.title || "Squares"}`
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-bold text-[#008cff] hover:underline"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          <span>Pay via Venmo (@{effectiveVenmoHandle})</span>
+                        </a>
+                      </>
+                    )}
                   </p>
                 </div>
 

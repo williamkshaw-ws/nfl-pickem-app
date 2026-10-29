@@ -16,6 +16,7 @@ export interface SquaresBoardState {
   q2Score: { top: string; left: string };
   q3Score: { top: string; left: string };
   finalScore: { top: string; left: string };
+  venmoHandle?: string;
 }
 
 const DEFAULT_TOP_NUMBERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
@@ -101,6 +102,7 @@ export function validateAndSanitizeBoard(raw: unknown): SquaresBoardState {
     q2Score: parseScore(obj.q2Score),
     q3Score: parseScore(obj.q3Score),
     finalScore: parseScore(obj.finalScore),
+    venmoHandle: obj.venmoHandle ? sanitizeString(obj.venmoHandle, 30).replace(/^@+/, "").trim() : undefined,
   };
 }
 

@@ -14,6 +14,7 @@ import {
   Palette,
   ShieldAlert,
   Bell,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { auth, db } from "@/lib/firebase";
@@ -64,6 +65,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
   // Profile fields
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const [venmoHandle, setVenmoHandle] = useState("");
   const [avatarColor, setAvatarColor] = useState("bg-emerald-600");
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -112,6 +114,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
       if (user) {
         setName(user.name || "");
         setUsername(user.username || "");
+        setVenmoHandle(user.venmoHandle || "");
         if (user.avatarColor) setAvatarColor(user.avatarColor);
         setEmailNotifications(user.emailNotifications ?? false);
       }
@@ -123,6 +126,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
             const data = snap.data();
             if (data.avatarColor) setAvatarColor(data.avatarColor);
             if (typeof data.emailNotifications === "boolean") setEmailNotifications(data.emailNotifications);
+            if (typeof data.venmoHandle === "string") setVenmoHandle(data.venmoHandle);
           }
         }).catch(() => {});
       }
@@ -156,6 +160,15 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
 
     const cleanName = name.trim();
     const cleanUsername = username.trim().toLowerCase();
+    const cleanVenmo = venmoHandle.trim().replace(/^@/, "");
+
+    if (cleanVenmo.length > 0 && !/^[A-Za-z0-9_-]{3,30}$/.test(cleanVenmo)) {
+      setProfileMessage({
+        type: "error",
+        text: "Venmo username must be 3-30 letters, numbers, hyphens, or underscores.",
+      });
+      return;
+    }
 
     if (!cleanName) {
       setProfileMessage({ type: "error", text: "Name cannot be empty." });
@@ -184,6 +197,7 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
           username: cleanUsername,
           avatarColor,
           emailNotifications,
+          venmoHandle: cleanVenmo,
         }),
       });
 
@@ -440,6 +454,36 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Venmo Handle (Optional - for commissioners) */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-[#008cff]" />
+                    <span>Venmo Username (Optional)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">for dues & buy-ins</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    @
+                  </span>
+                  <input
+                    type="text"
+                    maxLength={30}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={venmoHandle}
+                    onChange={(e) => setVenmoHandle(e.target.value.replace(/^@/, "").replace(/[^A-Za-z0-9_-]/g, ""))}
+                    placeholder="your-venmo-username"
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  When you commissioner any Pick&apos;em, Squares, or Bracket pool, members will see a direct button to pay you on Venmo.
+                </p>
               </div>
 
               {/* Email Notifications Preference */}
