@@ -178,21 +178,6 @@ export async function POST(
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    if (board.maxSquaresPerUser && board.maxSquaresPerUser > 0) {
-      const counts: Record<string, number> = {};
-      for (const name of Object.values(board.grid)) {
-        const key = name.trim().toLowerCase();
-        if (!key) continue;
-        counts[key] = (counts[key] || 0) + 1;
-        if (counts[key] > board.maxSquaresPerUser) {
-          return NextResponse.json(
-            { error: `"${name.trim()}" exceeds the square limit of ${board.maxSquaresPerUser} per person` },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
     const db = adminDb();
     let poolRef = db.collection("squares_pools").doc(poolId);
     let docSnap = await poolRef.get();

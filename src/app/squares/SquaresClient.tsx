@@ -153,6 +153,8 @@ interface SquareCellProps {
   isSelected: boolean;
   isReadOnly: boolean;
   isFilterMatch: boolean;
+  isOverLimit?: boolean;
+  limitCount?: { count: number; max: number };
   isQ1Winner: boolean;
   isQ2Winner: boolean;
   isQ3Winner: boolean;
@@ -173,6 +175,8 @@ const SquareCell = React.memo(function SquareCell({
   isSelected,
   isReadOnly,
   isFilterMatch,
+  isOverLimit = false,
+  limitCount,
   isQ1Winner,
   isQ2Winner,
   isQ3Winner,
@@ -219,6 +223,12 @@ const SquareCell = React.memo(function SquareCell({
     }
   };
 
+  const cellTitle = isAnyWinner
+    ? "🏆 Winning Quarter Square! Click to celebrate."
+    : isOverLimit
+    ? `⚠️ Square limit exceeded: "${name}" has ${limitCount?.count || 0}/${limitCount?.max || 0} squares.`
+    : undefined;
+
   return (
     <td
       onClick={handleCellClick}
@@ -226,25 +236,41 @@ const SquareCell = React.memo(function SquareCell({
         isReadOnly ? (isAnyWinner ? "cursor-pointer" : "cursor-default") : "cursor-pointer"
       } ${
         isSelected
-          ? "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
+          ? isOverLimit ? "bg-rose-50/90 dark:bg-rose-950/60 z-10" : "bg-emerald-50/90 dark:bg-emerald-950/60 z-10"
           : isAnyWinner
           ? `${winnerBgColor} z-10`
+          : isOverLimit
+          ? "bg-rose-100/90 dark:bg-rose-950/70"
           : isFilterMatch
           ? "bg-amber-100/90 dark:bg-amber-950/60"
           : name
           ? "bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800"
           : "hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
       }`}
-      title={isAnyWinner ? "🏆 Winning Quarter Square! Click to celebrate." : undefined}
+      title={cellTitle}
     >
       {/* Symmetrical Uniform 2px Border Highlight (Equal thickness on top, bottom, left, and right) */}
       {isSelected ? (
-        <div className="absolute inset-0 border-2 border-emerald-500 pointer-events-none z-20" />
+        <div className={`absolute inset-0 border-2 ${isOverLimit ? "border-rose-500" : "border-emerald-500"} pointer-events-none z-20`} />
       ) : isAnyWinner ? (
         <div className={`absolute inset-0 border-2 ${winnerBorderColor} pointer-events-none z-20 animate-pulse ring-1 ring-amber-400/50`} />
+      ) : isOverLimit ? (
+        <div className="absolute inset-0 border-2 border-rose-500 pointer-events-none z-20" />
       ) : isFilterMatch ? (
         <div className="absolute inset-0 border-2 border-amber-400 pointer-events-none z-20" />
       ) : null}
+
+      {/* Over Limit Badge in Top-Left */}
+      {isOverLimit && !isPrintingBlank && (
+        <div
+          className="absolute top-0.5 left-0.5 flex items-center z-10 no-print"
+          title={`Exceeds limit: ${limitCount?.count || 0}/${limitCount?.max || 0} squares`}
+        >
+          <span className="text-[7px] font-black px-1 py-0.2 rounded bg-rose-600 text-white shadow-2xs">
+            ! {limitCount ? `${limitCount.count}/${limitCount.max}` : "MAX"}
+          </span>
+        </div>
+      )}
 
       {isSelected ? (
         <div className="w-full h-full flex items-center justify-center p-0.5">
@@ -256,7 +282,11 @@ const SquareCell = React.memo(function SquareCell({
             onBlur={onBlur}
             onKeyDown={(e) => onKeyDown(e, rIdx, cIdx)}
             placeholder="Name"
-            className="w-full h-7 text-center text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 rounded border border-emerald-500 shadow-2xs px-1 focus:outline-hidden"
+            className={`w-full h-7 text-center text-xs font-bold rounded border shadow-2xs px-1 focus:outline-hidden ${
+              isOverLimit
+                ? "text-rose-900 dark:text-rose-100 bg-rose-50/80 dark:bg-slate-900 border-rose-500"
+                : "text-slate-900 dark:text-white bg-white dark:bg-slate-900 border-emerald-500"
+            }`}
           />
         </div>
       ) : (
@@ -269,7 +299,11 @@ const SquareCell = React.memo(function SquareCell({
                   <span
                     key={pIdx}
                     className={`text-[11px] sm:text-xs font-bold truncate max-w-full ${
-                      isAnyWinner ? "text-amber-950 dark:text-amber-200 font-extrabold" : "text-slate-900 dark:text-white"
+                      isAnyWinner
+                        ? "text-amber-950 dark:text-amber-200 font-extrabold"
+                        : isOverLimit
+                        ? "text-rose-700 dark:text-rose-300 font-extrabold"
+                        : "text-slate-900 dark:text-white"
                     }`}
                   >
                     {part}
@@ -278,7 +312,11 @@ const SquareCell = React.memo(function SquareCell({
               </div>
             ) : (
               <span className={`text-[11px] sm:text-xs font-bold truncate max-w-full ${
-                isAnyWinner ? "text-amber-950 dark:text-amber-200 font-extrabold" : "text-slate-900 dark:text-white"
+                isAnyWinner
+                  ? "text-amber-950 dark:text-amber-200 font-extrabold"
+                  : isOverLimit
+                  ? "text-rose-700 dark:text-rose-300 font-extrabold"
+                  : "text-slate-900 dark:text-white"
               }`}>
                 {name}
               </span>
@@ -1200,7 +1238,7 @@ function SquaresPoolApp() {
     setSelectedCell(null);
   }, []);
 
-  // Cell Updates - preserve spaces while typing!
+  // Cell Updates - preserve spaces while typing and never block characters!
   const handleCellChange = useCallback((r: number, c: number, name: string) => {
     const key = `${r}_${c}`;
     const nextGrid = { ...boardRef.current.grid };
@@ -1208,26 +1246,24 @@ function SquaresPoolApp() {
 
     if (trimmed === "") {
       delete nextGrid[key];
-      saveStateRef.current({ ...boardRef.current, grid: nextGrid });
-      return;
+    } else {
+      nextGrid[key] = name;
     }
 
+    saveStateRef.current({ ...boardRef.current, grid: nextGrid });
+
     const maxLimit = boardRef.current.maxSquaresPerUser || 0;
-    if (maxLimit > 0) {
+    if (trimmed !== "" && maxLimit > 0) {
       let count = 0;
-      for (const [k, v] of Object.entries(nextGrid)) {
-        if (k !== key && v.trim().toLowerCase() === trimmed.toLowerCase()) {
+      for (const v of Object.values(nextGrid)) {
+        if (v.trim().toLowerCase() === trimmed.toLowerCase()) {
           count++;
         }
       }
-      if (count >= maxLimit) {
-        showToast(`Limit reached: "${trimmed}" already has ${count}/${maxLimit} squares (max ${maxLimit}).`);
-        return;
+      if (count > maxLimit) {
+        showToast(`⚠️ Limit exceeded: "${trimmed}" has ${count}/${maxLimit} squares (max ${maxLimit}). Square is highlighted in red.`);
       }
     }
-
-    nextGrid[key] = name;
-    saveStateRef.current({ ...boardRef.current, grid: nextGrid });
   }, [showToast]);
 
   // Header Updates
@@ -1448,6 +1484,17 @@ function SquaresPoolApp() {
 
     return { totalClaimed, remaining, percentage, userList, totalPot, fullPot, cost };
   }, [board.grid, board.costPerSquare]);
+
+  const userSquareCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const name of Object.values(board.grid)) {
+      const trimmed = name.trim().toLowerCase();
+      if (trimmed) {
+        counts[trimmed] = (counts[trimmed] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [board.grid]);
 
   const quarterWinners = useMemo(() => {
     const getWinner = (topScoreStr: string, leftScoreStr: string) => {
@@ -2769,6 +2816,13 @@ function SquaresPoolApp() {
                             name.toLowerCase().includes(filterUser.trim().toLowerCase())
                           );
 
+                          // Check if square exceeds maximum allowed per player
+                          const trimmedLower = name.trim().toLowerCase();
+                          const userCount = trimmedLower ? (userSquareCounts[trimmedLower] || 0) : 0;
+                          const maxLimit = board.maxSquaresPerUser || 0;
+                          const isOverLimit = Boolean(maxLimit > 0 && userCount > maxLimit);
+                          const limitCount = maxLimit > 0 ? { count: userCount, max: maxLimit } : undefined;
+
                           // Check if this square won any quarter
                           const isQ1Winner = quarterWinners.q1?.rIndex === rIdx && quarterWinners.q1?.cIndex === cIdx;
                           const isQ2Winner = quarterWinners.q2?.rIndex === rIdx && quarterWinners.q2?.cIndex === cIdx;
@@ -2784,6 +2838,8 @@ function SquaresPoolApp() {
                               isSelected={isSelected}
                               isReadOnly={isReadOnly}
                               isFilterMatch={isFilterMatch}
+                              isOverLimit={isOverLimit}
+                              limitCount={limitCount}
                               isQ1Winner={isQ1Winner}
                               isQ2Winner={isQ2Winner}
                               isQ3Winner={isQ3Winner}
@@ -3056,7 +3112,11 @@ function SquaresPoolApp() {
                     >
                       <span className="text-xs font-bold truncate max-w-[150px]">{name}</span>
                       <div className="flex items-center gap-2">
-                        {board.maxSquaresPerUser && board.maxSquaresPerUser > 0 && count >= board.maxSquaresPerUser ? (
+                        {board.maxSquaresPerUser && board.maxSquaresPerUser > 0 && count > board.maxSquaresPerUser ? (
+                          <span className="text-[10px] font-black bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5">
+                            <span>⚠️</span> Over Limit ({count}/{board.maxSquaresPerUser})
+                          </span>
+                        ) : board.maxSquaresPerUser && board.maxSquaresPerUser > 0 && count === board.maxSquaresPerUser ? (
                           <span className="text-[10px] font-black bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
                             Max ({count}/{board.maxSquaresPerUser})
                           </span>
