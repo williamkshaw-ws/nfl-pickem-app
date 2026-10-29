@@ -295,7 +295,7 @@ export function WeeklyPicks({
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
   const allGamesLocked = games.length > 0 && games.every((g) => {
     return g.status.completed || g.status.state === "in" || now >= new Date(g.date).getTime();
   });

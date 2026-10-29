@@ -82,17 +82,19 @@ export function TeamLogo({
   height = 24,
   className = "object-contain shrink-0",
 }: TeamLogoProps) {
-  if (!src && (!alt || alt.toLowerCase() === "hidden" || alt.toLowerCase() === "n/a")) {
-    return null;
-  }
+  const isHidden = !src && (!alt || alt.toLowerCase() === "hidden" || alt.toLowerCase() === "n/a");
 
-  const [imgSrc, setImgSrc] = useState<string>(resolveNflOfficialLogo(alt, src));
+  const [imgSrc, setImgSrc] = useState<string>(() => resolveNflOfficialLogo(alt, src));
   const [hasError, setHasError] = useState<boolean>(false);
 
   useEffect(() => {
     setImgSrc(resolveNflOfficialLogo(alt, src));
     setHasError(false);
   }, [src, alt]);
+
+  if (isHidden) {
+    return null;
+  }
 
   if (!imgSrc || hasError) {
     const fallbackLetters = alt ? alt.slice(0, 3).toUpperCase() : "NFL";

@@ -520,7 +520,7 @@ export function Header({
                   <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${leagueFormat === 'pickem' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60'}`}>
                     <input type="radio" name="format" value="pickem" checked={leagueFormat === 'pickem'} onChange={() => setLeagueFormat('pickem')} className="hidden" />
                     <div className="flex-1">
-                      <div className="font-bold text-sm text-slate-900 dark:text-white">Pick'em Only</div>
+                      <div className="font-bold text-sm text-slate-900 dark:text-white">Pick&apos;em Only</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">Just pick the winners of every game each week.</div>
                     </div>
                   </label>
@@ -528,7 +528,7 @@ export function Header({
                     <input type="radio" name="format" value="survivor" checked={leagueFormat === 'survivor'} onChange={() => setLeagueFormat('survivor')} className="hidden" />
                     <div className="flex-1">
                       <div className="font-bold text-sm text-slate-900 dark:text-white">Survivor Only</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">Pick one team to win each week. If they lose, you're out.</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Pick one team to win each week. If they lose, you&apos;re out.</div>
                     </div>
                   </label>
                 </div>

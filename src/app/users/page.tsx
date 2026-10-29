@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Shield,
   ShieldCheck,
@@ -88,29 +88,7 @@ export default function AdminUsersPage() {
     }, 3500);
   };
 
-  // Check initial session
-  useEffect(() => {
-    checkAdminAuth();
-  }, []);
-
-  const checkAdminAuth = async () => {
-    setCheckingAuth(true);
-    try {
-      const res = await fetch("/api/admin/check");
-      if (res.ok) {
-        setIsAuthenticated(true);
-        fetchUsers();
-      } else {
-        setIsAuthenticated(false);
-      }
-    } catch {
-      setIsAuthenticated(false);
-    } finally {
-      setCheckingAuth(false);
-    }
-  };
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     setFetchError("");
     try {
@@ -129,7 +107,29 @@ export default function AdminUsersPage() {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, []);
+
+  const checkAdminAuth = useCallback(async () => {
+    setCheckingAuth(true);
+    try {
+      const res = await fetch("/api/admin/check");
+      if (res.ok) {
+        setIsAuthenticated(true);
+        fetchUsers();
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch {
+      setIsAuthenticated(false);
+    } finally {
+      setCheckingAuth(false);
+    }
+  }, [fetchUsers]);
+
+  // Check initial session
+  useEffect(() => {
+    checkAdminAuth();
+  }, [checkAdminAuth]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

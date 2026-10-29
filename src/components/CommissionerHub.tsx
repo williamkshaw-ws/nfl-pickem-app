@@ -182,9 +182,10 @@ export function CommissionerHub({
     return map;
   }, [games]);
 
+  const [now] = useState(() => Date.now());
+
   // Compute submission statistics per user for active week
   const memberStatuses = useMemo(() => {
-    const now = Date.now();
     return users.map((u) => {
       const userPickObj = allPicks?.find(
         (p) => p.userId === u.id && p.week === activeWeek
@@ -269,6 +270,7 @@ export function CommissionerHub({
     settings.commissionerId,
     settings.pickemEnabled,
     settings.eliminatorEnabled,
+    now,
   ]);
 
   const completeCount = memberStatuses.filter((s) => s.isComplete).length;
