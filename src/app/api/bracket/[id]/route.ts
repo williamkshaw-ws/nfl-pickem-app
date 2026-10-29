@@ -15,7 +15,7 @@ import {
   GAME_ROUNDS,
   TEAM_BY_ABBR,
 } from "@/lib/playoff-bracket";
-import { loadBracketPoolPayload, DEFAULT_BRACKET_LOCK_TIME } from "@/lib/bracket-server";
+import { loadBracketPoolPayload, DEFAULT_BRACKET_LOCK_TIME, resolveBracketLockTime } from "@/lib/bracket-server";
 
 const DEFAULT_LOCK_TIME = DEFAULT_BRACKET_LOCK_TIME;
 
@@ -246,7 +246,7 @@ export async function POST(
     }
 
     const results = poolData.results || {};
-    const lockTime = poolData.lockTime || DEFAULT_LOCK_TIME;
+    const lockTime = resolveBracketLockTime(poolData.lockTime);
 
     // Automatic lock check: locks when first game begins, any game is completed, or pool is locked
     const isAutoLocked = Boolean(

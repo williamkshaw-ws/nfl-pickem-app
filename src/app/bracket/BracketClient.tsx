@@ -869,7 +869,7 @@ function BracketApp() {
     } catch {}
     savePicksToBackend({}, emptyTb);
     setShowClearModal(false);
-    showToast("Bracket cleared: all picks and Super Bowl scores reset.");
+    showToast("Bracket picks and Super Bowl score reset back to default.");
   };
 
   // Matchup resolvers: User Projected Picks vs Actual Tournament Field
@@ -1279,18 +1279,28 @@ function BracketApp() {
               </>
             )}
 
-            {/* Clear Bracket / Start Over Button */}
-            {!isLocked && hasPicksOrScores && (
-              <button
-                type="button"
-                onClick={() => setShowClearModal(true)}
-                className="inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 transition-colors cursor-pointer shrink-0"
-                title="Clear all picks and Super Bowl score to start over"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
-                <span className="hidden md:inline">Start Over</span>
-              </button>
-            )}
+            {/* Reset to Default Button in top navbar */}
+            <button
+              type="button"
+              onClick={() => setShowClearModal(true)}
+              disabled={isLocked || !hasPicksOrScores}
+              className={`inline-flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold transition-colors shrink-0 ${
+                isLocked || !hasPicksOrScores
+                  ? "opacity-40 text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                  : "bg-slate-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 cursor-pointer"
+              }`}
+              title={
+                isLocked
+                  ? "Picks are locked once the tournament kicks off"
+                  : !hasPicksOrScores
+                  ? "Bracket is already at default (no picks made)"
+                  : "Reset all picks and Super Bowl score back to default"
+              }
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              <span className="hidden md:inline">Reset to Default</span>
+              <span className="md:hidden">Reset</span>
+            </button>
 
 
             {/* Theme Toggle */}
@@ -1434,16 +1444,27 @@ function BracketApp() {
                   <span className="hidden sm:inline">Rules</span>
                 </button>
 
-                {/* Clear Bracket / Start Over Button */}
-                {activeTab === "bracket" && !isLocked && hasPicksOrScores && (
+                {/* Reset Picks to Default Button */}
+                {activeTab === "bracket" && (
                   <button
                     type="button"
                     onClick={() => setShowClearModal(true)}
-                    className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition whitespace-nowrap shrink-0 cursor-pointer"
-                    title="Clear bracket and Super Bowl score to start over"
+                    disabled={isLocked || !hasPicksOrScores}
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap shrink-0 ${
+                      isLocked || !hasPicksOrScores
+                        ? "opacity-40 text-slate-400 dark:text-slate-600 cursor-not-allowed"
+                        : "text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                    }`}
+                    title={
+                      isLocked
+                        ? "Picks are locked once the tournament kicks off"
+                        : !hasPicksOrScores
+                        ? "Bracket is already at default (no picks made)"
+                        : "Reset all picks and Super Bowl score back to default"
+                    }
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                    <span>Start Over</span>
+                    <span>Reset to Default</span>
                   </button>
                 )}
               </div>
@@ -2510,9 +2531,9 @@ function BracketApp() {
             <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
               <RotateCcw className="w-5 h-5" />
             </div>
-            <h3 className="font-extrabold text-lg text-slate-900 dark:text-white mb-2">Clear Bracket to Start Over?</h3>
+            <h3 className="font-extrabold text-lg text-slate-900 dark:text-white mb-2">Reset Bracket to Default?</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-              This will remove all your playoff game selections and clear out the predicted score defined in the Super Bowl so you can start over fresh. This action cannot be undone.
+              This will remove all your playoff game selections and clear out the predicted score defined in the Super Bowl, resetting your bracket canvas back to default. This action cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
@@ -2527,7 +2548,7 @@ function BracketApp() {
                 onClick={handleConfirmClearPicks}
                 className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer shadow-xs"
               >
-                Clear Bracket
+                Reset to Default
               </button>
             </div>
           </div>

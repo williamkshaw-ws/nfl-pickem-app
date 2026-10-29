@@ -5,7 +5,16 @@ import {
   DEFAULT_ROUND_POINTS,
 } from "@/lib/playoff-bracket";
 
-export const DEFAULT_BRACKET_LOCK_TIME = "2026-01-10T21:30:00.000Z";
+export const DEFAULT_BRACKET_LOCK_TIME = "2027-01-09T21:30:00.000Z";
+
+export function resolveBracketLockTime(storedLockTime?: string): string {
+  if (!storedLockTime) return DEFAULT_BRACKET_LOCK_TIME;
+  const d = new Date(storedLockTime);
+  if (isNaN(d.getTime()) || d.getFullYear() < 2027) {
+    return DEFAULT_BRACKET_LOCK_TIME;
+  }
+  return storedLockTime;
+}
 
 export async function loadBracketPoolPayload(
   db: FirebaseFirestore.Firestore,
@@ -101,7 +110,7 @@ export async function loadBracketPoolPayload(
   const roundPoints = poolData.roundPoints || DEFAULT_ROUND_POINTS;
   const leaderboard = rankBracketParticipants(rawParticipants, results, roundPoints);
 
-  const lockTime = poolData.lockTime || DEFAULT_BRACKET_LOCK_TIME;
+  const lockTime = resolveBracketLockTime(poolData.lockTime);
   const isAutoLocked = Boolean(
     poolData.isSimulated ||
     (results && Object.values(results).some((r: any) => r?.isCompleted)) ||
