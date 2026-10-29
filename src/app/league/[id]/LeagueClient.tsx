@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, use } from "react";
+import React, { useState, useEffect, useCallback, useMemo, use } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -18,7 +18,7 @@ import {
 import { Header } from "@/components/Header";
 import { NavigationTabs, TabType } from "@/components/NavigationTabs";
 import { WeeklyPicks } from "@/components/WeeklyPicks";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight, Clock, X } from "lucide-react";
 
 const OverallStandings = dynamic(
   () => import("@/components/OverallStandings").then((m) => m.OverallStandings)
@@ -100,6 +100,15 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
   const [pendingNavigation, setPendingNavigation] = useState<
     { type: "tab"; target: TabType } | { type: "week"; target: number } | null
   >(null);
+  const [dismissedWeeks, setDismissedWeeks] = useState<Record<number, boolean>>({});
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const showToast = (message: string) => {
     setNotification(message);
@@ -612,6 +621,145 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
     .filter((p: any) => user && p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
     .map((p: any) => p.eliminatorPick as string);
 
+  const formatKickoffDetail = (timestamp: number, currentMs: number) => {
+    const d = new Date(timestamp);
+    const diffMs = timestamp - currentMs;
+    if (diffMs <= 0) return "Starting soon";
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    let countdown = "";
+    if (diffDays > 0) {
+      const remHours = diffHours % 24;
+      countdown = remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
+    } else if (diffHours > 0) {
+      const remMinutes = diffMinutes % 60;
+      countdown = remMinutes > 0 ? `${diffHours}h ${remMinutes}m` : `${diffHours}h`;
+    } else {
+      countdown = `${diffMinutes}m`;
+    }
+
+    const timeStr = d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    return `${timeStr} (in ${countdown})`;
+  };
+
+  const unsubmittedStatus = useMemo(() => {
+    if (!user || !data || data.isGuest || data.isSeasonOver) return null;
+
+    const games = data.gamesByWeek[activeWeek] || [];
+    if (games.length === 0) return null;
+
+    const lockPolicy = data.settings.lockPolicy;
+    const now = currentTime;
+
+    // Compute lock status and lock timestamp for each game
+    const unlockedGamesWithLockTime = games
+      .map((game) => {
+        const isCompleted = game.status.completed;
+        const isLive = game.status.state === "in";
+        const gameTime = new Date(game.date).getTime();
+        let isGameLocked = isCompleted || isLive || now >= gameTime;
+        let lockTime = gameTime;
+
+        if (lockPolicy === "week") {
+          const firstGameOfWeek = Math.min(...games.map((g) => new Date(g.date).getTime()));
+          lockTime = firstGameOfWeek;
+          if (now >= firstGameOfWeek) isGameLocked = true;
+        } else if (lockPolicy === "day") {
+          const gameDateStr = new Date(game.date).toDateString();
+          const firstGameOfDay = Math.min(
+            ...games
+              .filter((g) => new Date(g.date).toDateString() === gameDateStr)
+              .map((g) => new Date(g.date).getTime())
+          );
+          lockTime = firstGameOfDay;
+          if (now >= firstGameOfDay) isGameLocked = true;
+        }
+
+        return {
+          game,
+          isGameLocked,
+          lockTime,
+        };
+      })
+      .filter((item) => !item.isGameLocked);
+
+    if (unlockedGamesWithLockTime.length === 0) return null;
+
+    // In Pick'em mode: count games that have no pick
+    const userPicks = data.activeUserPicks?.picks || {};
+    const unpickedGames = !isSurvivorOnly
+      ? unlockedGamesWithLockTime.filter((item) => !userPicks[item.game.id])
+      : [];
+
+    // In Eliminator mode: check if survivor pick is missing
+    const userElimStatus = data.eliminatorStatus?.find((s) => s.userId === user.id);
+    const isUserEliminated = userElimStatus?.status === "Eliminated";
+    const isEliminatedPrior =
+      isUserEliminated &&
+      (userElimStatus?.eliminatedWeek === undefined || userElimStatus.eliminatedWeek < activeWeek);
+
+    const missingSurvivor =
+      Boolean(data.settings.eliminatorEnabled) &&
+      !isEliminatedPrior &&
+      !data.activeUserPicks?.eliminatorPick;
+
+    if (unpickedGames.length === 0 && !missingSurvivor) {
+      return null;
+    }
+
+    // Calculate earliest upcoming lock time among unsubmitted items
+    const relevantLockTimes: number[] = [];
+    if (unpickedGames.length > 0) {
+      relevantLockTimes.push(...unpickedGames.map((item) => item.lockTime));
+    }
+    if (missingSurvivor) {
+      relevantLockTimes.push(...unlockedGamesWithLockTime.map((item) => item.lockTime));
+    }
+    const earliestLockTime = Math.min(...relevantLockTimes);
+
+    let title = "";
+    if (unpickedGames.length > 0 && missingSurvivor) {
+      title = `You have ${unpickedGames.length} unsubmitted pick${
+        unpickedGames.length > 1 ? "s" : ""
+      } & missing Survivor pick for Week ${activeWeek}`;
+    } else if (unpickedGames.length > 0) {
+      title = `You have ${unpickedGames.length} unsubmitted pick${
+        unpickedGames.length > 1 ? "s" : ""
+      } for Week ${activeWeek}`;
+    } else if (missingSurvivor) {
+      title = `Missing Survivor pick for Week ${activeWeek}`;
+    }
+
+    return {
+      unpickedCount: unpickedGames.length,
+      missingSurvivor,
+      earliestLockTime,
+      title,
+    };
+  }, [user, data, activeWeek, isSurvivorOnly, currentTime]);
+
+  const handleGoToPicks = () => {
+    if (activeTab !== "picks") {
+      handleTabChange("picks");
+    }
+    setTimeout(() => {
+      const el = document.getElementById("weekly-picks-container");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Header
@@ -676,6 +824,54 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
               );
             })()}
 
+            {/* Unsubmitted Picks Warning Banner */}
+            {unsubmittedStatus && !dismissedWeeks[activeWeek] && (
+              <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/25">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-black text-amber-950 dark:text-amber-100 flex items-center gap-2 flex-wrap">
+                      <span>{unsubmittedStatus.title}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                        Action Required
+                      </span>
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-amber-800 dark:text-amber-300/90 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 shrink-0 opacity-75" />
+                        Next lock: {formatKickoffDetail(unsubmittedStatus.earliestLockTime, currentTime)}
+                      </span>
+                      <span className="hidden sm:inline opacity-60">•</span>
+                      <span className="opacity-90">Lock your picks in before kickoff!</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={handleGoToPicks}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <span>{activeTab === "picks" ? "Complete Picks" : "Make Picks"}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDismissedWeeks((prev) => ({ ...prev, [activeWeek]: true }))}
+                    aria-label="Dismiss banner"
+                    className="p-2 text-amber-700/70 hover:text-amber-900 dark:text-amber-400/70 dark:hover:text-amber-200 rounded-xl hover:bg-amber-500/10 transition cursor-pointer"
+                    title="Dismiss for now"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <NavigationTabs 
               activeTab={activeTab} 
               onTabChange={handleTabChange} 
@@ -692,7 +888,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
               eliminatorEnabled={data.settings.eliminatorEnabled}
             />
 
-            <div className="mt-8">
+            <div id="weekly-picks-container" className="mt-8">
               {activeTab === "picks" && (
                 <WeeklyPicks
                   games={data.gamesByWeek[activeWeek] || []}
