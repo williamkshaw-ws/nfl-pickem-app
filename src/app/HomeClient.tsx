@@ -88,6 +88,30 @@ export default function HomeClient() {
               }
               window.location.href = `/bracket?id=${encodeURIComponent(data.code || clean)}`;
             } else if (data.found && data.type === "league") {
+              if (data.hasPassword) {
+                setJoinCode(clean);
+                setShowJoin(true);
+                return;
+              }
+              const token = await auth.currentUser?.getIdToken();
+              if (token) {
+                const joinRes = await fetch("/api/league/join", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ code: data.code || clean }),
+                }).catch(() => null);
+
+                if (joinRes && !joinRes.ok) {
+                  const errJson = await joinRes.json().catch(() => ({}));
+                  setJoinError(errJson.error || "Failed to join league.");
+                  setJoinCode(clean);
+                  setShowJoin(true);
+                  return;
+                }
+              }
               window.location.href = `/league/${encodeURIComponent(data.id || data.code || clean)}`;
             } else {
               setJoinCode(clean);

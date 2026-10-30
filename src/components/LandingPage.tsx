@@ -118,6 +118,7 @@ export interface ResolvedCodeInfo {
   topTeam?: string | null;
   leftTeam?: string | null;
   error?: string;
+  hasPassword?: boolean;
 }
 
 export function LandingPage() {
@@ -146,6 +147,7 @@ export function LandingPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [modalCode, setModalCode] = useState("");
+  const [modalPassword, setModalPassword] = useState("");
   const [modalError, setModalError] = useState("");
 
   // Auto-detect code preview states for Join Modal
@@ -264,12 +266,21 @@ export function LandingPage() {
             return;
           } else if (info.type === "league") {
             if (token) {
-              await fetch("/api/league/join", {
+              const res = await fetch("/api/league/join", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ code: poolCode }),
-              }).catch(() => null);
+                body: JSON.stringify({ code: poolCode, password: modalPassword.trim() }),
+              });
+              const resData = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                setModalError(resData.error || "Failed to join league.");
+                setShowJoinModal(true);
+                return;
+              }
             }
+            try {
+              localStorage.setItem("last_active_league", info.id || poolCode);
+            } catch {}
             router.push(`/league/${encodeURIComponent(info.id || poolCode)}`);
             return;
           }
@@ -285,7 +296,7 @@ export function LandingPage() {
         setIsDirectJoining(false);
       }
     },
-    [user, lookupCode, router]
+    [user, lookupCode, router, modalPassword]
   );
 
   useEffect(() => {
@@ -2136,6 +2147,25 @@ export function LandingPage() {
                   )
                 )}
 
+                {modalResolved?.found && modalResolved.type === "league" && modalResolved.hasPassword && (
+                  <div className="mt-3 text-left">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>League Password Required</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter league password"
+                      value={modalPassword}
+                      onChange={(e) => {
+                        setModalPassword(e.target.value);
+                        if (modalError) setModalError("");
+                      }}
+                      className="w-full py-2.5 px-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-semibold focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                )}
+
                 {modalError && (
                   <p className="text-rose-500 text-xs font-semibold mt-2">{modalError}</p>
                 )}
@@ -2145,7 +2175,11 @@ export function LandingPage() {
                 {user ? (
                   <button
                     type="button"
-                    disabled={modalCode.trim().length < 3 || isDirectJoining}
+                    disabled={
+                      modalCode.trim().length < 3 ||
+                      isDirectJoining ||
+                      (Boolean(modalResolved?.hasPassword) && !modalPassword.trim())
+                    }
                     onClick={() => executeDirectJoin(modalCode, modalResolved)}
                     className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-sm shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
                   >

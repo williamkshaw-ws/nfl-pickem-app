@@ -1587,24 +1587,57 @@ export function CommissionerHub({
 
             {/* League Password */}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                League Password (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  League Password
+                </label>
+                {settings.hasPassword ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                    <Lock className="w-2.5 h-2.5 stroke-[2.5]" /> Password Protected
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Public (No Password)
+                  </span>
+                )}
+              </div>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={leaguePassword}
                   onChange={(e) => setLeaguePassword(e.target.value)}
-                  placeholder="Leave blank for public"
+                  placeholder={settings.hasPassword ? "Enter new password to change..." : "Leave blank for public"}
                   className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-400"
                 />
                 <button
-                  onClick={() => onUpdateSettings({ leaguePassword })}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0"
+                  type="button"
+                  onClick={async () => {
+                    await onUpdateSettings({ leaguePassword });
+                    setLeaguePassword("");
+                  }}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex-shrink-0 cursor-pointer"
                 >
                   Save
                 </button>
+                {settings.hasPassword && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await onUpdateSettings({ leaguePassword: "" });
+                      setLeaguePassword("");
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 font-bold text-xs rounded-xl transition flex-shrink-0 cursor-pointer"
+                    title="Remove password requirement"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
+              {settings.hasPassword && (
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
+                  Members must provide this password to join. To keep the current password, leave this field unchanged.
+                </p>
+              )}
             </div>
           </div>
 

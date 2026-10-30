@@ -143,6 +143,7 @@ export interface LeagueSettings {
   eliminatorEnabled?: boolean;
   pickemEnabled?: boolean;
   leaguePassword?: string;
+  hasPassword?: boolean;
   entryFee?: number;
   /** Weekly winner-take-all buy-in per player, per week */
   weeklyFee?: number;

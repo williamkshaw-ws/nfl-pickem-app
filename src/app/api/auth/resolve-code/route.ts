@@ -115,6 +115,11 @@ export async function POST(request: Request) {
     if (leagueDoc && leagueDoc.exists) {
       const data = leagueDoc.data()!;
       const leagueTitle = data.name || data.settings?.leagueName || "Pick'em League";
+      const hasLeaguePassword = Boolean(
+        data.settings?.leaguePassword &&
+        typeof data.settings.leaguePassword === "string" &&
+        data.settings.leaguePassword.trim() !== ""
+      );
       return NextResponse.json({
         found: true,
         type: "league",
@@ -123,6 +128,7 @@ export async function POST(request: Request) {
         name: leagueTitle,
         title: leagueTitle,
         creatorName: data.commissionerName || null,
+        hasPassword: hasLeaguePassword,
       });
     }
 
