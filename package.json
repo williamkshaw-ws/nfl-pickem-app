@@ -32,6 +32,7 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.13.6"
+    "@grpc/grpc-js": "^1.13.6",
+    "jwks-rsa": "3.2.2"
   }
 }
