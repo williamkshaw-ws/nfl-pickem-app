@@ -10,6 +10,9 @@ export interface ContenderScenario {
   canWinIfAway: boolean;
   canWinIfHome: boolean;
   summary: string;
+  isLiveEliminated?: boolean;
+  liveStatusLabel?: string;
+  liveEliminationReason?: string;
 }
 
 export interface ScenarioCheatSheetRow {
@@ -270,6 +273,37 @@ export function computeClinchingAnalysis(
     }
   }
 
+  // Check live game state & live mathematical elimination
+  const isGameLive = remainingGame.status?.state === "in";
+  const isGameFinal = Boolean(remainingGame.status?.completed || remainingGame.status?.state === "post");
+  const curAwayScore = Number(remainingGame.awayScore) || 0;
+  const curHomeScore = Number(remainingGame.homeScore) || 0;
+  const curLiveTotal = curAwayScore + curHomeScore;
+
+  const liveAliveSet = new Set<string>();
+  if (isGameLive) {
+    for (let a = curAwayScore; a <= 75; a++) {
+      for (let h = curHomeScore; h <= 75; h++) {
+        if (a === h) continue;
+        const res = simulate(a, h);
+        if (res) {
+          liveAliveSet.add(res.winner.name);
+          if (res.coWinners) {
+            res.coWinners.forEach((cw) => liveAliveSet.add(cw.name));
+          }
+        }
+      }
+    }
+  }
+
+  let finalWinnerName = "";
+  if (isGameFinal) {
+    const finalRes = simulate(curAwayScore, curHomeScore);
+    if (finalRes) {
+      finalWinnerName = finalRes.winner.name;
+    }
+  }
+
   // Construct individual summaries
   const contenders: ContenderScenario[] = contenderPlayers.map((c) => {
     const aStats = awayWinTally[c.user.name];
@@ -294,7 +328,7 @@ export function computeClinchingAnalysis(
       } else if (hStats.minTot >= 45 && hStats.maxTot <= 48) {
         parts.push(`${homeTeam.name} WINS and total points between 45–48`);
       } else if (hStats.maxTot <= 44) {
-        const seaCond = hStats.seaMax && hStats.seaMax <= 26 ? ` (${homeTeam.abbreviation} scores $\\le 26$)` : ` (${homeTeam.abbreviation} scores $\\ge 28$)`;
+        const seaCond = hStats.seaMax && hStats.seaMax <= 26 ? ` (${homeTeam.abbreviation} scores ≤ 26)` : ` (${homeTeam.abbreviation} scores ≥ 28)`;
         parts.push(`${homeTeam.name} WINS, 44 or fewer total points${seaCond}`);
       } else {
         parts.push(`${homeTeam.name} WINS (within ${hStats.minTot}–${hStats.maxTot} total pts)`);
@@ -313,6 +347,27 @@ export function computeClinchingAnalysis(
       c.preWins + (c.pickTeamId === homeTeam.id ? 1 : 0)
     );
 
+    let isLiveEliminated = false;
+    let liveStatusLabel = "In Contention";
+    let liveEliminationReason: string | undefined;
+
+    if (isGameFinal) {
+      if (c.user.name === finalWinnerName) {
+        liveStatusLabel = "🏆 Weekly Winner";
+      } else {
+        isLiveEliminated = true;
+        liveStatusLabel = "Final (Eliminated)";
+      }
+    } else if (isGameLive) {
+      if (liveAliveSet.has(c.user.name)) {
+        liveStatusLabel = "Live Contender";
+      } else {
+        isLiveEliminated = true;
+        liveStatusLabel = "Eliminated (Live)";
+        liveEliminationReason = `Mathematically eliminated based on current live score (${awayTeam.abbreviation} ${curAwayScore} - ${homeTeam.abbreviation} ${curHomeScore}, ${curLiveTotal} total pts).`;
+      }
+    }
+
     return {
       user: c.user,
       preWins: c.preWins,
@@ -323,6 +378,9 @@ export function computeClinchingAnalysis(
       canWinIfAway,
       canWinIfHome,
       summary,
+      isLiveEliminated,
+      liveStatusLabel,
+      liveEliminationReason,
     };
   });
 

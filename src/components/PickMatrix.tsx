@@ -502,17 +502,6 @@ export function PickMatrix({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {isClinchingEligible && (
-            <button
-              type="button"
-              onClick={() => setShowClinchingModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition-all shadow-xs shadow-amber-500/30 cursor-pointer active:scale-95"
-            >
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>Clinching Scenarios</span>
-            </button>
-          )}
-
           <button
             onClick={() => setShowRulesModal(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer"
