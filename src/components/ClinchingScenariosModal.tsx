@@ -172,11 +172,17 @@ export function ClinchingScenariosModal({
                       )}
                     </div>
 
+                    {/* Path to Victory */}
+                    <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed mb-2.5">
+                      <span className="font-bold text-slate-900 dark:text-white">Path to Victory: </span>
+                      <span>{c.summary}</span>
+                    </div>
+
                     {/* Tiebreaker Prediction Details */}
                     {c.tiebreaker && (
-                      <div className="text-xs bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 mb-2.5 font-mono flex items-center justify-between">
+                      <div className="text-xs bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-xl text-slate-600 dark:text-slate-400 font-mono flex items-center justify-between">
                         <span>
-                          <span className="font-bold text-slate-900 dark:text-white">Predicted:</span>{" "}
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">Predicted Score:</span>{" "}
                           {awayTeam.abbreviation} {c.tiebreaker.awayScore} - {homeTeam.abbreviation} {c.tiebreaker.homeScore}
                         </span>
                         <span className="font-bold text-slate-500 dark:text-slate-400">
@@ -184,12 +190,6 @@ export function ClinchingScenariosModal({
                         </span>
                       </div>
                     )}
-
-                    {/* Path to Victory */}
-                    <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                      <span className="font-bold text-slate-900 dark:text-white">Path to Victory: </span>
-                      <span>{c.summary}</span>
-                    </div>
 
                     {/* Live Status Badge / Elimination Notice */}
                     {isGameLive && (
