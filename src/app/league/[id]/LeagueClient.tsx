@@ -716,6 +716,13 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
     };
   }, [user, data, activeWeek, currentTime]);
 
+  const isClinchingEligible = useMemo(() => {
+    if (!data || data.settings?.pickemEnabled === false) return false;
+    const weekGames = data.gamesByWeek?.[activeWeek] || [];
+    const remaining = weekGames.filter((g: any) => !g.status?.completed);
+    return isClinchingEligibleTiming(activeWeek) && remaining.length === 1;
+  }, [data, activeWeek]);
+
   const handleGoToPicks = () => {
     if (activeTab !== "picks") {
       handleTabChange("picks");
@@ -802,13 +809,6 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
   const usedEliminatorTeams = (data.allPicks || [])
     .filter((p: any) => user && p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
     .map((p: any) => p.eliminatorPick as string);
-
-  const isClinchingEligible = useMemo(() => {
-    if (!data || isSurvivorOnly) return false;
-    const weekGames = data.gamesByWeek[activeWeek] || [];
-    const remaining = weekGames.filter((g: any) => !g.status.completed);
-    return isClinchingEligibleTiming(activeWeek) && remaining.length === 1;
-  }, [data, isSurvivorOnly, activeWeek]);
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
