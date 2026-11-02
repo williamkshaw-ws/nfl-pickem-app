@@ -3,8 +3,10 @@
 import React, { useMemo, useState } from "react";
 import { fireCelebrationConfetti } from "@/lib/confetti";
 import { Game, User, UserPicks, Team, EliminatorStatus, WeeklyPlayerResult, isPickCorrect, isSurvivorPickWon } from "@/types/nfl";
-import { Check, X, Clock, Trophy, Sparkles, HelpCircle } from "lucide-react";
+import { Check, X, Clock, Trophy, Sparkles, HelpCircle, Zap } from "lucide-react";
 import { TeamLogo } from "./TeamLogo";
+import { ClinchingScenariosModal } from "./ClinchingScenariosModal";
+import { isClinchingEligibleTiming } from "@/lib/clinching-scenarios";
 
 interface PickMatrixProps {
   games: Game[];
@@ -54,6 +56,7 @@ export function PickMatrix({
   settings,
 }: PickMatrixProps) {
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+  const [showClinchingModal, setShowClinchingModal] = useState<boolean>(false);
 
   const triggerConfetti = (e?: React.MouseEvent) => {
     if (e) {
@@ -93,6 +96,10 @@ export function PickMatrix({
       isWeekFinished: sorted.length > 0 && remaining.length === 0,
     };
   }, [games]);
+
+  const isClinchingEligible = useMemo(() => {
+    return isClinchingEligibleTiming(activeWeek) && remainingCount === 1 && !isWeekFinished;
+  }, [activeWeek, remainingCount, isWeekFinished]);
 
   const tbFinal =
     tbGame &&
@@ -494,14 +501,57 @@ export function PickMatrix({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowRulesModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-          <span>Tiebreaker Rules</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {isClinchingEligible && (
+            <button
+              type="button"
+              onClick={() => setShowClinchingModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition-all shadow-xs shadow-amber-500/30 cursor-pointer active:scale-95"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Clinching Scenarios</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowRulesModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+            <span>Tiebreaker Rules</span>
+          </button>
+        </div>
       </div>
+
+      {/* Clinching Scenarios Announcement Banner (Active only when 1 game remains on Monday or W18 Sunday) */}
+      {isClinchingEligible && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-emerald-500/10 border border-amber-300 dark:border-amber-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-xs">
+              <Zap className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Week {activeWeek} Clinching Scenarios</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                  Final Game
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300">
+                Only 1 game left to decide the week! Click to see how each contender in the hunt can take 1st place.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowClinchingModal(true)}
+            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-xs transition shadow-xs cursor-pointer shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>View Scenarios</span>
+          </button>
+        </div>
+      )}
 
       {/* Games Summary & Legend Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs">
@@ -998,6 +1048,18 @@ export function PickMatrix({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Clinching Scenarios Modal */}
+      {showClinchingModal && (
+        <ClinchingScenariosModal
+          isOpen={showClinchingModal}
+          onClose={() => setShowClinchingModal(false)}
+          games={games}
+          users={users}
+          allPicks={allPicks}
+          activeWeek={activeWeek}
+        />
       )}
     </div>
   );

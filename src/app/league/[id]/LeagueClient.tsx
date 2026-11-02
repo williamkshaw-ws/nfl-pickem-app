@@ -18,7 +18,7 @@ import {
 import { Header } from "@/components/Header";
 import { NavigationTabs, TabType } from "@/components/NavigationTabs";
 import { WeeklyPicks } from "@/components/WeeklyPicks";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight, Clock, X, UserPlus, Lock } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight, Clock, X, UserPlus, Lock, Zap } from "lucide-react";
 
 const OverallStandings = dynamic(
   () => import("@/components/OverallStandings").then((m) => m.OverallStandings)
@@ -32,9 +32,14 @@ const EliminatorPool = dynamic(
 const CommissionerHub = dynamic(
   () => import("@/components/CommissionerHub").then((m) => m.CommissionerHub)
 );
+const ClinchingScenariosModal = dynamic(
+  () => import("@/components/ClinchingScenariosModal").then((m) => m.ClinchingScenariosModal),
+  { ssr: false }
+);
 import { authFetch } from "@/lib/api-client";
 import { getPayoutConfig, formatMoney, describeDues, buildVenmoPayUrl } from "@/lib/payouts";
 import { calculateWeeklyResults } from "@/lib/scoring";
+import { isClinchingEligibleTiming } from "@/lib/clinching-scenarios";
 
 const UserSettingsModal = dynamic(
   () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
@@ -98,6 +103,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
   const [showUnsavedModal, setShowUnsavedModal] = useState<boolean>(false);
   const [showFallbackSettings, setShowFallbackSettings] = useState<boolean>(false);
   const [showJoinModal, setShowJoinModal] = useState<boolean>(false);
+  const [showClinchingModal, setShowClinchingModal] = useState<boolean>(false);
   const [joinPassword, setJoinPassword] = useState<string>("");
   const [joinError, setJoinError] = useState<string>("");
   const [isJoining, setIsJoining] = useState<boolean>(false);
@@ -797,6 +803,13 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
     .filter((p: any) => user && p.userId === user.id && p.week !== activeWeek && p.eliminatorPick)
     .map((p: any) => p.eliminatorPick as string);
 
+  const isClinchingEligible = useMemo(() => {
+    if (!data || isSurvivorOnly) return false;
+    const weekGames = data.gamesByWeek[activeWeek] || [];
+    const remaining = weekGames.filter((g: any) => !g.status.completed);
+    return isClinchingEligibleTiming(activeWeek) && remaining.length === 1;
+  }, [data, isSurvivorOnly, activeWeek]);
+
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Header
@@ -937,6 +950,36 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
                     <X className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Clinching Scenarios Banner (Shown on Monday / Final Game Day when 1 game remains) */}
+            {isClinchingEligible && activeTab === "picks" && (
+              <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-emerald-500/10 border border-amber-300 dark:border-amber-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-xs">
+                    <Zap className="w-5 h-5 fill-current" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+                      <span>Week {activeWeek} Clinching Scenarios</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                        Final Game
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 mt-0.5 truncate sm:whitespace-normal">
+                      Only 1 game left to decide the week! Click to see how each contender in the hunt can take 1st place.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowClinchingModal(true)}
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-xs transition shadow-xs cursor-pointer shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  <span>View Scenarios</span>
+                </button>
               </div>
             )}
 
@@ -1175,6 +1218,17 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
           )}
           <span className="text-xs font-bold tracking-tight text-slate-900 dark:text-slate-100">{notification}</span>
         </div>
+      )}
+
+      {showClinchingModal && data && (
+        <ClinchingScenariosModal
+          isOpen={showClinchingModal}
+          onClose={() => setShowClinchingModal(false)}
+          games={data.gamesByWeek[activeWeek] || []}
+          users={data.users || []}
+          allPicks={data.allPicks || []}
+          activeWeek={activeWeek}
+        />
       )}
     </div>
   );
