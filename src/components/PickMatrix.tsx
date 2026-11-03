@@ -719,10 +719,10 @@ export function PickMatrix({
                     >
                       <td
                         colSpan={totalCols}
-                        className={`sticky left-0 py-1.5 px-3 z-10 backdrop-blur-xs text-left ${
+                        className={`sticky left-0 py-1.5 px-3 z-10 text-left ${
                           isMe
-                            ? "bg-blue-100/80 dark:bg-blue-950/90 border-l-4 border-blue-500 pl-2.5"
-                            : "bg-slate-50/95 dark:bg-slate-800/95"
+                            ? "bg-blue-100 dark:bg-blue-950 shadow-[inset_4px_0_0_0_#2563eb] pl-3"
+                            : "bg-slate-50 dark:bg-slate-800"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 max-w-full">
