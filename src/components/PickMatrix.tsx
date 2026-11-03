@@ -713,7 +713,7 @@ export function PickMatrix({
                     <tr
                       className={
                         isMe
-                          ? "bg-emerald-100/60 dark:bg-emerald-950/50 border-t-2 border-emerald-400 dark:border-emerald-700"
+                          ? "bg-blue-50/90 dark:bg-blue-950/50 border-t-2 border-blue-300 dark:border-blue-700/80"
                           : "bg-slate-50/90 dark:bg-slate-800/80 border-t-2 border-slate-200/90 dark:border-slate-700/80"
                       }
                     >
@@ -721,7 +721,7 @@ export function PickMatrix({
                         colSpan={totalCols}
                         className={`sticky left-0 py-1.5 px-3 z-10 backdrop-blur-xs text-left ${
                           isMe
-                            ? "bg-emerald-100/75 dark:bg-emerald-950/90 border-l-4 border-emerald-500 pl-2.5"
+                            ? "bg-blue-100/80 dark:bg-blue-950/90 border-l-4 border-blue-500 pl-2.5"
                             : "bg-slate-50/95 dark:bg-slate-800/95"
                         }`}
                       >
@@ -731,8 +731,13 @@ export function PickMatrix({
                             <span className="text-[11px] font-mono font-black text-slate-500 dark:text-slate-400 w-7 shrink-0">
                               {stat.rankLabel}
                             </span>
-                            <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">
-                              {user.name}
+                            <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate flex items-center gap-1.5">
+                              <span>{user.name}</span>
+                              {isMe && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-500 text-white shrink-0">
+                                  You
+                                </span>
+                              )}
                             </span>
                             <span
                               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${contention.badgeColor}`}
@@ -824,7 +829,13 @@ export function PickMatrix({
                     </tr>
 
                     {/* Picks Data Row */}
-                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                    <tr
+                      className={`transition-colors ${
+                        isMe
+                          ? "bg-blue-50/25 dark:bg-blue-950/20 hover:bg-blue-50/40 dark:hover:bg-blue-950/30"
+                          : "hover:bg-slate-50/50 dark:hover:bg-slate-800/40"
+                      }`}
+                    >
                       {/* Pick Cells */}
                       {sortedGames.map((game) => {
                         const pickedTeamId = stat.userPicksMap[game.id];
