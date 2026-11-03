@@ -832,12 +832,12 @@ export function PickMatrix({
                     <tr
                       className={`transition-colors ${
                         isMe
-                          ? "bg-blue-50/60 dark:bg-blue-950/30 border-b border-blue-200/60 dark:border-blue-800/50"
+                          ? "bg-blue-100/50 dark:bg-blue-950/60 border-b-2 border-blue-200 dark:border-blue-800"
                           : "hover:bg-slate-50/50 dark:hover:bg-slate-800/40"
                       }`}
                     >
                       {/* Pick Cells */}
-                      {sortedGames.map((game) => {
+                      {sortedGames.map((game, gameIdx) => {
                         const pickedTeamId = stat.userPicksMap[game.id];
                         const hasPicked = Boolean(pickedTeamId);
                         const isFinal = game.status.completed;
@@ -863,9 +863,11 @@ export function PickMatrix({
                             key={game.id}
                             className={`p-0.5 text-center border-r border-slate-100 dark:border-slate-800/80 min-w-[46px] max-w-[54px] ${
                               isMe
-                                ? game.isTiebreakerGame
-                                  ? "bg-blue-100/40 dark:bg-blue-900/25"
-                                  : "bg-blue-50/50 dark:bg-blue-950/25"
+                                ? `${gameIdx === 0 ? "border-l-4 border-blue-500 pl-1.5 " : ""}${
+                                    game.isTiebreakerGame
+                                      ? "bg-blue-100/70 dark:bg-blue-900/50"
+                                      : "bg-blue-100/50 dark:bg-blue-950/60"
+                                  }`
                                 : game.isTiebreakerGame
                                 ? "bg-amber-50/20 dark:bg-amber-950/10"
                                 : ""
@@ -892,7 +894,7 @@ export function PickMatrix({
                                     : isIncorrect
                                     ? "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
                                     : isMe
-                                    ? "bg-blue-100/50 dark:bg-blue-900/40 border border-blue-200/80 dark:border-blue-800/60 text-blue-950 dark:text-blue-100 font-bold"
+                                    ? "bg-white/90 dark:bg-slate-800/90 border border-blue-300 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-bold shadow-2xs"
                                     : "text-slate-800 dark:text-slate-200 font-bold"
                                 }`}
                               >
@@ -934,10 +936,10 @@ export function PickMatrix({
                       {/* Tiebreaker Cell */}
                       {tbGame && (
                         <td
-                          className={`p-1 text-center min-w-[52px] max-w-[60px] border-l border-slate-200 dark:border-slate-800 ${
+                          className={`p-1 text-center min-w-[52px] max-w-[60px] border-l ${
                             isMe
-                              ? "bg-blue-100/50 dark:bg-blue-900/30"
-                              : "bg-slate-50/25 dark:bg-slate-800/25"
+                              ? "bg-blue-100/60 dark:bg-blue-900/50 border-blue-200 dark:border-blue-800"
+                              : "bg-slate-50/25 dark:bg-slate-800/25 border-slate-200 dark:border-slate-800"
                           }`}
                         >
                           {stat.tb ? (
