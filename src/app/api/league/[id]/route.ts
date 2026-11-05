@@ -13,6 +13,7 @@ import { hashLeaguePassword } from "@/lib/league-password";
 import { calculateWeeklyResults, calculateSeasonStandings, calculateSurvivorStatus } from "@/lib/scoring";
 import { normalizeVenmoHandle } from "@/lib/payouts";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { computeClinchingAnalysis } from "@/lib/clinching-scenarios";
 
 // Throttle automatic ESPN sync on page load to at most once every 60 seconds per week
 const lastAutoSyncByWeek: Record<number, number> = {};
@@ -238,6 +239,24 @@ export async function GET(
 
     const tbLocked = tbGame ? isGameLocked(tbGame, gamesForWeek, settings.lockPolicy, now) : false;
 
+    // Pre-compute Monday Clinching Scenarios server-side using raw unmasked picks
+    // so non-commissioners can view accurate Clinching Scenarios on Monday before MNF locks,
+    // without exposing other players' raw MNF picks in the Pick Matrix before kickoff.
+    const clinchingAnalysisRaw = computeClinchingAnalysis(
+      gamesForWeek,
+      users,
+      rawAllPicks,
+      activeWeek
+    );
+    const clinchingContenderIds = new Set<string>(
+      clinchingAnalysisRaw.isEligible
+        ? clinchingAnalysisRaw.contenders.map((c) => c.user.id)
+        : []
+    );
+    const clinchingRemainingGameId = clinchingAnalysisRaw.isEligible
+      ? clinchingAnalysisRaw.remainingGame?.id
+      : undefined;
+
     // Mask picks for unlocked games and tiebreakers so other players cannot spy before kickoff
     const allPicks = rawAllPicks.map((p) => {
       if (p.userId === caller.uid) return p;
@@ -253,12 +272,20 @@ export async function GET(
         return p;
       }
 
+      const isActiveClinchingContender =
+        p.week === activeWeek &&
+        clinchingAnalysisRaw.isEligible &&
+        clinchingContenderIds.has(p.userId);
+
       const maskedPicks: Record<string, string> = {};
       if (p.picks && typeof p.picks === "object") {
         for (const [gameId, pickedTeamId] of Object.entries(p.picks)) {
           if (!pickedTeamId) continue;
           const game = gamesForThisWeek.find((g: any) => g.id === gameId);
-          if (game && isGameLocked(game, gamesForThisWeek, settings.lockPolicy, now)) {
+          if (
+            (game && isGameLocked(game, gamesForThisWeek, settings.lockPolicy, now)) ||
+            (isActiveClinchingContender && gameId === clinchingRemainingGameId)
+          ) {
             maskedPicks[gameId] = pickedTeamId as string;
           } else {
             maskedPicks[gameId] = "HIDDEN";
@@ -270,11 +297,12 @@ export async function GET(
         gamesForThisWeek.find((g: any) => g.isTiebreakerGame) ||
         [...gamesForThisWeek].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
       const thisTbLocked = thisTbGame ? isGameLocked(thisTbGame, gamesForThisWeek, settings.lockPolicy, now) : false;
-      const maskedTb = thisTbLocked
-        ? p.tiebreaker
-        : p.tiebreaker
-        ? { isHidden: true, totalScore: 0, homeScore: 0, awayScore: 0 }
-        : undefined;
+      const maskedTb =
+        thisTbLocked || isActiveClinchingContender
+          ? p.tiebreaker
+          : p.tiebreaker
+          ? { isHidden: true, totalScore: 0, homeScore: 0, awayScore: 0 }
+          : undefined;
 
       let maskedElim: string | undefined = undefined;
       if (p.eliminatorPick) {

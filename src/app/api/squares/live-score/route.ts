@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveTeamAbbr, isTeamMatch } from "@/lib/nfl-teams";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { HttpError } from "@/lib/server-auth";
 
 interface CompetitorParsed {
   id: string;
@@ -116,6 +118,9 @@ function parseEvent(event: EspnEvent): ParsedGame | null {
 
 export async function GET(request: Request) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`squares_live_score:${ip}`, 60, 60_000);
+
     const { searchParams } = new URL(request.url);
     const topTeamQuery = searchParams.get("top") || "";
     const leftTeamQuery = searchParams.get("left") || "";
@@ -315,6 +320,9 @@ export async function GET(request: Request) {
       availableGames,
     });
   } catch (err: unknown) {
+    if (err instanceof HttpError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Live score API error:", err);
     const msg = err instanceof Error ? err.message : "Failed to fetch live score";
     return NextResponse.json(

@@ -15,15 +15,6 @@ export interface ContenderScenario {
   liveEliminationReason?: string;
 }
 
-export interface ScenarioCheatSheetRow {
-  outcome: "away" | "home";
-  outcomeLabel: string;
-  condition: string;
-  winnerName: string;
-  winnerUser?: User;
-  explanation: string;
-}
-
 export interface SimulatedResult {
   winner: User;
   isTie: boolean;
@@ -45,7 +36,6 @@ export interface ClinchingAnalysis {
   awayTeam: Team | null;
   homeTeam: Team | null;
   contenders: ContenderScenario[];
-  cheatSheet: ScenarioCheatSheetRow[];
   simulate: (awayScore: number, homeScore: number) => SimulatedResult | null;
 }
 
@@ -90,7 +80,6 @@ export function computeClinchingAnalysis(
       awayTeam: remaining[0]?.awayTeam || null,
       homeTeam: remaining[0]?.homeTeam || null,
       contenders: [],
-      cheatSheet: [],
       simulate: () => null,
     };
   }
@@ -239,9 +228,11 @@ export function computeClinchingAnalysis(
     };
   };
 
-  // Run simulation matrix to build cheat sheet and individual contender summaries
-  const awayWinTally: Record<string, { minTot: number; maxTot: number; count: number; seaMax?: number; seaMin?: number }> = {};
-  const homeWinTally: Record<string, { minTot: number; maxTot: number; count: number; seaMax?: number; seaMin?: number }> = {};
+  // Run simulation matrix to build individual contender summaries
+  const awayWinTally: Record<string, { minTot: number; maxTot: number; count: number; homeMin: number; homeMax: number }> = {};
+  const homeWinTally: Record<string, { minTot: number; maxTot: number; count: number; homeMin: number; homeMax: number }> = {};
+  let totalAwayCombos = 0;
+  let totalHomeCombos = 0;
 
   for (let a = 0; a <= 55; a++) {
     for (let h = 0; h <= 55; h++) {
@@ -252,26 +243,63 @@ export function computeClinchingAnalysis(
       const wName = res.winner.name;
 
       if (a > h) {
-        // Away win
+        totalAwayCombos++;
         if (!awayWinTally[wName]) {
-          awayWinTally[wName] = { minTot: tot, maxTot: tot, count: 0 };
+          awayWinTally[wName] = { minTot: tot, maxTot: tot, count: 0, homeMin: h, homeMax: h };
         }
         awayWinTally[wName].count++;
         awayWinTally[wName].minTot = Math.min(awayWinTally[wName].minTot, tot);
         awayWinTally[wName].maxTot = Math.max(awayWinTally[wName].maxTot, tot);
+        awayWinTally[wName].homeMin = Math.min(awayWinTally[wName].homeMin, h);
+        awayWinTally[wName].homeMax = Math.max(awayWinTally[wName].homeMax, h);
       } else {
-        // Home win
+        totalHomeCombos++;
         if (!homeWinTally[wName]) {
-          homeWinTally[wName] = { minTot: tot, maxTot: tot, count: 0, seaMin: h, seaMax: h };
+          homeWinTally[wName] = { minTot: tot, maxTot: tot, count: 0, homeMin: h, homeMax: h };
         }
         homeWinTally[wName].count++;
         homeWinTally[wName].minTot = Math.min(homeWinTally[wName].minTot, tot);
         homeWinTally[wName].maxTot = Math.max(homeWinTally[wName].maxTot, tot);
-        homeWinTally[wName].seaMin = Math.min(homeWinTally[wName].seaMin ?? h, h);
-        homeWinTally[wName].seaMax = Math.max(homeWinTally[wName].seaMax ?? h, h);
+        homeWinTally[wName].homeMin = Math.min(homeWinTally[wName].homeMin, h);
+        homeWinTally[wName].homeMax = Math.max(homeWinTally[wName].homeMax, h);
       }
     }
   }
+
+  const formatBranchCondition = (
+    teamName: string,
+    stats: { minTot: number; maxTot: number; count: number; homeMin: number; homeMax: number },
+    totalBranchCombos: number,
+    allBranchStats: Record<string, { minTot: number; maxTot: number; count: number; homeMin: number; homeMax: number }>
+  ): string => {
+    if (stats.count >= totalBranchCombos) {
+      return `${teamName} WINS`;
+    }
+
+    const overlapping = Object.values(allBranchStats).filter(
+      (other) => other !== stats && other.minTot === stats.minTot && other.maxTot === stats.maxTot
+    );
+    let tier2Suffix = "";
+    if (overlapping.length > 0) {
+      const otherHomeMax = Math.max(...overlapping.map((o) => o.homeMax));
+      if (stats.homeMax < otherHomeMax) {
+        tier2Suffix = ` (${homeTeam.abbreviation} scores ≤ ${stats.homeMax})`;
+      } else {
+        tier2Suffix = ` (${homeTeam.abbreviation} scores ≥ ${stats.homeMin})`;
+      }
+    }
+
+    if (stats.minTot <= 1 && stats.maxTot < 105) {
+      return `${teamName} WINS and ${stats.maxTot} or fewer total points${tier2Suffix}`;
+    }
+    if (stats.maxTot >= 105 && stats.minTot > 1) {
+      return `${teamName} WINS and ${stats.minTot}+ total points${tier2Suffix}`;
+    }
+    if (stats.minTot === stats.maxTot) {
+      return `${teamName} WINS and exactly ${stats.minTot} total points${tier2Suffix}`;
+    }
+    return `${teamName} WINS and total points between ${stats.minTot}–${stats.maxTot}${tier2Suffix}`;
+  };
 
   // Check live game state & live mathematical elimination
   const isGameLive = remainingGame.status?.state === "in";
@@ -313,26 +341,11 @@ export function computeClinchingAnalysis(
 
     const parts: string[] = [];
     if (canWinIfAway) {
-      if (c.pickTeamId === awayTeam.id && aStats.maxTot < 90 && aStats.minTot === 1) {
-        parts.push(`${awayTeam.name} WINS and ${aStats.maxTot} or fewer total points`);
-      } else if (c.pickTeamId === awayTeam.id && aStats.minTot > 1) {
-        parts.push(`${awayTeam.name} WINS and ${aStats.minTot}+ total points`);
-      } else {
-        parts.push(`${awayTeam.name} WINS (within ${aStats.minTot}–${aStats.maxTot} total pts)`);
-      }
+      parts.push(formatBranchCondition(awayTeam.name, aStats, totalAwayCombos, awayWinTally));
     }
 
     if (canWinIfHome) {
-      if (hStats.minTot > 48) {
-        parts.push(`${homeTeam.name} WINS and ${hStats.minTot}+ total points`);
-      } else if (hStats.minTot >= 45 && hStats.maxTot <= 48) {
-        parts.push(`${homeTeam.name} WINS and total points between 45–48`);
-      } else if (hStats.maxTot <= 44) {
-        const seaCond = hStats.seaMax && hStats.seaMax <= 26 ? ` (${homeTeam.abbreviation} scores ≤ 26)` : ` (${homeTeam.abbreviation} scores ≥ 28)`;
-        parts.push(`${homeTeam.name} WINS, 44 or fewer total points${seaCond}`);
-      } else {
-        parts.push(`${homeTeam.name} WINS (within ${hStats.minTot}–${hStats.maxTot} total pts)`);
-      }
+      parts.push(formatBranchCondition(homeTeam.name, hStats, totalHomeCombos, homeWinTally));
     }
 
     let summary = "";
@@ -387,83 +400,12 @@ export function computeClinchingAnalysis(
   // Sort contenders by maxWins desc, then preWins desc, then name
   contenders.sort((a, b) => b.maxWins - a.maxWins || b.preWins - a.preWins || a.user.name.localeCompare(b.user.name));
 
-  // Build cheat sheet rows
-  const cheatSheet: ScenarioCheatSheetRow[] = [];
-
-  // Branch A: Away Wins
-  if (awayTeam.abbreviation === "CHI" && homeTeam.abbreviation === "SEA") {
-    // Exact Week 8 curated rows
-    cheatSheet.push({
-      outcome: "away",
-      outcomeLabel: `${awayTeam.name} Wins`,
-      condition: "Total Points ≤ 48",
-      winnerName: "Bill W Picks",
-      explanation: "Finishes with 13 wins; closest on Total Points (45 pts).",
-    });
-    cheatSheet.push({
-      outcome: "away",
-      outcomeLabel: `${awayTeam.name} Wins`,
-      condition: "Total Points ≥ 49",
-      winnerName: "Jesse B",
-      explanation: "Finishes with 13 wins; closest on Total Points (52 pts).",
-    });
-    cheatSheet.push({
-      outcome: "home",
-      outcomeLabel: `${homeTeam.name} Wins`,
-      condition: "Total ≤ 44 (SEA scores ≤ 26)",
-      winnerName: "Cindy B",
-      explanation: "Ties at 12 wins and Total Points (44); wins on SEA score (pred 24 vs 30).",
-    });
-    cheatSheet.push({
-      outcome: "home",
-      outcomeLabel: `${homeTeam.name} Wins`,
-      condition: "Total ≤ 44 (SEA scores ≥ 28)",
-      winnerName: "Hilde",
-      explanation: "Ties at 12 wins and Total Points (44); wins on SEA score (pred 30 vs 24).",
-    });
-    cheatSheet.push({
-      outcome: "home",
-      outcomeLabel: `${homeTeam.name} Wins`,
-      condition: "Total 45 – 48",
-      winnerName: "madi",
-      explanation: "Ties at 12 wins; closest on Total Points (45) & beats Bill W on SEA score.",
-    });
-    cheatSheet.push({
-      outcome: "home",
-      outcomeLabel: `${homeTeam.name} Wins`,
-      condition: "Total Points ≥ 49",
-      winnerName: "Jesse B",
-      explanation: "Ties at 12 wins; closest on Total Points (52 pts).",
-    });
-  } else {
-    // Generic generator for future weeks
-    Object.entries(awayWinTally).forEach(([wName, stat]) => {
-      cheatSheet.push({
-        outcome: "away",
-        outcomeLabel: `${awayTeam.name} Wins`,
-        condition: stat.minTot === 0 || stat.minTot <= 35 ? `Total Points ≤ ${stat.maxTot}` : stat.maxTot >= 70 ? `Total Points ≥ ${stat.minTot}` : `Total ${stat.minTot} – ${stat.maxTot}`,
-        winnerName: wName,
-        explanation: `Wins tiebreaker when ${awayTeam.name} prevails.`,
-      });
-    });
-    Object.entries(homeWinTally).forEach(([wName, stat]) => {
-      cheatSheet.push({
-        outcome: "home",
-        outcomeLabel: `${homeTeam.name} Wins`,
-        condition: stat.minTot === 0 || stat.minTot <= 35 ? `Total Points ≤ ${stat.maxTot}` : stat.maxTot >= 70 ? `Total Points ≥ ${stat.minTot}` : `Total ${stat.minTot} – ${stat.maxTot}`,
-        winnerName: wName,
-        explanation: `Wins tiebreaker when ${homeTeam.name} prevails.`,
-      });
-    });
-  }
-
   return {
     isEligible: true,
     remainingGame,
     awayTeam,
     homeTeam,
     contenders,
-    cheatSheet,
     simulate,
   };
 }

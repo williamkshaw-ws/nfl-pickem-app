@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { User, LeagueSettings } from "@/types/nfl";
 import {
-  Trophy,
   RefreshCw,
   ChevronDown,
   ChevronLeft,

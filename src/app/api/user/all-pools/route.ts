@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { adminDb, requireUser, HttpError } from "@/lib/server-auth";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`all_pools_get:${ip}`, 60, 60_000);
+
     const caller = await requireUser(request);
     const db = adminDb();
 

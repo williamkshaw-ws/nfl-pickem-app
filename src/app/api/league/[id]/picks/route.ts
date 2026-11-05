@@ -10,12 +10,16 @@ import {
 } from "@/lib/server-auth";
 import { getDatabase } from "@/lib/storage";
 import { calculateSurvivorStatus } from "@/lib/scoring";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ip = getClientIp(request);
+    enforceRateLimit(`picks_post:${ip}`, 40, 60_000);
+
     const caller = await requireVerifiedUser(request);
     const { id: leagueId } = await params;
     const { league, isCommissioner } = await requireMember(leagueId, caller.uid);
@@ -203,13 +207,33 @@ export async function POST(
     };
 
     if (tiebreaker && typeof tiebreaker === "object") {
-      pickData.tiebreaker = {
-        homeScore: Math.max(0, Number(tiebreaker.homeScore) || 0),
-        awayScore: Math.max(0, Number(tiebreaker.awayScore) || 0),
-        totalScore:
-          Math.max(0, Number(tiebreaker.homeScore) || 0) +
-          Math.max(0, Number(tiebreaker.awayScore) || 0),
-      };
+      const tbGame =
+        weekGames.find((g: any) => g.isTiebreakerGame) ||
+        [...weekGames].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      const tbLocked = tbGame ? isGameLocked(tbGame, weekGames, lockPolicy, now) : false;
+
+      const nextHome = Math.max(0, Number(tiebreaker.homeScore) || 0);
+      const nextAway = Math.max(0, Number(tiebreaker.awayScore) || 0);
+      const existingTb = existingData?.tiebreaker;
+
+      if (!isOverride && tbLocked) {
+        if (existingTb) {
+          pickData.tiebreaker = existingTb;
+        }
+        const tbChanged =
+          !existingTb ||
+          Number(existingTb.homeScore) !== nextHome ||
+          Number(existingTb.awayScore) !== nextAway;
+        if (tbChanged && (nextHome > 0 || nextAway > 0)) {
+          lockedIgnoredGames.push("Tiebreaker");
+        }
+      } else {
+        pickData.tiebreaker = {
+          homeScore: nextHome,
+          awayScore: nextAway,
+          totalScore: nextHome + nextAway,
+        };
+      }
     }
 
     if (survivorPickToSave) {

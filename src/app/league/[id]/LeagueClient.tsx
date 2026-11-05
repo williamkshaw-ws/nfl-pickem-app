@@ -18,7 +18,7 @@ import {
 import { Header } from "@/components/Header";
 import { NavigationTabs, TabType } from "@/components/NavigationTabs";
 import { WeeklyPicks } from "@/components/WeeklyPicks";
-import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight, Clock, X, UserPlus, Lock, Zap } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, CheckCircle2, Settings, CreditCard, ArrowRight, Clock, X, UserPlus, Lock } from "lucide-react";
 
 const OverallStandings = dynamic(
   () => import("@/components/OverallStandings").then((m) => m.OverallStandings)

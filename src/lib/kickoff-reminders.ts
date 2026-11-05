@@ -1,6 +1,7 @@
 import { adminDb } from "@/lib/server-auth";
 import { Resend } from "resend";
 import { getDatabase, detectCurrentWeek } from "@/lib/storage";
+import { fetchEspnWeekGames } from "@/lib/espn";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -55,7 +56,27 @@ export async function processKickoffReminders({
   const detectedWeek = detectCurrentWeek(gamesByWeek);
   const activeWeek = targetWeek && targetWeek >= 1 && targetWeek <= 18 ? targetWeek : detectedWeek;
 
-  const weekGames = gamesByWeek[activeWeek] || [];
+  let weekGames = gamesByWeek[activeWeek] || [];
+  const isPlaceholder =
+    weekGames.length === 0 ||
+    weekGames.some((g: any) => g.homeTeam?.abbreviation === "TBD" || String(g.id).startsWith("placeholder"));
+
+  if (isPlaceholder) {
+    try {
+      const cachedDoc = await db.collection("system_nfl_games").doc(String(activeWeek)).get();
+      if (cachedDoc.exists && Array.isArray(cachedDoc.data()?.games) && cachedDoc.data()!.games.length > 0) {
+        weekGames = cachedDoc.data()!.games;
+      } else {
+        const espnRes = await fetchEspnWeekGames(activeWeek, jsonDb.settings?.seasonYear || 2026);
+        if (espnRes.games && espnRes.games.length > 0) {
+          weekGames = espnRes.games;
+        }
+      }
+    } catch (err) {
+      console.warn("Kickoff reminders fallback schedule lookup warning:", err);
+    }
+  }
+
   const totalGames = weekGames.length;
 
   // Find first kickoff (typically Thursday Night Football)

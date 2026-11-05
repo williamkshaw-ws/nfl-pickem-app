@@ -10,12 +10,7 @@ async function isAuthorized(req: Request): Promise<boolean> {
   const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
   const bearerToken = bearerMatch ? bearerMatch[1].trim() : "";
 
-  if (cronSecret.length >= 24) {
-    if (bearerToken && timingSafeStringEqual(bearerToken, cronSecret)) {
-      return true;
-    }
-  } else if (req.headers.get("x-vercel-cron") === "1") {
-    // Vercel Cron automated trigger fallback if CRON_SECRET is not yet configured in project env
+  if (cronSecret.length >= 24 && bearerToken && timingSafeStringEqual(bearerToken, cronSecret)) {
     return true;
   }
 
