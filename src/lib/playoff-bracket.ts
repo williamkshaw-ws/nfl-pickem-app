@@ -279,66 +279,87 @@ export function resolveBracketMatchups(
   const nfcSeeds = seeds?.nfc && seeds.nfc.length === 7 ? seeds.nfc : NFC_SEEDS;
   const teamMap = buildTeamMapFromSeeds({ afc: afcSeeds, nfc: nfcSeeds });
   const findTeam = (abbr?: string): PlayoffTeam | null => (abbr ? teamMap[abbr] || null : null);
+  const validWinner = (
+    pickAbbr: string | undefined,
+    home: PlayoffTeam | null | undefined,
+    away: PlayoffTeam | null | undefined
+  ): string | undefined => {
+    if (!pickAbbr) return undefined;
+    if (home?.abbr === pickAbbr || away?.abbr === pickAbbr) return pickAbbr;
+    return undefined;
+  };
 
   // 1. Wild Card Round
+  const afcWc1Home = afcSeeds.find((t) => t.seed === 2)!;
+  const afcWc1Away = afcSeeds.find((t) => t.seed === 7)!;
   const afc_wc_1: MatchupSlot = {
     gameId: "afc_wc_1",
     round: "wild_card",
     conference: "AFC",
     title: "AFC Wild Card (#2 vs #7)",
-    homeTeam: afcSeeds.find((t) => t.seed === 2)!,
-    awayTeam: afcSeeds.find((t) => t.seed === 7)!,
-    selectedWinner: picks.afc_wc_1,
+    homeTeam: afcWc1Home,
+    awayTeam: afcWc1Away,
+    selectedWinner: validWinner(picks.afc_wc_1, afcWc1Home, afcWc1Away),
   };
 
+  const afcWc2Home = afcSeeds.find((t) => t.seed === 3)!;
+  const afcWc2Away = afcSeeds.find((t) => t.seed === 6)!;
   const afc_wc_2: MatchupSlot = {
     gameId: "afc_wc_2",
     round: "wild_card",
     conference: "AFC",
     title: "AFC Wild Card (#3 vs #6)",
-    homeTeam: afcSeeds.find((t) => t.seed === 3)!,
-    awayTeam: afcSeeds.find((t) => t.seed === 6)!,
-    selectedWinner: picks.afc_wc_2,
+    homeTeam: afcWc2Home,
+    awayTeam: afcWc2Away,
+    selectedWinner: validWinner(picks.afc_wc_2, afcWc2Home, afcWc2Away),
   };
 
+  const afcWc3Home = afcSeeds.find((t) => t.seed === 4)!;
+  const afcWc3Away = afcSeeds.find((t) => t.seed === 5)!;
   const afc_wc_3: MatchupSlot = {
     gameId: "afc_wc_3",
     round: "wild_card",
     conference: "AFC",
     title: "AFC Wild Card (#4 vs #5)",
-    homeTeam: afcSeeds.find((t) => t.seed === 4)!,
-    awayTeam: afcSeeds.find((t) => t.seed === 5)!,
-    selectedWinner: picks.afc_wc_3,
+    homeTeam: afcWc3Home,
+    awayTeam: afcWc3Away,
+    selectedWinner: validWinner(picks.afc_wc_3, afcWc3Home, afcWc3Away),
   };
 
+  const nfcWc1Home = nfcSeeds.find((t) => t.seed === 2)!;
+  const nfcWc1Away = nfcSeeds.find((t) => t.seed === 7)!;
   const nfc_wc_1: MatchupSlot = {
     gameId: "nfc_wc_1",
     round: "wild_card",
     conference: "NFC",
     title: "NFC Wild Card (#2 vs #7)",
-    homeTeam: nfcSeeds.find((t) => t.seed === 2)!,
-    awayTeam: nfcSeeds.find((t) => t.seed === 7)!,
-    selectedWinner: picks.nfc_wc_1,
+    homeTeam: nfcWc1Home,
+    awayTeam: nfcWc1Away,
+    selectedWinner: validWinner(picks.nfc_wc_1, nfcWc1Home, nfcWc1Away),
   };
 
+  const nfcWc2Home = nfcSeeds.find((t) => t.seed === 3)!;
+  const nfcWc2Away = nfcSeeds.find((t) => t.seed === 6)!;
   const nfc_wc_2: MatchupSlot = {
     gameId: "nfc_wc_2",
     round: "wild_card",
     conference: "NFC",
     title: "NFC Wild Card (#3 vs #6)",
-    homeTeam: nfcSeeds.find((t) => t.seed === 3)!,
-    awayTeam: nfcSeeds.find((t) => t.seed === 6)!,
-    selectedWinner: picks.nfc_wc_2,
+    homeTeam: nfcWc2Home,
+    awayTeam: nfcWc2Away,
+    selectedWinner: validWinner(picks.nfc_wc_2, nfcWc2Home, nfcWc2Away),
   };
 
+  const nfcWc3Home = nfcSeeds.find((t) => t.seed === 4)!;
+  const nfcWc3Away = nfcSeeds.find((t) => t.seed === 5)!;
   const nfc_wc_3: MatchupSlot = {
     gameId: "nfc_wc_3",
     round: "wild_card",
     conference: "NFC",
     title: "NFC Wild Card (#4 vs #5)",
-    homeTeam: nfcSeeds.find((t) => t.seed === 4)!,
-    awayTeam: nfcSeeds.find((t) => t.seed === 5)!,
-    selectedWinner: picks.nfc_wc_3,
+    homeTeam: nfcWc3Home,
+    awayTeam: nfcWc3Away,
+    selectedWinner: validWinner(picks.nfc_wc_3, nfcWc3Home, nfcWc3Away),
   };
 
   // Helper for Divisional reseeding
@@ -346,7 +367,7 @@ export function resolveBracketMatchups(
     seed1Team: PlayoffTeam,
     wcPicks: (string | undefined)[]
   ): { div1Home: PlayoffTeam; div1Away: PlayoffTeam | null; div2Home: PlayoffTeam | null; div2Away: PlayoffTeam | null } => {
-    const winners = wcPicks.map(findTeam).filter((t): t is PlayoffTeam => t !== null);
+    const winners = wcPicks.map(findTeam).filter((t): t is PlayoffTeam => t !== null && t.seed >= 1 && t.seed <= 7);
     if (winners.length < 3) {
       return { div1Home: seed1Team, div1Away: null, div2Home: null, div2Away: null };
     }
@@ -366,7 +387,7 @@ export function resolveBracketMatchups(
 
   const afcDiv = resolveDivisionalTeams(
     afcSeeds.find((t) => t.seed === 1)!,
-    [picks.afc_wc_1, picks.afc_wc_2, picks.afc_wc_3]
+    [afc_wc_1.selectedWinner, afc_wc_2.selectedWinner, afc_wc_3.selectedWinner]
   );
 
   const afc_div_1: MatchupSlot = {
@@ -376,7 +397,7 @@ export function resolveBracketMatchups(
     title: "AFC Divisional (#1 vs Lowest Seed)",
     homeTeam: afcDiv.div1Home,
     awayTeam: afcDiv.div1Away,
-    selectedWinner: picks.afc_div_1,
+    selectedWinner: validWinner(picks.afc_div_1, afcDiv.div1Home, afcDiv.div1Away),
   };
 
   const afc_div_2: MatchupSlot = {
@@ -386,12 +407,12 @@ export function resolveBracketMatchups(
     title: "AFC Divisional Matchup",
     homeTeam: afcDiv.div2Home,
     awayTeam: afcDiv.div2Away,
-    selectedWinner: picks.afc_div_2,
+    selectedWinner: validWinner(picks.afc_div_2, afcDiv.div2Home, afcDiv.div2Away),
   };
 
   const nfcDiv = resolveDivisionalTeams(
     nfcSeeds.find((t) => t.seed === 1)!,
-    [picks.nfc_wc_1, picks.nfc_wc_2, picks.nfc_wc_3]
+    [nfc_wc_1.selectedWinner, nfc_wc_2.selectedWinner, nfc_wc_3.selectedWinner]
   );
 
   const nfc_div_1: MatchupSlot = {
@@ -401,7 +422,7 @@ export function resolveBracketMatchups(
     title: "NFC Divisional (#1 vs Lowest Seed)",
     homeTeam: nfcDiv.div1Home,
     awayTeam: nfcDiv.div1Away,
-    selectedWinner: picks.nfc_div_1,
+    selectedWinner: validWinner(picks.nfc_div_1, nfcDiv.div1Home, nfcDiv.div1Away),
   };
 
   const nfc_div_2: MatchupSlot = {
@@ -411,7 +432,7 @@ export function resolveBracketMatchups(
     title: "NFC Divisional Matchup",
     homeTeam: nfcDiv.div2Home,
     awayTeam: nfcDiv.div2Away,
-    selectedWinner: picks.nfc_div_2,
+    selectedWinner: validWinner(picks.nfc_div_2, nfcDiv.div2Home, nfcDiv.div2Away),
   };
 
   // 3. Conference Championships
@@ -424,7 +445,7 @@ export function resolveBracketMatchups(
     return t1.seed <= t2.seed ? { home: t1, away: t2 } : { home: t2, away: t1 };
   };
 
-  const afcChampTeams = resolveChampTeams(picks.afc_div_1, picks.afc_div_2);
+  const afcChampTeams = resolveChampTeams(afc_div_1.selectedWinner, afc_div_2.selectedWinner);
   const afc_champ: MatchupSlot = {
     gameId: "afc_champ",
     round: "conference",
@@ -432,10 +453,10 @@ export function resolveBracketMatchups(
     title: "AFC Championship Game",
     homeTeam: afcChampTeams.home,
     awayTeam: afcChampTeams.away,
-    selectedWinner: picks.afc_champ,
+    selectedWinner: validWinner(picks.afc_champ, afcChampTeams.home, afcChampTeams.away),
   };
 
-  const nfcChampTeams = resolveChampTeams(picks.nfc_div_1, picks.nfc_div_2);
+  const nfcChampTeams = resolveChampTeams(nfc_div_1.selectedWinner, nfc_div_2.selectedWinner);
   const nfc_champ: MatchupSlot = {
     gameId: "nfc_champ",
     round: "conference",
@@ -443,12 +464,12 @@ export function resolveBracketMatchups(
     title: "NFC Championship Game",
     homeTeam: nfcChampTeams.home,
     awayTeam: nfcChampTeams.away,
-    selectedWinner: picks.nfc_champ,
+    selectedWinner: validWinner(picks.nfc_champ, nfcChampTeams.home, nfcChampTeams.away),
   };
 
   // 4. Super Bowl
-  const sbAfc = findTeam(picks.afc_champ);
-  const sbNfc = findTeam(picks.nfc_champ);
+  const sbAfc = findTeam(afc_champ.selectedWinner);
+  const sbNfc = findTeam(nfc_champ.selectedWinner);
 
   const super_bowl: MatchupSlot = {
     gameId: "super_bowl",
@@ -457,7 +478,7 @@ export function resolveBracketMatchups(
     title: "Super Bowl Championship",
     homeTeam: sbAfc,
     awayTeam: sbNfc,
-    selectedWinner: picks.super_bowl,
+    selectedWinner: validWinner(picks.super_bowl, sbAfc, sbNfc),
   };
 
   return {
