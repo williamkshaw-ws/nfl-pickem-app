@@ -4,7 +4,50 @@ export interface PlayoffTeam {
   name: string;
   abbr: string;
   nickname: string;
+  record?: string;
 }
+
+export interface PlayoffSeeds {
+  afc: PlayoffTeam[];
+  nfc: PlayoffTeam[];
+  updatedAt?: string;
+  source?: "live" | "fallback";
+}
+
+export const NFL_TEAM_META: Record<string, { name: string; nickname: string; conference: "AFC" | "NFC" }> = {
+  ARI: { name: "Arizona Cardinals", nickname: "Cardinals", conference: "NFC" },
+  ATL: { name: "Atlanta Falcons", nickname: "Falcons", conference: "NFC" },
+  BAL: { name: "Baltimore Ravens", nickname: "Ravens", conference: "AFC" },
+  BUF: { name: "Buffalo Bills", nickname: "Bills", conference: "AFC" },
+  CAR: { name: "Carolina Panthers", nickname: "Panthers", conference: "NFC" },
+  CHI: { name: "Chicago Bears", nickname: "Bears", conference: "NFC" },
+  CIN: { name: "Cincinnati Bengals", nickname: "Bengals", conference: "AFC" },
+  CLE: { name: "Cleveland Browns", nickname: "Browns", conference: "AFC" },
+  DAL: { name: "Dallas Cowboys", nickname: "Cowboys", conference: "NFC" },
+  DEN: { name: "Denver Broncos", nickname: "Broncos", conference: "AFC" },
+  DET: { name: "Detroit Lions", nickname: "Lions", conference: "NFC" },
+  GB: { name: "Green Bay Packers", nickname: "Packers", conference: "NFC" },
+  HOU: { name: "Houston Texans", nickname: "Texans", conference: "AFC" },
+  IND: { name: "Indianapolis Colts", nickname: "Colts", conference: "AFC" },
+  JAX: { name: "Jacksonville Jaguars", nickname: "Jaguars", conference: "AFC" },
+  KC: { name: "Kansas City Chiefs", nickname: "Chiefs", conference: "AFC" },
+  LV: { name: "Las Vegas Raiders", nickname: "Raiders", conference: "AFC" },
+  LAC: { name: "Los Angeles Chargers", nickname: "Chargers", conference: "AFC" },
+  LAR: { name: "Los Angeles Rams", nickname: "Rams", conference: "NFC" },
+  MIA: { name: "Miami Dolphins", nickname: "Dolphins", conference: "AFC" },
+  MIN: { name: "Minnesota Vikings", nickname: "Vikings", conference: "NFC" },
+  NE: { name: "New England Patriots", nickname: "Patriots", conference: "AFC" },
+  NO: { name: "New Orleans Saints", nickname: "Saints", conference: "NFC" },
+  NYG: { name: "New York Giants", nickname: "Giants", conference: "NFC" },
+  NYJ: { name: "New York Jets", nickname: "Jets", conference: "AFC" },
+  PHI: { name: "Philadelphia Eagles", nickname: "Eagles", conference: "NFC" },
+  PIT: { name: "Pittsburgh Steelers", nickname: "Steelers", conference: "AFC" },
+  SF: { name: "San Francisco 49ers", nickname: "49ers", conference: "NFC" },
+  SEA: { name: "Seattle Seahawks", nickname: "Seahawks", conference: "NFC" },
+  TB: { name: "Tampa Bay Buccaneers", nickname: "Buccaneers", conference: "NFC" },
+  TEN: { name: "Tennessee Titans", nickname: "Titans", conference: "AFC" },
+  WAS: { name: "Washington Commanders", nickname: "Commanders", conference: "NFC" },
+};
 
 export const NFL_NICKNAMES: Record<string, string> = {
   ARI: "Cardinals",
@@ -155,34 +198,56 @@ export interface BracketParticipant {
 }
 
 export const AFC_SEEDS: PlayoffTeam[] = [
-  { seed: 1, conference: "AFC", name: "Kansas City Chiefs", abbr: "KC", nickname: "Chiefs" },
-  { seed: 2, conference: "AFC", name: "Buffalo Bills", abbr: "BUF", nickname: "Bills" },
-  { seed: 3, conference: "AFC", name: "Baltimore Ravens", abbr: "BAL", nickname: "Ravens" },
-  { seed: 4, conference: "AFC", name: "Houston Texans", abbr: "HOU", nickname: "Texans" },
-  { seed: 5, conference: "AFC", name: "Los Angeles Chargers", abbr: "LAC", nickname: "Chargers" },
-  { seed: 6, conference: "AFC", name: "Pittsburgh Steelers", abbr: "PIT", nickname: "Steelers" },
-  { seed: 7, conference: "AFC", name: "Denver Broncos", abbr: "DEN", nickname: "Broncos" },
+  { seed: 1, conference: "AFC", name: "Buffalo Bills", abbr: "BUF", nickname: "Bills", record: "6-1" },
+  { seed: 2, conference: "AFC", name: "Denver Broncos", abbr: "DEN", nickname: "Broncos", record: "6-2" },
+  { seed: 3, conference: "AFC", name: "Pittsburgh Steelers", abbr: "PIT", nickname: "Steelers", record: "6-2" },
+  { seed: 4, conference: "AFC", name: "Jacksonville Jaguars", abbr: "JAX", nickname: "Jaguars", record: "5-2" },
+  { seed: 5, conference: "AFC", name: "Kansas City Chiefs", abbr: "KC", nickname: "Chiefs", record: "5-2" },
+  { seed: 6, conference: "AFC", name: "Cincinnati Bengals", abbr: "CIN", nickname: "Bengals", record: "5-2" },
+  { seed: 7, conference: "AFC", name: "New England Patriots", abbr: "NE", nickname: "Patriots", record: "5-3" },
 ];
 
 export const NFC_SEEDS: PlayoffTeam[] = [
-  { seed: 1, conference: "NFC", name: "Detroit Lions", abbr: "DET", nickname: "Lions" },
-  { seed: 2, conference: "NFC", name: "Philadelphia Eagles", abbr: "PHI", nickname: "Eagles" },
-  { seed: 3, conference: "NFC", name: "Los Angeles Rams", abbr: "LAR", nickname: "Rams" },
-  { seed: 4, conference: "NFC", name: "Tampa Bay Buccaneers", abbr: "TB", nickname: "Buccaneers" },
-  { seed: 5, conference: "NFC", name: "San Francisco 49ers", abbr: "SF", nickname: "49ers" },
-  { seed: 6, conference: "NFC", name: "Green Bay Packers", abbr: "GB", nickname: "Packers" },
-  { seed: 7, conference: "NFC", name: "Washington Commanders", abbr: "WAS", nickname: "Commanders" },
+  { seed: 1, conference: "NFC", name: "San Francisco 49ers", abbr: "SF", nickname: "49ers", record: "6-1" },
+  { seed: 2, conference: "NFC", name: "Minnesota Vikings", abbr: "MIN", nickname: "Vikings", record: "6-1" },
+  { seed: 3, conference: "NFC", name: "New York Giants", abbr: "NYG", nickname: "Giants", record: "4-2-1" },
+  { seed: 4, conference: "NFC", name: "Carolina Panthers", abbr: "CAR", nickname: "Panthers", record: "3-4" },
+  { seed: 5, conference: "NFC", name: "Chicago Bears", abbr: "CHI", nickname: "Bears", record: "6-2" },
+  { seed: 6, conference: "NFC", name: "Detroit Lions", abbr: "DET", nickname: "Lions", record: "5-2" },
+  { seed: 7, conference: "NFC", name: "Green Bay Packers", abbr: "GB", nickname: "Packers", record: "5-3" },
 ];
 
 export const ALL_PLAYOFF_TEAMS: PlayoffTeam[] = [...AFC_SEEDS, ...NFC_SEEDS];
 
-export const TEAM_BY_ABBR: Record<string, PlayoffTeam> = ALL_PLAYOFF_TEAMS.reduce(
-  (acc, team) => {
-    acc[team.abbr] = team;
+export const TEAM_BY_ABBR: Record<string, PlayoffTeam> = Object.entries(NFL_TEAM_META).reduce(
+  (acc, [abbr, meta]) => {
+    const seeded = ALL_PLAYOFF_TEAMS.find((t) => t.abbr === abbr);
+    acc[abbr] = seeded || {
+      seed: 0,
+      conference: meta.conference,
+      name: meta.name,
+      abbr,
+      nickname: meta.nickname,
+    };
     return acc;
   },
   {} as Record<string, PlayoffTeam>
 );
+
+export function buildTeamMapFromSeeds(seeds?: PlayoffSeeds | null): Record<string, PlayoffTeam> {
+  const map: Record<string, PlayoffTeam> = { ...TEAM_BY_ABBR };
+  if (seeds?.afc) {
+    for (const t of seeds.afc) {
+      map[t.abbr] = t;
+    }
+  }
+  if (seeds?.nfc) {
+    for (const t of seeds.nfc) {
+      map[t.abbr] = t;
+    }
+  }
+  return map;
+}
 
 export interface MatchupSlot {
   gameId: BracketGameId;
@@ -206,8 +271,14 @@ export interface MatchupSlot {
  * - Super Bowl:
  *   AFC Champion vs NFC Champion.
  */
-export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameId, MatchupSlot> {
-  const findTeam = (abbr?: string): PlayoffTeam | null => (abbr ? TEAM_BY_ABBR[abbr] || null : null);
+export function resolveBracketMatchups(
+  picks: BracketPicks,
+  seeds?: PlayoffSeeds | null
+): Record<BracketGameId, MatchupSlot> {
+  const afcSeeds = seeds?.afc && seeds.afc.length === 7 ? seeds.afc : AFC_SEEDS;
+  const nfcSeeds = seeds?.nfc && seeds.nfc.length === 7 ? seeds.nfc : NFC_SEEDS;
+  const teamMap = buildTeamMapFromSeeds({ afc: afcSeeds, nfc: nfcSeeds });
+  const findTeam = (abbr?: string): PlayoffTeam | null => (abbr ? teamMap[abbr] || null : null);
 
   // 1. Wild Card Round
   const afc_wc_1: MatchupSlot = {
@@ -215,8 +286,8 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
     round: "wild_card",
     conference: "AFC",
     title: "AFC Wild Card (#2 vs #7)",
-    homeTeam: AFC_SEEDS.find((t) => t.seed === 2)!,
-    awayTeam: AFC_SEEDS.find((t) => t.seed === 7)!,
+    homeTeam: afcSeeds.find((t) => t.seed === 2)!,
+    awayTeam: afcSeeds.find((t) => t.seed === 7)!,
     selectedWinner: picks.afc_wc_1,
   };
 
@@ -225,8 +296,8 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
     round: "wild_card",
     conference: "AFC",
     title: "AFC Wild Card (#3 vs #6)",
-    homeTeam: AFC_SEEDS.find((t) => t.seed === 3)!,
-    awayTeam: AFC_SEEDS.find((t) => t.seed === 6)!,
+    homeTeam: afcSeeds.find((t) => t.seed === 3)!,
+    awayTeam: afcSeeds.find((t) => t.seed === 6)!,
     selectedWinner: picks.afc_wc_2,
   };
 
@@ -235,8 +306,8 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
     round: "wild_card",
     conference: "AFC",
     title: "AFC Wild Card (#4 vs #5)",
-    homeTeam: AFC_SEEDS.find((t) => t.seed === 4)!,
-    awayTeam: AFC_SEEDS.find((t) => t.seed === 5)!,
+    homeTeam: afcSeeds.find((t) => t.seed === 4)!,
+    awayTeam: afcSeeds.find((t) => t.seed === 5)!,
     selectedWinner: picks.afc_wc_3,
   };
 
@@ -245,8 +316,8 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
     round: "wild_card",
     conference: "NFC",
     title: "NFC Wild Card (#2 vs #7)",
-    homeTeam: NFC_SEEDS.find((t) => t.seed === 2)!,
-    awayTeam: NFC_SEEDS.find((t) => t.seed === 7)!,
+    homeTeam: nfcSeeds.find((t) => t.seed === 2)!,
+    awayTeam: nfcSeeds.find((t) => t.seed === 7)!,
     selectedWinner: picks.nfc_wc_1,
   };
 
@@ -255,8 +326,8 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
     round: "wild_card",
     conference: "NFC",
     title: "NFC Wild Card (#3 vs #6)",
-    homeTeam: NFC_SEEDS.find((t) => t.seed === 3)!,
-    awayTeam: NFC_SEEDS.find((t) => t.seed === 6)!,
+    homeTeam: nfcSeeds.find((t) => t.seed === 3)!,
+    awayTeam: nfcSeeds.find((t) => t.seed === 6)!,
     selectedWinner: picks.nfc_wc_2,
   };
 
@@ -265,8 +336,8 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
     round: "wild_card",
     conference: "NFC",
     title: "NFC Wild Card (#4 vs #5)",
-    homeTeam: NFC_SEEDS.find((t) => t.seed === 4)!,
-    awayTeam: NFC_SEEDS.find((t) => t.seed === 5)!,
+    homeTeam: nfcSeeds.find((t) => t.seed === 4)!,
+    awayTeam: nfcSeeds.find((t) => t.seed === 5)!,
     selectedWinner: picks.nfc_wc_3,
   };
 
@@ -294,7 +365,7 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
   };
 
   const afcDiv = resolveDivisionalTeams(
-    AFC_SEEDS.find((t) => t.seed === 1)!,
+    afcSeeds.find((t) => t.seed === 1)!,
     [picks.afc_wc_1, picks.afc_wc_2, picks.afc_wc_3]
   );
 
@@ -319,7 +390,7 @@ export function resolveBracketMatchups(picks: BracketPicks): Record<BracketGameI
   };
 
   const nfcDiv = resolveDivisionalTeams(
-    NFC_SEEDS.find((t) => t.seed === 1)!,
+    nfcSeeds.find((t) => t.seed === 1)!,
     [picks.nfc_wc_1, picks.nfc_wc_2, picks.nfc_wc_3]
   );
 
@@ -438,7 +509,7 @@ function generateRealisticScores(): { homeScore: number; awayScore: number } {
 /**
  * Simulates the complete 13-game NFL postseason with realistic reseeding and outcomes.
  */
-export function simulatePlayoffOutcomes(): SimulationResults {
+export function simulatePlayoffOutcomes(seeds?: PlayoffSeeds | null): SimulationResults {
   const results: SimulationResults = {};
   const picksProgression: BracketPicks = {};
 
@@ -448,7 +519,7 @@ export function simulatePlayoffOutcomes(): SimulationResults {
     "nfc_wc_1", "nfc_wc_2", "nfc_wc_3",
   ];
 
-  const initialMatchups = resolveBracketMatchups({});
+  const initialMatchups = resolveBracketMatchups({}, seeds);
 
   for (const gid of wcGameIds) {
     const slot = initialMatchups[gid];
@@ -466,7 +537,7 @@ export function simulatePlayoffOutcomes(): SimulationResults {
   }
 
   // 2. Simulate Divisional (reseeding happens dynamically based on WC winners)
-  const divMatchups = resolveBracketMatchups(picksProgression);
+  const divMatchups = resolveBracketMatchups(picksProgression, seeds);
   const divGameIds: BracketGameId[] = ["afc_div_1", "afc_div_2", "nfc_div_1", "nfc_div_2"];
 
   for (const gid of divGameIds) {
@@ -485,7 +556,7 @@ export function simulatePlayoffOutcomes(): SimulationResults {
   }
 
   // 3. Simulate Conference Championships
-  const confMatchups = resolveBracketMatchups(picksProgression);
+  const confMatchups = resolveBracketMatchups(picksProgression, seeds);
   const confGameIds: BracketGameId[] = ["afc_champ", "nfc_champ"];
 
   for (const gid of confGameIds) {
@@ -504,7 +575,7 @@ export function simulatePlayoffOutcomes(): SimulationResults {
   }
 
   // 4. Simulate Super Bowl
-  const sbMatchups = resolveBracketMatchups(picksProgression);
+  const sbMatchups = resolveBracketMatchups(picksProgression, seeds);
   const sbSlot = sbMatchups.super_bowl;
   const { homeScore, awayScore } = generateRealisticScores();
   const sbWinner = homeScore > awayScore ? sbSlot.homeTeam!.abbr : sbSlot.awayTeam!.abbr;
@@ -922,6 +993,7 @@ export interface BracketPool {
   isSimulated: boolean;
   simulatedAt: string | null;
   roundPoints?: BracketRoundPoints;
+  seeds?: PlayoffSeeds | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -935,9 +1007,12 @@ export interface ChampionConsensusItem {
 
 export function calculateChampionConsensus(
   participants: BracketParticipant[],
-  results: SimulationResults = {}
+  results: SimulationResults = {},
+  seeds?: PlayoffSeeds | null
 ): ChampionConsensusItem[] {
   if (!participants || participants.length === 0) return [];
+
+  const teamMap = buildTeamMapFromSeeds(seeds);
 
   // Identify eliminated teams
   const eliminatedTeams = new Set<string>();
@@ -954,7 +1029,7 @@ export function calculateChampionConsensus(
 
   for (const p of participants) {
     const champ = p.superBowlWinner || p.picks?.super_bowl;
-    if (champ && TEAM_BY_ABBR[champ]) {
+    if (champ && teamMap[champ]) {
       counts[champ] = (counts[champ] || 0) + 1;
       totalWithPick++;
     }
@@ -963,7 +1038,7 @@ export function calculateChampionConsensus(
   if (totalWithPick === 0) return [];
 
   const items: ChampionConsensusItem[] = Object.entries(counts).map(([abbr, count]) => {
-    const team = TEAM_BY_ABBR[abbr] || {
+    const team = teamMap[abbr] || {
       seed: 0,
       conference: "AFC" as const,
       name: abbr,

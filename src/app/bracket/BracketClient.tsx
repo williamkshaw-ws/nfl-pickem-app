@@ -60,6 +60,10 @@ import {
   calculateBracketScore,
   extractActualWinners,
   TEAM_BY_ABBR,
+  buildTeamMapFromSeeds,
+  AFC_SEEDS,
+  NFC_SEEDS,
+  PlayoffSeeds,
   PlayoffTeam,
   getTeamNickname,
   BracketPool,
@@ -298,6 +302,12 @@ function BracketApp() {
   const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [results, setResults] = useState<SimulationResults>({});
+  const [seeds, setSeeds] = useState<PlayoffSeeds>({
+    afc: AFC_SEEDS,
+    nfc: NFC_SEEDS,
+    source: "fallback",
+  });
+  const seededTeamMap = useMemo(() => buildTeamMapFromSeeds(seeds), [seeds]);
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [leaderboard, setLeaderboard] = useState<BracketParticipant[]>([]);
@@ -347,6 +357,9 @@ function BracketApp() {
           if (data.pool) {
             setPoolData(data.pool);
             setResults(data.pool.results || {});
+            if (data.seeds || data.pool.seeds) {
+              setSeeds(data.seeds || data.pool.seeds);
+            }
             setIsSimulated(!!data.pool.isSimulated);
             setIsLocked(!!data.pool.isLocked);
             setLeaderboard(data.leaderboard || []);
@@ -485,7 +498,7 @@ function BracketApp() {
     if (isLocked) return;
 
     const updated = { ...picks, [gameId]: teamAbbr };
-    const newMatchups = resolveBracketMatchups(updated);
+    const newMatchups = resolveBracketMatchups(updated, seeds);
 
     // Verify Divisional picks
     if (
@@ -518,7 +531,7 @@ function BracketApp() {
     }
 
     // Verify Conference picks
-    const updatedMatchups2 = resolveBracketMatchups(updated);
+    const updatedMatchups2 = resolveBracketMatchups(updated, seeds);
     if (
       updated.afc_champ &&
       updatedMatchups2.afc_champ.homeTeam?.abbr !== updated.afc_champ &&
@@ -535,7 +548,7 @@ function BracketApp() {
     }
 
     // Verify Super Bowl pick
-    const updatedMatchups3 = resolveBracketMatchups(updated);
+    const updatedMatchups3 = resolveBracketMatchups(updated, seeds);
     if (
       updated.super_bowl &&
       updatedMatchups3.super_bowl.homeTeam?.abbr !== updated.super_bowl &&
@@ -608,6 +621,7 @@ function BracketApp() {
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || {});
+        if (data.seeds) setSeeds(data.seeds);
         setIsSimulated(true);
         setIsLocked(true);
         setLeaderboard(data.leaderboard || []);
@@ -644,6 +658,7 @@ function BracketApp() {
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || {});
+        if (data.seeds) setSeeds(data.seeds);
         setIsSimulated(false);
         setIsLocked(false);
         setLeaderboard(data.leaderboard || []);
@@ -874,8 +889,8 @@ function BracketApp() {
 
   // Matchup resolvers: User Projected Picks vs Actual Tournament Field
   const actualWinners = useMemo(() => extractActualWinners(results), [results]);
-  const actualTournamentMatchups = useMemo(() => resolveBracketMatchups(actualWinners), [actualWinners]);
-  const userProjectedMatchups = useMemo(() => resolveBracketMatchups(picks), [picks]);
+  const actualTournamentMatchups = useMemo(() => resolveBracketMatchups(actualWinners, seeds), [actualWinners, seeds]);
+  const userProjectedMatchups = useMemo(() => resolveBracketMatchups(picks, seeds), [picks, seeds]);
 
   const isDisplayingActual = isSimulated && bracketViewMode === "actual";
   const activeMatchups = isDisplayingActual ? actualTournamentMatchups : userProjectedMatchups;
@@ -889,8 +904,8 @@ function BracketApp() {
     [poolData?.roundPoints]
   );
   const consensusItems = useMemo(
-    () => calculateChampionConsensus(leaderboard, results),
-    [leaderboard, results]
+    () => calculateChampionConsensus(leaderboard, results, seeds),
+    [leaderboard, results, seeds]
   );
   const completedPicksCount = useMemo(() => Object.keys(picks).length, [picks]);
 
@@ -942,7 +957,7 @@ function BracketApp() {
     const awayAbbr = slot.awayTeam?.abbr;
     const hasPickedInMatchup = userPickAbbr && (userPickAbbr === homeAbbr || userPickAbbr === awayAbbr);
     const isPickEliminated = isDisplayingActual && userPickAbbr && !hasPickedInMatchup;
-    const eliminatedTeam = isPickEliminated ? TEAM_BY_ABBR[userPickAbbr] : null;
+    const eliminatedTeam = isPickEliminated ? seededTeamMap[userPickAbbr] : null;
 
     const isCorrect = isGameDone && userPickAbbr && userPickAbbr === gameResult?.winner;
     const isWrong = isGameDone && userPickAbbr && (userPickAbbr !== gameResult?.winner || isPickEliminated);
@@ -1471,6 +1486,14 @@ function BracketApp() {
 
               {/* Right: Desktop Controls & Indicators */}
               <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wide bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20"
+                  title="Bracket dynamically reflects the live Top 7 playoff seeds in the AFC and NFC"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                  <span>Live Playoff Picture</span>
+                </span>
+
                 {/* Lock Status indicator (automatically locks when first game begins) */}
                 {isLocked ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wide bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" title="Picks are locked for all games">
@@ -2235,7 +2258,7 @@ function BracketApp() {
 
       {/* MODAL 1: VIEW PARTICIPANT BRACKET */}
       {viewingParticipant && (() => {
-        const pMatchups = resolveBracketMatchups(viewingParticipant.picks);
+        const pMatchups = resolveBracketMatchups(viewingParticipant.picks, seeds);
 
         const renderViewerMatchupBox = (gameId: BracketGameId, label?: string) => {
           const slot = pMatchups[gameId];
@@ -2244,7 +2267,7 @@ function BracketApp() {
           const isDone = isSimulated && res?.isCompleted;
           const isCorrect = isDone && pick && pick === res.winner;
           const isWrong = isDone && pick && pick !== res.winner;
-          const actualWinnerTeam = isDone && res?.winner ? TEAM_BY_ABBR[res.winner] : null;
+          const actualWinnerTeam = isDone && res?.winner ? seededTeamMap[res.winner] : null;
 
           const renderViewerTeamLine = (team: PlayoffTeam | null) => {
             if (!team) {

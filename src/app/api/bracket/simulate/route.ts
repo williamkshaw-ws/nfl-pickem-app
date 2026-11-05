@@ -10,7 +10,9 @@ import {
   BracketParticipant,
   BracketPool,
   DEFAULT_ROUND_POINTS,
+  PlayoffSeeds,
 } from "@/lib/playoff-bracket";
+import { fetchLivePlayoffSeeds } from "@/lib/bracket-server";
 
 export async function POST(request: Request) {
   try {
@@ -58,20 +60,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const liveSeeds = await fetchLivePlayoffSeeds();
     let results: SimulationResults = {};
     let isSimulated = false;
     let isLocked = false;
     let simulatedAt: string | null = null;
+    let savedSeeds: PlayoffSeeds | null = null;
 
     if (action === "simulate") {
-      results = simulatePlayoffOutcomes();
+      results = simulatePlayoffOutcomes(liveSeeds);
       isSimulated = true;
       isLocked = true; // Lock bracket when simulation outcomes are active
       simulatedAt = new Date().toISOString();
+      savedSeeds = liveSeeds;
     } else if (action === "reset") {
       isSimulated = false;
       isLocked = false; // Unlock bracket when resetting to unplayed state
       simulatedAt = null;
+      savedSeeds = null;
     }
 
     // Save simulation state to the pool
@@ -81,6 +87,7 @@ export async function POST(request: Request) {
         isSimulated,
         isLocked,
         simulatedAt,
+        seeds: savedSeeds,
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
@@ -171,6 +178,7 @@ export async function POST(request: Request) {
       isSimulated,
       isLocked,
       simulatedAt,
+      seeds: savedSeeds || liveSeeds,
       leaderboard: rankedLeaderboard,
     });
   } catch (err: unknown) {

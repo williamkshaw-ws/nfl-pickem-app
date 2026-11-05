@@ -3,9 +3,107 @@ import {
   BracketParticipant,
   BracketPool,
   DEFAULT_ROUND_POINTS,
+  PlayoffSeeds,
+  PlayoffTeam,
+  AFC_SEEDS,
+  NFC_SEEDS,
+  NFL_TEAM_META,
 } from "@/lib/playoff-bracket";
+import { resolveTeamAbbr } from "@/lib/nfl-teams";
 
 export const DEFAULT_BRACKET_LOCK_TIME = "2027-01-09T21:30:00.000Z";
+
+let cachedLiveSeeds: { seeds: PlayoffSeeds; expiresAt: number } | null = null;
+
+export async function fetchLivePlayoffSeeds(): Promise<PlayoffSeeds> {
+  const now = Date.now();
+  if (cachedLiveSeeds && now < cachedLiveSeeds.expiresAt) {
+    return cachedLiveSeeds.seeds;
+  }
+
+  try {
+    const res = await fetch(
+      "https://site.web.api.espn.com/apis/v2/sports/football/nfl/standings?type=0&level=2",
+      {
+        next: { revalidate: 300 },
+        headers: { Accept: "application/json" },
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      const afc: PlayoffTeam[] = [];
+      const nfc: PlayoffTeam[] = [];
+
+      for (const child of data.children || []) {
+        const confAbbr = String(child.abbreviation || "").toUpperCase();
+        if (confAbbr !== "AFC" && confAbbr !== "NFC") continue;
+
+        const entries = child.standings?.entries || [];
+        const parsed: Array<{ seed: number; abbr: string; name: string; nickname: string; record?: string }> = [];
+
+        for (const entry of entries) {
+          const seedStat = entry.stats?.find(
+            (s: any) => s.name === "playoffSeed" || s.type === "playoffseed"
+          );
+          const recordStat = entry.stats?.find(
+            (s: any) => s.name === "overall" || s.type === "total"
+          );
+          const rawSeed = Number(seedStat?.value);
+          if (!rawSeed || rawSeed < 1 || rawSeed > 16) continue;
+
+          const rawAbbr = entry.team?.abbreviation || entry.team?.displayName || "";
+          const abbr = resolveTeamAbbr(rawAbbr);
+          const meta = NFL_TEAM_META[abbr];
+
+          parsed.push({
+            seed: rawSeed,
+            abbr,
+            name: meta?.name || entry.team?.displayName || abbr,
+            nickname: meta?.nickname || entry.team?.shortDisplayName || abbr,
+            record: typeof recordStat?.displayValue === "string" ? recordStat.displayValue : undefined,
+          });
+        }
+
+        parsed.sort((a, b) => a.seed - b.seed);
+        const top7 = parsed.slice(0, 7).map((item, idx) => ({
+          seed: idx + 1,
+          conference: confAbbr as "AFC" | "NFC",
+          name: item.name,
+          abbr: item.abbr,
+          nickname: item.nickname,
+          record: item.record,
+        }));
+
+        if (confAbbr === "AFC") {
+          afc.push(...top7);
+        } else {
+          nfc.push(...top7);
+        }
+      }
+
+      if (afc.length === 7 && nfc.length === 7) {
+        const seeds: PlayoffSeeds = {
+          afc,
+          nfc,
+          updatedAt: new Date().toISOString(),
+          source: "live",
+        };
+        cachedLiveSeeds = { seeds, expiresAt: now + 5 * 60_000 };
+        return seeds;
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to fetch live ESPN playoff seeds, using fallback:", err);
+  }
+
+  return {
+    afc: AFC_SEEDS,
+    nfc: NFC_SEEDS,
+    updatedAt: new Date().toISOString(),
+    source: "fallback",
+  };
+}
 
 export function resolveBracketLockTime(storedLockTime?: string): string {
   if (!storedLockTime) return DEFAULT_BRACKET_LOCK_TIME;
@@ -50,22 +148,26 @@ export async function loadBracketPoolPayload(
   const userIds = Array.from(
     new Set(membersSnap.docs.map((d) => d.data().userId).filter(Boolean))
   );
+  const [userDocs, liveSeeds] = await Promise.all([
+    userIds.length > 0
+      ? Promise.all(
+          userIds.map((uid) => db.collection("users").doc(uid).get().catch(() => null))
+        )
+      : Promise.resolve([]),
+    fetchLivePlayoffSeeds(),
+  ]);
+
   const userMap = new Map<string, { name?: string; username?: string; avatarColor?: string }>();
-  if (userIds.length > 0) {
-    const userDocs = await Promise.all(
-      userIds.map((uid) => db.collection("users").doc(uid).get().catch(() => null))
-    );
-    userDocs.forEach((uDoc) => {
-      if (uDoc && uDoc.exists) {
-        const u = uDoc.data();
-        userMap.set(uDoc.id, {
-          name: u?.name,
-          username: u?.username,
-          avatarColor: u?.avatarColor,
-        });
-      }
-    });
-  }
+  userDocs.forEach((uDoc) => {
+    if (uDoc && uDoc.exists) {
+      const u = uDoc.data();
+      userMap.set(uDoc.id, {
+        name: u?.name,
+        username: u?.username,
+        avatarColor: u?.avatarColor,
+      });
+    }
+  });
 
   const participantMap = new Map<string, BracketParticipant>();
   let currentUserEntry: BracketParticipant | null = null;
@@ -133,6 +235,11 @@ export async function loadBracketPoolPayload(
     }
   }
 
+  const activeSeeds: PlayoffSeeds =
+    isAutoLocked && poolData.seeds?.afc?.length === 7 && poolData.seeds?.nfc?.length === 7
+      ? poolData.seeds
+      : liveSeeds;
+
   return {
     pool: {
       id: poolId,
@@ -147,7 +254,9 @@ export async function loadBracketPoolPayload(
       isSimulated: !!poolData.isSimulated,
       simulatedAt: poolData.simulatedAt || null,
       roundPoints,
+      seeds: activeSeeds,
     },
+    seeds: activeSeeds,
     leaderboard,
     currentUserEntry,
     isOwner,
