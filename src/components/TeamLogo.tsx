@@ -62,10 +62,7 @@ export function resolveNflOfficialLogo(alt?: string, src?: string): string {
     }
   }
 
-  // 4. Return official NFL.com SVG (use ESPN lightning bolt for LAC since NFL.com swapped LAC.svg to a throwback helmet)
-  if (abbr === "LAC") {
-    return "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png";
-  }
+  // 4. Return official NFL.com SVG
   if (abbr) {
     return `https://static.www.nfl.com/image/upload/v1/league/api/clubs/logos/${abbr}.svg`;
   }
