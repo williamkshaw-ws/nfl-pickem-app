@@ -49,7 +49,13 @@ export async function POST(
 
     const jsonDb = getDatabase();
     const currentWeek = league.settings?.currentWeek || jsonDb.settings?.currentWeek || 1;
-    const weekGames = jsonDb.gamesByWeek[targetWeek] || [];
+    let weekGames = jsonDb.gamesByWeek[targetWeek] || [];
+    if (weekGames.length === 0 || weekGames.some((g: any) => String(g.id).startsWith("w"))) {
+      const sysSnap = await db.collection("system_nfl_games").doc(String(targetWeek)).get();
+      if (sysSnap.exists && Array.isArray(sysSnap.data()?.games)) {
+        weekGames = sysSnap.data()!.games;
+      }
+    }
     const lockPolicy = league.settings?.lockPolicy || "game";
     const now = Date.now();
 
