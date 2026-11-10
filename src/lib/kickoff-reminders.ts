@@ -3,7 +3,9 @@ import { Resend } from "resend";
 import { getDatabase, detectCurrentWeek } from "@/lib/storage";
 import { fetchEspnWeekGames } from "@/lib/espn";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 function escapeHtml(s: unknown): string {
   return String(s ?? "").replace(/[&<>"']/g, (c: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>)[c]);
@@ -59,7 +61,12 @@ export async function processKickoffReminders({
   let weekGames = gamesByWeek[activeWeek] || [];
   const isPlaceholder =
     weekGames.length === 0 ||
-    weekGames.some((g: any) => g.homeTeam?.abbreviation === "TBD" || String(g.id).startsWith("placeholder"));
+    weekGames.some(
+      (g: any) =>
+        g.homeTeam?.abbreviation === "TBD" ||
+        String(g.id).startsWith("placeholder") ||
+        /^w\d+-g\d+$/.test(String(g.id))
+    );
 
   if (isPlaceholder) {
     try {
@@ -70,6 +77,11 @@ export async function processKickoffReminders({
         const espnRes = await fetchEspnWeekGames(activeWeek, jsonDb.settings?.seasonYear || 2026);
         if (espnRes.games && espnRes.games.length > 0) {
           weekGames = espnRes.games;
+          await db
+            .collection("system_nfl_games")
+            .doc(String(activeWeek))
+            .set({ week: activeWeek, games: espnRes.games, updatedAt: new Date().toISOString() }, { merge: true })
+            .catch(() => {});
         }
       }
     } catch (err) {
@@ -78,6 +90,7 @@ export async function processKickoffReminders({
   }
 
   const totalGames = weekGames.length;
+  const validGameIds = new Set(weekGames.map((g: any) => String(g.id)));
 
   // Find first kickoff (typically Thursday Night Football)
   const sortedGames = [...weekGames].sort(
@@ -129,7 +142,7 @@ export async function processKickoffReminders({
       const picksMap = pickData?.picks || {};
 
       const validPicksCount = Object.keys(picksMap).filter(
-        (gid) => !!picksMap[gid] && picksMap[gid] !== "HIDDEN"
+        (gid) => (validGameIds.size === 0 || validGameIds.has(gid)) && !!picksMap[gid] && picksMap[gid] !== "HIDDEN"
       ).length;
 
       // If user hasn't made all picks (or has made 0 picks)
@@ -275,7 +288,7 @@ export async function processKickoffReminders({
     `;
 
     try {
-      const emailRes = await resend.emails.send({
+      const emailRes = await getResendClient().emails.send({
         from: "PocketPicks <noreply@pocketpicks.app>",
         to: recipient.email,
         subject: `🏈 Week ${activeWeek} Picks Reminder: Kickoff in 2 hours!`,
