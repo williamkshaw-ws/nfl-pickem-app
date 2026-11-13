@@ -22,6 +22,17 @@ export interface AdminUserData {
   }[];
 }
 
+async function listAllAuthUsers() {
+  const users: Awaited<ReturnType<typeof adminAuth.listUsers>>["users"] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await adminAuth.listUsers(1000, pageToken);
+    users.push(...res.users);
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return { users };
+}
+
 export async function GET(request: Request) {
   try {
     await requireAdminSession(request);
@@ -31,7 +42,7 @@ export async function GET(request: Request) {
     // Fetch auth users, firestore user profiles, leagues, and memberships in parallel
     const [authList, firestoreUsersSnap, leaguesSnap, membershipsSnap] =
       await Promise.all([
-        adminAuth.listUsers(1000).catch((err) => {
+        listAllAuthUsers().catch((err) => {
           console.warn("Failed to list auth users:", err);
           return { users: [] };
         }),

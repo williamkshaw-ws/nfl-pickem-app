@@ -9,6 +9,20 @@ import {
   reassignUserBracketAndSquaresPools,
 } from "@/lib/server-auth";
 
+const FIRESTORE_BATCH_LIMIT = 450;
+
+async function deleteDocsInChunks(
+  db: ReturnType<typeof adminDb>,
+  docs: FirebaseFirestore.QueryDocumentSnapshot[]
+) {
+  for (let i = 0; i < docs.length; i += FIRESTORE_BATCH_LIMIT) {
+    const chunk = docs.slice(i, i + FIRESTORE_BATCH_LIMIT);
+    const batch = db.batch();
+    chunk.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit().catch(() => {});
+  }
+}
+
 export async function POST(request: Request) {
   try {
     await requireAdminSession(request);
@@ -53,9 +67,7 @@ export async function POST(request: Request) {
           .get();
 
         if (!leaguePicksSnap.empty) {
-          const batch = db.batch();
-          leaguePicksSnap.docs.forEach((doc) => batch.delete(doc.ref));
-          await batch.commit().catch(() => {});
+          await deleteDocsInChunks(db, leaguePicksSnap.docs);
         }
       }
 
@@ -149,9 +161,7 @@ export async function POST(request: Request) {
 
       const memDocs = [...memSnap.docs, ...bracketMemSnap.docs, ...squaresMemSnap.docs];
       if (memDocs.length > 0) {
-        const batch = db.batch();
-        memDocs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit().catch(() => {});
+        await deleteDocsInChunks(db, memDocs);
       }
 
       // 5. Delete all picks submitted by this user
@@ -161,9 +171,7 @@ export async function POST(request: Request) {
         .get();
 
       if (!picksSnap.empty) {
-        const batch = db.batch();
-        picksSnap.docs.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit().catch(() => {});
+        await deleteDocsInChunks(db, picksSnap.docs);
       }
 
       return NextResponse.json({
