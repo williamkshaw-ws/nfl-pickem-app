@@ -591,7 +591,10 @@ export function PickMatrix({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
+          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold flex-wrap">
+            <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+              <span className="w-2.5 h-2.5 rounded-xs bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 shrink-0" /> Away Pick
+            </span>
             <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Correct
             </span>
@@ -629,7 +632,10 @@ export function PickMatrix({
                       }`}
                     >
                       <div className="flex flex-col items-center justify-center leading-tight py-1">
-                        <div className="flex items-center justify-center gap-1">
+                        <div
+                          className="flex items-center justify-center gap-1 px-1 py-0.5 rounded bg-slate-200/75 dark:bg-slate-700/60 border border-slate-300/40 dark:border-slate-600/40 w-full"
+                          title={`${game.awayTeam.displayName} (Away)`}
+                        >
                           <TeamLogo
                             src={game.awayTeam.logo}
                             alt={game.awayTeam.abbreviation}
@@ -640,6 +646,7 @@ export function PickMatrix({
                           <span className="text-[10px] font-black text-slate-900 dark:text-white tracking-tight">
                             {game.awayTeam.abbreviation}
                           </span>
+                          <span className="text-[7.5px] font-bold text-slate-400 dark:text-slate-500">@</span>
                         </div>
                         {isLive ? (
                           <div
@@ -664,7 +671,10 @@ export function PickMatrix({
                               : "VS"}
                           </span>
                         )}
-                        <div className="flex items-center justify-center gap-1">
+                        <div
+                          className="flex items-center justify-center gap-1 px-1 py-0.5 w-full"
+                          title={`${game.homeTeam.displayName} (Home)`}
+                        >
                           <TeamLogo
                             src={game.homeTeam.logo}
                             alt={game.homeTeam.abbreviation}
@@ -857,6 +867,7 @@ export function PickMatrix({
                         }
 
                         const isSurvivorPick = eliminatorEnabled && stat.elimPickTeamId === pickedTeamId && !isHidden;
+                        const isAwayPick = Boolean(pickedTeam && pickedTeam.id === game.awayTeam.id && !isHidden);
 
                         return (
                           <td
@@ -866,10 +877,18 @@ export function PickMatrix({
                                 ? `border-r border-blue-200/80 dark:border-blue-800/80 ${
                                     game.isTiebreakerGame
                                       ? "bg-blue-100/70 dark:bg-blue-900/50"
+                                      : isAwayPick
+                                      ? "bg-blue-200/40 dark:bg-blue-950/80"
                                       : "bg-blue-100/50 dark:bg-blue-950/60"
                                   }`
                                 : `border-r border-slate-100 dark:border-slate-800/80 ${
-                                    game.isTiebreakerGame ? "bg-amber-50/20 dark:bg-amber-950/10" : ""
+                                    game.isTiebreakerGame
+                                      ? isAwayPick
+                                        ? "bg-amber-100/40 dark:bg-amber-950/25"
+                                        : "bg-amber-50/20 dark:bg-amber-950/10"
+                                      : isAwayPick
+                                      ? "bg-slate-100/75 dark:bg-slate-800/50"
+                                      : ""
                                   }`
                             }`}
                           >
@@ -882,7 +901,8 @@ export function PickMatrix({
                               </span>
                             ) : pickedTeam ? (
                               <div
-                                className={`group relative py-1 px-1 rounded flex flex-col items-center justify-center transition-all ${
+                                title={`${pickedTeam.displayName} (${isAwayPick ? "Away" : "Home"})`}
+                                className={`group relative py-1 px-1 rounded flex flex-col items-center justify-center transition-all w-full ${
                                   isSurvivorPick
                                     ? isFinal
                                       ? isCorrect
@@ -890,12 +910,20 @@ export function PickMatrix({
                                         : "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
                                       : "bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-700/80 text-orange-950 dark:text-orange-200 font-black shadow-xs ring-1 ring-orange-400/30"
                                     : isCorrect
-                                    ? "bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 text-emerald-950 dark:text-emerald-200 font-black shadow-xs ring-1 ring-emerald-400/30"
+                                    ? isAwayPick
+                                      ? "bg-emerald-200/90 dark:bg-emerald-900/70 border border-emerald-400/80 dark:border-emerald-600/80 text-emerald-950 dark:text-emerald-100 font-black shadow-xs ring-1 ring-emerald-500/40"
+                                      : "bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 text-emerald-950 dark:text-emerald-200 font-black shadow-xs ring-1 ring-emerald-400/30"
                                     : isIncorrect
-                                    ? "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
+                                    ? isAwayPick
+                                      ? "bg-rose-200/90 dark:bg-rose-900/70 border border-rose-400/80 dark:border-rose-600/80 text-rose-950 dark:text-rose-100 font-bold shadow-xs ring-1 ring-rose-500/40"
+                                      : "bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-700/80 text-rose-950 dark:text-rose-200 font-bold shadow-xs ring-1 ring-rose-400/30"
                                     : isMe
-                                    ? "bg-white/90 dark:bg-slate-800/90 border border-blue-300 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-bold shadow-2xs"
-                                    : "text-slate-800 dark:text-slate-200 font-bold"
+                                    ? isAwayPick
+                                      ? "bg-blue-200/90 dark:bg-blue-900/80 border border-blue-400 dark:border-blue-500 text-blue-950 dark:text-blue-100 font-black shadow-2xs"
+                                      : "bg-white/95 dark:bg-slate-800/90 border border-blue-300 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-bold shadow-2xs"
+                                    : isAwayPick
+                                    ? "bg-slate-200/85 dark:bg-slate-800 border border-slate-300/85 dark:border-slate-700/80 text-slate-950 dark:text-slate-100 font-bold shadow-2xs"
+                                    : "bg-transparent text-slate-800 dark:text-slate-200 font-semibold"
                                 }`}
                               >
                                 <TeamLogo
