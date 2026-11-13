@@ -632,10 +632,7 @@ export function PickMatrix({
                       }`}
                     >
                       <div className="flex flex-col items-center justify-center leading-tight py-1">
-                        <div
-                          className="flex items-center justify-center gap-1 px-1 py-0.5 rounded bg-slate-200/75 dark:bg-slate-700/60 border border-slate-300/40 dark:border-slate-600/40 w-full"
-                          title={`${game.awayTeam.displayName} (Away)`}
-                        >
+                        <div className="flex items-center justify-center gap-1">
                           <TeamLogo
                             src={game.awayTeam.logo}
                             alt={game.awayTeam.abbreviation}
@@ -646,7 +643,6 @@ export function PickMatrix({
                           <span className="text-[10px] font-black text-slate-900 dark:text-white tracking-tight">
                             {game.awayTeam.abbreviation}
                           </span>
-                          <span className="text-[7.5px] font-bold text-slate-400 dark:text-slate-500">@</span>
                         </div>
                         {isLive ? (
                           <div
@@ -671,10 +667,7 @@ export function PickMatrix({
                               : "VS"}
                           </span>
                         )}
-                        <div
-                          className="flex items-center justify-center gap-1 px-1 py-0.5 w-full"
-                          title={`${game.homeTeam.displayName} (Home)`}
-                        >
+                        <div className="flex items-center justify-center gap-1">
                           <TeamLogo
                             src={game.homeTeam.logo}
                             alt={game.homeTeam.abbreviation}
