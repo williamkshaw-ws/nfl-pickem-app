@@ -600,7 +600,7 @@ export function PickMatrix({
       {/* ================= COMPACT LEAGUE PICKS GRID ================= */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-center border-collapse">
+          <table className="w-full text-center border-collapse tabular-nums">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 select-none">
               <tr>
                 {/* Matchup Columns */}

@@ -93,6 +93,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
   const [data, setData] = useState<LeagueApiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState<boolean>(false);
@@ -166,6 +167,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
       if (week === undefined) {
         setActiveWeek(json.activeWeek);
       }
+      setLastUpdatedAt(Date.now());
     } catch (err) {
       console.error("Error loading league data:", err);
     } finally {
@@ -863,6 +865,8 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
         onSelectWeek={handleSelectWeek}
         onSyncEspn={handleSyncToEspn}
         isSyncing={isSyncing}
+        lastUpdatedAt={lastUpdatedAt}
+        currentTime={currentTime}
       />
 
       <main className="max-w-7xl mx-auto px-4 pt-4 sm:pt-8 pb-6 sm:pb-8 w-full flex-1">

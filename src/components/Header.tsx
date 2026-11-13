@@ -49,6 +49,17 @@ interface HeaderProps {
   onSelectWeek: (week: number) => void;
   onSyncEspn?: (week?: number) => void | Promise<void>;
   isSyncing?: boolean;
+  lastUpdatedAt?: number | null;
+  currentTime?: number;
+}
+
+function formatLastUpdated(timestamp: number | null | undefined, now: number): string | null {
+  if (!timestamp) return null;
+  const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (diffSec < 45) return "Just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  return new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 interface LeagueMembership {
@@ -68,7 +79,10 @@ export function Header({
   onSelectWeek,
   onSyncEspn,
   isSyncing,
+  lastUpdatedAt,
+  currentTime,
 }: HeaderProps) {
+  const lastUpdatedLabel = formatLastUpdated(lastUpdatedAt, currentTime ?? Date.now());
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -337,6 +351,17 @@ export function Header({
                       <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
                     </button>
                   )}
+
+                  {(lastUpdatedLabel || isSyncing) && (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap"
+                      title={lastUpdatedAt ? `Last updated at ${new Date(lastUpdatedAt).toLocaleTimeString()}` : "Syncing live scores"}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSyncing ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                      <span className="hidden md:inline">Updated </span>
+                      <span>{isSyncing ? "Syncing..." : lastUpdatedLabel}</span>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -465,18 +490,30 @@ export function Header({
             </button>
           </div>
 
-          {onSyncEspn && (
-            <button
-              type="button"
-              onClick={() => onSyncEspn(activeWeek)}
-              disabled={isSyncing}
-              title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
-              className="h-7 px-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-2xs active:scale-95"
-            >
-              <RefreshCw className={`w-3 h-3 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
-              <span className="text-[11px] font-semibold">Sync ESPN</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {(lastUpdatedLabel || isSyncing) && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[10px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap shrink-0"
+                title={lastUpdatedAt ? `Last updated at ${new Date(lastUpdatedAt).toLocaleTimeString()}` : "Syncing live scores"}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSyncing ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                <span>{isSyncing ? "Syncing..." : lastUpdatedLabel}</span>
+              </span>
+            )}
+
+            {onSyncEspn && (
+              <button
+                type="button"
+                onClick={() => onSyncEspn(activeWeek)}
+                disabled={isSyncing}
+                title={isSyncing ? "Syncing ESPN scores..." : `Refresh Week ${activeWeek} scores from ESPN`}
+                className="h-7 px-2 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 shadow-2xs active:scale-95 shrink-0"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSyncing ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
+                <span className="text-[11px] font-semibold">Sync</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </header>

@@ -202,7 +202,7 @@ export function OverallStandings({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         {/* Desktop / tablet table */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm tabular-nums">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-2.5 pl-5 pr-2 w-14">Rank</th>
@@ -319,7 +319,7 @@ export function OverallStandings({
             <span className="text-right">Correct</span>
             <span className="text-right">GB</span>
           </div>
-          <ul className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800/60 tabular-nums">
             {rows.map((p) => {
               const isMe = p.userId === currentUserId;
               const isOpen = expandedId === p.userId;
