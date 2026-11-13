@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { SeasonPlayerStanding } from "@/types/nfl";
+import { SeasonPlayerStanding, PastSeasonChampion } from "@/types/nfl";
+import { getPlayerChampionships } from "@/lib/champions";
+import { ChampionBadge } from "./ChampionBadge";
 import {
   Trophy,
   Crown,
@@ -219,6 +221,7 @@ export function OverallStandings({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {rows.map((p) => {
                 const isMe = p.userId === currentUserId;
+                const champ = getPlayerChampionships(settings?.pastChampions, p.userId, p.userName);
                 return (
                   <tr
                     key={p.userId}
@@ -236,11 +239,14 @@ export function OverallStandings({
                     <td className="py-2.5 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-7 h-7 rounded-lg ${p.avatarColor} text-white font-bold flex items-center justify-center text-xs flex-shrink-0`}
+                          className={`w-7 h-7 rounded-lg ${p.avatarColor} text-white font-bold flex items-center justify-center text-xs flex-shrink-0 ${
+                            champ.isReigning ? "ring-2 ring-amber-400/80 ring-offset-1 ring-offset-white dark:ring-offset-slate-900" : ""
+                          }`}
                         >
                           {p.userName.charAt(0)}
                         </div>
                         <span className="font-bold text-slate-900 dark:text-white">{p.userName}</span>
+                        <ChampionBadge titles={champ.titles} isReigning={champ.isReigning} />
                         {p.rank === 1 && (
                           <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
                         )}
@@ -323,6 +329,7 @@ export function OverallStandings({
             {rows.map((p) => {
               const isMe = p.userId === currentUserId;
               const isOpen = expandedId === p.userId;
+              const champ = getPlayerChampionships(settings?.pastChampions, p.userId, p.userName);
               return (
                 <li key={p.userId} className={(isSeasonOver && p.rank === 1) ? "bg-amber-50/70 dark:bg-amber-950/40" : isMe ? "bg-emerald-100/60 dark:bg-emerald-950/50" : ""}>
                   <button
@@ -344,13 +351,16 @@ export function OverallStandings({
                     {/* Player */}
                     <div className="flex items-center gap-2 min-w-0">
                       <div
-                        className={`w-7 h-7 rounded-lg ${p.avatarColor} text-white font-bold flex items-center justify-center text-xs flex-shrink-0`}
+                        className={`w-7 h-7 rounded-lg ${p.avatarColor} text-white font-bold flex items-center justify-center text-xs flex-shrink-0 ${
+                          champ.isReigning ? "ring-2 ring-amber-400/80 ring-offset-1 ring-offset-white dark:ring-offset-slate-900" : ""
+                        }`}
                       >
                         {p.userName.charAt(0)}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                          {p.userName}
+                        <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5 min-w-0">
+                          <span className="truncate">{p.userName}</span>
+                          <ChampionBadge titles={champ.titles} isReigning={champ.isReigning} compact />
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
                           {p.latest && (
@@ -413,6 +423,45 @@ export function OverallStandings({
           </ul>
         </div>
       </div>
+
+      {Array.isArray(settings?.pastChampions) && settings.pastChampions.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+              Past Season Champions
+            </h3>
+            <span className="text-[11px] font-semibold text-slate-400">
+              {settings.pastChampions.length} season{settings.pastChampions.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(settings.pastChampions as PastSeasonChampion[])
+              .slice()
+              .sort((a, b) => b.seasonYear - a.seasonYear)
+              .map((c, idx) => (
+                <div
+                  key={`${c.seasonYear}-${c.userName}`}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs tabular-nums ${
+                    idx === 0
+                      ? "bg-amber-50/80 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/80 text-amber-950 dark:text-amber-200"
+                      : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200"
+                  }`}
+                >
+                  <span className="font-black text-amber-700 dark:text-amber-400">
+                    {idx === 0 ? "👑" : "🏆"} {c.seasonYear}
+                  </span>
+                  <span className="font-bold">{c.userName}</span>
+                  {(c.record || c.weeklyWins !== undefined) && (
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      {[c.record, c.weeklyWins !== undefined ? `${c.weeklyWins} wk` : null].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       <p className="text-[11px] text-slate-400 px-1">
         GB = games behind the leader. Move = rank change since Week {Math.max(latestWeek - 1, 1)}.

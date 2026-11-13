@@ -8,6 +8,8 @@ import { Check, X, Clock, Trophy, Sparkles, HelpCircle, Zap } from "lucide-react
 import { TeamLogo } from "./TeamLogo";
 import { isClinchingEligibleTiming } from "@/lib/clinching-scenarios";
 import { isGameLockedClient } from "@/lib/game-lock";
+import { getPlayerChampionships } from "@/lib/champions";
+import { ChampionBadge } from "./ChampionBadge";
 
 const ClinchingScenariosModal = dynamic(
   () => import("./ClinchingScenariosModal").then((m) => m.ClinchingScenariosModal),
@@ -723,6 +725,10 @@ export function PickMatrix({
                             </span>
                             <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate flex items-center gap-1.5">
                               <span>{user.name}</span>
+                              {(() => {
+                                const champ = getPlayerChampionships(settings?.pastChampions, user.id, user.name);
+                                return <ChampionBadge titles={champ.titles} isReigning={champ.isReigning} compact />;
+                              })()}
                               {isMe && (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-500 text-white shrink-0">
                                   You

@@ -133,6 +133,14 @@ export interface SeasonPlayerStanding {
   recentWeeklyScores: { week: number; correct: number; total: number; isWinner: boolean }[];
 }
 
+export interface PastSeasonChampion {
+  seasonYear: number;
+  userId?: string;
+  userName: string;
+  record?: string;
+  weeklyWins?: number;
+}
+
 export interface LeagueSettings {
   commissionerId?: string;
   leagueName: string;
@@ -155,6 +163,8 @@ export interface LeagueSettings {
   weeklyStartWeek?: number;
   /** Commissioner's Venmo username (without @) shown to members for paying dues */
   venmoHandle?: string;
+  /** Recorded champions from previous seasons */
+  pastChampions?: PastSeasonChampion[];
 }
 
 export interface EliminatorStatus {

@@ -114,6 +114,7 @@ export async function GET(
       survivorFee: typeof rawSettings.survivorFee === "number" ? rawSettings.survivorFee : 0,
       weeklyStartWeek: typeof rawSettings.weeklyStartWeek === "number" ? rawSettings.weeklyStartWeek : 1,
       venmoHandle: leagueVenmo,
+      pastChampions: Array.isArray(rawSettings.pastChampions) ? rawSettings.pastChampions : [],
     };
 
     const activeWeek = weekParam ? parseInt(weekParam, 10) : settings.currentWeek;
@@ -491,6 +492,7 @@ export async function PUT(
       "survivorFee",
       "weeklyStartWeek",
       "venmoHandle",
+      "pastChampions",
     ];
 
     const sanitizedUpdates: Record<string, any> = {};
@@ -575,6 +577,39 @@ export async function PUT(
             throw new HttpError(400, "Venmo username must be 3-30 letters, numbers, - or _");
           }
           sanitizedUpdates[key] = handle;
+          break;
+        }
+        case "pastChampions": {
+          if (!Array.isArray(value) || value.length > 50) {
+            throw new HttpError(400, "pastChampions must be an array of at most 50 entries");
+          }
+          const cleaned = value.map((entry: any) => {
+            const seasonYear = Number(entry?.seasonYear);
+            if (!Number.isInteger(seasonYear) || seasonYear < 1990 || seasonYear > 2100) {
+              throw new HttpError(400, "Invalid champion seasonYear");
+            }
+            const userName = typeof entry?.userName === "string" ? entry.userName.trim() : "";
+            if (!userName || userName.length > 50) {
+              throw new HttpError(400, "Champion userName must be 1-50 characters");
+            }
+            const item: Record<string, any> = { seasonYear, userName };
+            if (typeof entry?.userId === "string" && entry.userId.trim()) {
+              item.userId = entry.userId.trim().slice(0, 64);
+            }
+            if (typeof entry?.record === "string" && entry.record.trim()) {
+              item.record = entry.record.trim().slice(0, 20);
+            }
+            if (entry?.weeklyWins !== undefined && entry?.weeklyWins !== null && entry?.weeklyWins !== "") {
+              const ww = Number(entry.weeklyWins);
+              if (!Number.isInteger(ww) || ww < 0 || ww > 30) {
+                throw new HttpError(400, "Invalid champion weeklyWins");
+              }
+              item.weeklyWins = ww;
+            }
+            return item;
+          });
+          cleaned.sort((a: any, b: any) => b.seasonYear - a.seasonYear);
+          sanitizedUpdates[key] = cleaned;
           break;
         }
       }

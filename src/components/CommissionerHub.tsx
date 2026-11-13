@@ -131,6 +131,14 @@ export function CommissionerHub({
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || "");
   const [leaguePassword, setLeaguePassword] = useState(settings.leaguePassword || "");
 
+  // Past Season Champions form state
+  const [champYearInput, setChampYearInput] = useState<string>(String((settings.seasonYear || 2026) - 1));
+  const [champMemberId, setChampMemberId] = useState<string>(users[0]?.id || "__custom__");
+  const [champCustomName, setChampCustomName] = useState<string>("");
+  const [champRecordInput, setChampRecordInput] = useState<string>("");
+  const [champWeeklyWinsInput, setChampWeeklyWinsInput] = useState<string>("");
+  const [savingChamps, setSavingChamps] = useState<boolean>(false);
+
   // Modals state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1756,6 +1764,185 @@ export function CommissionerHub({
                 <span>
                   {isSyncing ? "Syncing ESPN Scores..." : `Sync Week ${activeWeek} Scores Now`}
                 </span>
+              </button>
+            </div>
+
+            {/* Past Season Champions (Hall of Fame) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  Past Season Champions
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                  Hall of Fame
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Record previous season winners to display championship badges next to their names and in Season Standings.
+              </p>
+
+              {(settings.pastChampions?.length ?? 0) > 0 && (
+                <div className="space-y-2">
+                  {(settings.pastChampions || [])
+                    .slice()
+                    .sort((a, b) => b.seasonYear - a.seasonYear)
+                    .map((c) => (
+                      <div
+                        key={`${c.seasonYear}-${c.userName}`}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-black text-amber-700 dark:text-amber-400 tabular-nums shrink-0">
+                            {c.seasonYear}
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white truncate">
+                            {c.userName}
+                          </span>
+                          {(c.record || c.weeklyWins !== undefined) && (
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate tabular-nums">
+                              ({[c.record, c.weeklyWins !== undefined ? `${c.weeklyWins} wk` : null].filter(Boolean).join(" · ")})
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={savingChamps}
+                          onClick={async () => {
+                            setSavingChamps(true);
+                            try {
+                              const next = (settings.pastChampions || []).filter(
+                                (item) => !(item.seasonYear === c.seasonYear && item.userName === c.userName)
+                              );
+                              await onUpdateSettings({ pastChampions: next });
+                            } finally {
+                              setSavingChamps(false);
+                            }
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition shrink-0"
+                          title="Remove champion"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                    Season Year
+                  </label>
+                  <input
+                    type="number"
+                    min={1990}
+                    max={2100}
+                    value={champYearInput}
+                    onChange={(e) => setChampYearInput(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                    Winner
+                  </label>
+                  <select
+                    value={champMemberId}
+                    onChange={(e) => setChampMemberId(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                    <option value="__custom__">Other / Custom Name...</option>
+                  </select>
+                </div>
+
+                {champMemberId === "__custom__" && (
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                      Winner Name
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      placeholder="e.g. Bill S."
+                      value={champCustomName}
+                      onChange={(e) => setChampCustomName(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                    Record (optional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    placeholder="e.g. 148-124"
+                    value={champRecordInput}
+                    onChange={(e) => setChampRecordInput(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                    Weekly Wins (optional)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    placeholder="e.g. 4"
+                    value={champWeeklyWinsInput}
+                    onChange={(e) => setChampWeeklyWinsInput(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={savingChamps}
+                onClick={async () => {
+                  const yearNum = parseInt(champYearInput, 10);
+                  if (!Number.isInteger(yearNum) || yearNum < 1990 || yearNum > 2100) {
+                    setAlertModal({ title: "Invalid Year", message: "Please enter a valid season year (1990–2100)." });
+                    return;
+                  }
+                  const selectedMember = champMemberId === "__custom__" ? null : users.find((u) => u.id === champMemberId);
+                  const winnerName = selectedMember ? selectedMember.name : champCustomName.trim();
+                  if (!winnerName) {
+                    setAlertModal({ title: "Winner Required", message: "Please select a member or enter a winner name." });
+                    return;
+                  }
+                  const newEntry = {
+                    seasonYear: yearNum,
+                    ...(selectedMember ? { userId: selectedMember.id } : {}),
+                    userName: winnerName,
+                    ...(champRecordInput.trim() ? { record: champRecordInput.trim() } : {}),
+                    ...(champWeeklyWinsInput !== "" ? { weeklyWins: Math.max(0, parseInt(champWeeklyWinsInput, 10) || 0) } : {}),
+                  };
+                  setSavingChamps(true);
+                  try {
+                    const filtered = (settings.pastChampions || []).filter((c) => c.seasonYear !== yearNum);
+                    await onUpdateSettings({ pastChampions: [...filtered, newEntry] });
+                    setChampCustomName("");
+                    setChampRecordInput("");
+                    setChampWeeklyWinsInput("");
+                  } finally {
+                    setSavingChamps(false);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50 shadow-xs"
+              >
+                {savingChamps ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crown className="w-3.5 h-3.5" />}
+                <span>{savingChamps ? "Saving..." : "Add / Update Champion"}</span>
               </button>
             </div>
 

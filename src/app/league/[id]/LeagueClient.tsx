@@ -876,6 +876,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
             seasonYear={data.settings.seasonYear || 2026}
             currentUserId=""
             isSeasonOver={data.isSeasonOver}
+            settings={data.settings}
           />
         ) : (
           <>
