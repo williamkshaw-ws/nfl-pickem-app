@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteFooter } from "@/components/SiteFooter";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://pocketpicks.app"),
@@ -80,6 +81,7 @@ export default function RootLayout({
             <SiteFooter />
           </AuthProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
