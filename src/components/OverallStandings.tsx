@@ -455,7 +455,7 @@ export function OverallStandings({
                   <span className="font-bold">{c.userName}</span>
                   {(c.record || c.weeklyWins !== undefined) && (
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                      {[c.record, c.weeklyWins !== undefined ? `${c.weeklyWins} wk` : null].filter(Boolean).join(" · ")}
+                      {[c.record, c.weeklyWins !== undefined ? `${c.weeklyWins} win${c.weeklyWins === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}
                     </span>
                   )}
                 </div>

@@ -1801,7 +1801,7 @@ export function CommissionerHub({
                           </span>
                           {(c.record || c.weeklyWins !== undefined) && (
                             <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate tabular-nums">
-                              ({[c.record, c.weeklyWins !== undefined ? `${c.weeklyWins} wk` : null].filter(Boolean).join(" · ")})
+                              ({[c.record, c.weeklyWins !== undefined ? `${c.weeklyWins} win${c.weeklyWins === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")})
                             </span>
                           )}
                         </div>
