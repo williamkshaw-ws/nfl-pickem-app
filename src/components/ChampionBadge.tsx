@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Crown, Trophy } from "lucide-react";
 import { PastSeasonChampion } from "@/types/nfl";
 
 interface ChampionBadgeProps {
@@ -34,18 +33,12 @@ export function ChampionBadge({ titles, isReigning, compact = false }: ChampionB
         isReigning
           ? "bg-amber-100/95 dark:bg-amber-950/70 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300"
           : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
-      } ${compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]"}`}
+      } ${compact ? "px-1.5 py-[3px] text-[9px]" : "px-2 py-[3px] text-[10px]"}`}
     >
-      {isReigning ? (
-        <Crown
-          className={`${compact ? "w-2.5 h-2.5" : "w-3 h-3"} text-amber-500 fill-amber-400 shrink-0`}
-        />
-      ) : (
-        <Trophy
-          className={`${compact ? "w-2.5 h-2.5" : "w-3 h-3"} text-amber-600 dark:text-amber-400 shrink-0`}
-        />
-      )}
-      <span>{yearsText}</span>
+      <span className="inline-flex items-center justify-center leading-none -translate-y-[1px]">
+        {isReigning ? "👑" : "🏆"}
+      </span>
+      <span className="leading-none">{yearsText}</span>
     </span>
   );
 }

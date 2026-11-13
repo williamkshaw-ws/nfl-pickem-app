@@ -449,11 +449,7 @@ export function OverallStandings({
                   }`}
                 >
                   <span className="inline-flex items-center gap-1 font-black text-amber-700 dark:text-amber-400">
-                    {idx === 0 ? (
-                      <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
-                    ) : (
-                      <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                    )}
+                    <span className="leading-none -translate-y-[1px]">{idx === 0 ? "👑" : "🏆"}</span>
                     <span>{c.seasonYear}</span>
                   </span>
                   <span className="font-bold">{c.userName}</span>
