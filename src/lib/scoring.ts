@@ -327,11 +327,18 @@ export function calculateSeasonStandings(
         weeklyWins++;
       }
 
+      const allWeekGamesCount = (allWeeksGames[weekNum] || []).length;
+      const isPerfectWeek =
+        allWeekGamesCount > 0 &&
+        completedGames.length === allWeekGamesCount &&
+        weekCorrect === allWeekGamesCount;
+
       recentWeeklyScores.push({
         week: weekNum,
         correct: weekCorrect,
         total: completedGames.length,
         isWinner,
+        isPerfectWeek,
       });
     });
 

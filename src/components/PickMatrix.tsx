@@ -735,21 +735,35 @@ export function PickMatrix({
                                 </span>
                               )}
                             </span>
-                            <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${contention.badgeColor}`}
-                              title={contention.detail}
-                            >
-                              {contention.status === "winner" ||
-                              contention.status === "clinched" ||
-                              contention.status === "leader" ? (
-                                <Trophy className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              ) : contention.status === "contending" ? (
-                                <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                              ) : (
-                                <X className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400 shrink-0" />
-                              )}
-                              <span>{contention.label}</span>
-                            </span>
+                            {(() => {
+                              const isPerfectWeek =
+                                isWeekFinished &&
+                                sortedGames.length > 0 &&
+                                stat.correctCount === sortedGames.length;
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${
+                                    isPerfectWeek
+                                      ? "bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-950/90 dark:to-cyan-950/90 text-emerald-950 dark:text-cyan-200 border-cyan-400 dark:border-cyan-600"
+                                      : contention.badgeColor
+                                  }`}
+                                  title={isPerfectWeek ? `Perfect Week! (${stat.correctCount}/${sortedGames.length})` : contention.detail}
+                                >
+                                  {isPerfectWeek ? (
+                                    <Sparkles className="w-2.5 h-2.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                                  ) : contention.status === "winner" ||
+                                  contention.status === "clinched" ||
+                                  contention.status === "leader" ? (
+                                    <Trophy className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  ) : contention.status === "contending" ? (
+                                    <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                  ) : (
+                                    <X className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                  )}
+                                  <span>{isPerfectWeek ? "Perfect Week" : contention.label}</span>
+                                </span>
+                              );
+                            })()}
                             <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
                               · <strong className="text-slate-900 dark:text-white font-black">{stat.correctCount}</strong>/{sortedGames.length} correct
                             </span>

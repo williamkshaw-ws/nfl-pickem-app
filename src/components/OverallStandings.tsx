@@ -11,6 +11,7 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  Sparkles,
 } from "lucide-react";
 
 interface OverallStandingsProps {
@@ -23,7 +24,7 @@ interface OverallStandingsProps {
 
 interface StandingRow extends SeasonPlayerStanding {
   gamesBack: number;
-  latest?: { week: number; correct: number; total: number; isWinner: boolean };
+  latest?: { week: number; correct: number; total: number; isWinner: boolean; isPerfectWeek?: boolean };
   /** Positive = moved up, negative = moved down, 0 = unchanged, null = no prior week */
   movement: number | null;
 }
@@ -268,14 +269,24 @@ export function OverallStandings({
                     </td>
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
                       {p.latest ? (
-                        <span
-                          className={`inline-flex items-center gap-1 font-semibold ${
-                            p.latest.isWinner ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
-                          }`}
-                        >
-                          {p.latest.correct}/{p.latest.total}
-                          {p.latest.isWinner && <Trophy className="w-3 h-3 text-amber-500" />}
-                        </span>
+                        p.latest.isPerfectWeek ? (
+                          <span
+                            title={`Perfect Week! (${p.latest.correct}/${p.latest.total})`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-black text-xs bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-950/80 dark:to-cyan-950/80 border border-cyan-300 dark:border-cyan-700 text-emerald-950 dark:text-cyan-200 shadow-2xs"
+                          >
+                            {p.latest.correct}/{p.latest.total}
+                            <Sparkles className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-1 font-semibold ${
+                              p.latest.isWinner ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            {p.latest.correct}/{p.latest.total}
+                            {p.latest.isWinner && <Trophy className="w-3 h-3 text-amber-500" />}
+                          </span>
+                        )
                       ) : (
                         <span className="text-slate-300 dark:text-slate-600">–</span>
                       )}
@@ -298,9 +309,11 @@ export function OverallStandings({
                         {p.recentWeeklyScores.map((s) => (
                           <span
                             key={s.week}
-                            title={`Week ${s.week}: ${s.correct}/${s.total}${s.isWinner ? " (Weekly winner)" : ""}`}
+                            title={`Week ${s.week}: ${s.correct}/${s.total}${s.isPerfectWeek ? " (Perfect Week!)" : s.isWinner ? " (Weekly winner)" : ""}`}
                             className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                              s.isWinner
+                              s.isPerfectWeek
+                                ? "bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-950/80 dark:to-cyan-950/80 text-emerald-950 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700 font-black"
+                                : s.isWinner
                                 ? "bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800"
                                 : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                             }`}
@@ -405,13 +418,19 @@ export function OverallStandings({
                           <span
                             key={s.week}
                             className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border ${
-                              s.isWinner
+                              s.isPerfectWeek
+                                ? "bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-950/80 dark:to-cyan-950/80 text-emerald-950 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700 font-black"
+                                : s.isWinner
                                 ? "bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800"
                                 : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                             }`}
                           >
                             W{s.week}: {s.correct}/{s.total}
-                            {s.isWinner && <Trophy className="w-3 h-3 text-amber-600" />}
+                            {s.isPerfectWeek ? (
+                              <Sparkles className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                            ) : s.isWinner ? (
+                              <Trophy className="w-3 h-3 text-amber-600" />
+                            ) : null}
                           </span>
                         ))}
                       </div>

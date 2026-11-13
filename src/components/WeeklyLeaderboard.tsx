@@ -237,11 +237,14 @@ export function WeeklyLeaderboard({
                 const isMe = p.userId === currentUserId;
                 const back = leaderCorrect - p.correctPicks;
                 const out = isEliminated(p);
+                const isPerfectWeek = allGamesCompleted && p.totalGames > 0 && p.correctPicks === p.totalGames;
                 return (
                   <tr
                     key={p.userId}
                     className={`${
-                      p.isWeeklyWinner
+                      isPerfectWeek
+                        ? "bg-gradient-to-r from-emerald-50/90 to-cyan-50/90 dark:from-emerald-950/40 dark:to-cyan-950/40"
+                        : p.isWeeklyWinner
                         ? "bg-amber-50/70 dark:bg-amber-950/40"
                         : isMe
                         ? "bg-emerald-50/70 dark:bg-emerald-950/30"
@@ -259,6 +262,12 @@ export function WeeklyLeaderboard({
                           {p.userName.charAt(0)}
                         </div>
                         <span className="font-bold text-slate-900 dark:text-white">{p.userName}</span>
+                        {isPerfectWeek && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-950/80 dark:to-cyan-950/80 border border-cyan-300 dark:border-cyan-700 text-emerald-950 dark:text-cyan-200">
+                            <Sparkles className="w-2.5 h-2.5 text-cyan-600 dark:text-cyan-400" />
+                            Perfect
+                          </span>
+                        )}
                         {p.isWeeklyWinner && (
                           <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
                         )}
@@ -326,11 +335,18 @@ export function WeeklyLeaderboard({
               const isOpen = expandedId === p.userId;
               const back = leaderCorrect - p.correctPicks;
               const out = isEliminated(p);
+              const isPerfectWeek = allGamesCompleted && p.totalGames > 0 && p.correctPicks === p.totalGames;
               return (
                 <li
                   key={p.userId}
                   className={
-                    p.isWeeklyWinner ? "bg-amber-50/70 dark:bg-amber-950/40" : isMe ? "bg-emerald-50/70 dark:bg-emerald-950/30" : ""
+                    isPerfectWeek
+                      ? "bg-gradient-to-r from-emerald-50/90 to-cyan-50/90 dark:from-emerald-950/40 dark:to-cyan-950/40"
+                      : p.isWeeklyWinner
+                      ? "bg-amber-50/70 dark:bg-amber-950/40"
+                      : isMe
+                      ? "bg-emerald-50/70 dark:bg-emerald-950/30"
+                      : ""
                   }
                 >
                   <button

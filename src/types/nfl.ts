@@ -130,7 +130,7 @@ export interface SeasonPlayerStanding {
   winPercentage: number;
   weeklyWins: number;
   weeksPlayed: number;
-  recentWeeklyScores: { week: number; correct: number; total: number; isWinner: boolean }[];
+  recentWeeklyScores: { week: number; correct: number; total: number; isWinner: boolean; isPerfectWeek?: boolean }[];
 }
 
 export interface PastSeasonChampion {
