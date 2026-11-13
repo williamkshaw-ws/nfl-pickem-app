@@ -448,8 +448,13 @@ export function OverallStandings({
                       : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200"
                   }`}
                 >
-                  <span className="font-black text-amber-700 dark:text-amber-400">
-                    {idx === 0 ? "👑" : "🏆"} {c.seasonYear}
+                  <span className="inline-flex items-center gap-1 font-black text-amber-700 dark:text-amber-400">
+                    {idx === 0 ? (
+                      <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                    ) : (
+                      <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    )}
+                    <span>{c.seasonYear}</span>
                   </span>
                   <span className="font-bold">{c.userName}</span>
                   {(c.record || c.weeklyWins !== undefined) && (
