@@ -18,6 +18,9 @@ import { computeClinchingAnalysis } from "@/lib/clinching-scenarios";
 // Throttle automatic ESPN sync on page load to at most once every 60 seconds per week
 const lastAutoSyncByWeek: Record<number, number> = {};
 
+// In-memory cache of finalized past weeks keyed by `${seasonYear}:${week}` so warm instances skip Firestore reads
+const finalizedPastWeeksCache: Record<string, any[]> = {};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -163,8 +166,15 @@ export async function GET(
     }
 
     if (stalePastWeeks.length > 0) {
+      const seasonYear = settings.seasonYear || 2026;
       await Promise.all(
         stalePastWeeks.map(async (w) => {
+          const cacheKey = `${seasonYear}:${w}`;
+          if (finalizedPastWeeksCache[cacheKey]) {
+            gamesByWeek[w] = finalizedPastWeeksCache[cacheKey];
+            return;
+          }
+
           try {
             // 1. First check if Firestore has finalized games for this past week
             const cachedDoc = await db.collection("system_nfl_games").doc(String(w)).get();
@@ -172,14 +182,18 @@ export async function GET(
               const cachedGames = cachedDoc.data()?.games;
               if (Array.isArray(cachedGames) && cachedGames.length > 0 && cachedGames.every((g: any) => g.status?.completed)) {
                 gamesByWeek[w] = cachedGames;
+                finalizedPastWeeksCache[cacheKey] = cachedGames;
                 return;
               }
             }
 
             // 2. Otherwise sync from ESPN and persist
-            const syncRes = await syncWeekFromEspn(w, settings.seasonYear || 2026);
+            const syncRes = await syncWeekFromEspn(w, seasonYear);
             if (syncRes.synced && syncRes.games?.length > 0) {
               gamesByWeek[w] = syncRes.games;
+              if (syncRes.games.every((g: any) => g.status?.completed)) {
+                finalizedPastWeeksCache[cacheKey] = syncRes.games;
+              }
               await db
                 .collection("system_nfl_games")
                 .doc(String(w))
