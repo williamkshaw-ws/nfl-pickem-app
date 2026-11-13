@@ -398,6 +398,8 @@ function SquaresPoolApp() {
   // Live Score Tracker State
   const [liveGame, setLiveGame] = useState<LiveGameData | null>(null);
   const [isFetchingScore, setIsFetchingScore] = useState(false);
+  const [lastScoreUpdatedAt, setLastScoreUpdatedAt] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const [autoSyncScores, setAutoSyncScores] = useState<boolean>(true);
   const [availableGames, setAvailableGames] = useState<AvailableGameOption[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("");
@@ -1116,6 +1118,7 @@ function SquaresPoolApp() {
           }
         }
       }
+      setLastScoreUpdatedAt(Date.now());
     } catch (err) {
       console.error("Failed to fetch live score:", err);
     } finally {
@@ -1148,6 +1151,12 @@ function SquaresPoolApp() {
       clearInterval(timer);
     };
   }, [poolId, user, board.topTeam, board.leftTeam, selectedGameId, liveGame?.status?.state, fetchLiveScore]);
+
+  // Refresh relative timestamp every 30s
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Refresh when user returns to tab
   useEffect(() => {
@@ -2416,6 +2425,27 @@ function SquaresPoolApp() {
                     <span className="sm:hidden">Auto</span>
                   </label>
 
+                  {(lastScoreUpdatedAt || isFetchingScore) && (() => {
+                    const diffSec = lastScoreUpdatedAt ? Math.max(0, Math.floor((nowTick - lastScoreUpdatedAt) / 1000)) : 0;
+                    const label = isFetchingScore
+                      ? "Syncing..."
+                      : diffSec < 45
+                      ? "Just now"
+                      : diffSec < 3600
+                      ? `${Math.floor(diffSec / 60)}m ago`
+                      : new Date(lastScoreUpdatedAt!).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                    return (
+                      <span
+                        className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[10px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap shrink-0"
+                        title={lastScoreUpdatedAt ? `Last updated at ${new Date(lastScoreUpdatedAt).toLocaleTimeString()}` : "Syncing live scores"}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFetchingScore ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                        <span className="hidden md:inline">Updated </span>
+                        <span>{label}</span>
+                      </span>
+                    );
+                  })()}
+
                   <button
                     type="button"
                     onClick={() => fetchLiveScore()}
@@ -2442,6 +2472,26 @@ function SquaresPoolApp() {
                   )}
                 </div>
               </div>
+
+              {/* Mobile Last Updated Sub-row (keeps top status/action row uncrowded) */}
+              {(lastScoreUpdatedAt || isFetchingScore) && (() => {
+                const diffSec = lastScoreUpdatedAt ? Math.max(0, Math.floor((nowTick - lastScoreUpdatedAt) / 1000)) : 0;
+                const label = isFetchingScore
+                  ? "Syncing..."
+                  : diffSec < 45
+                  ? "Just now"
+                  : diffSec < 3600
+                  ? `${Math.floor(diffSec / 60)}m ago`
+                  : new Date(lastScoreUpdatedAt!).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                return (
+                  <div className="sm:hidden flex items-center justify-end">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[10px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFetchingScore ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                      <span>Updated {label}</span>
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Matchup Banner: AFC Team vs NFC Team */}
               <div className="flex items-center justify-between gap-2 sm:gap-4 pt-1">
@@ -3003,7 +3053,7 @@ function SquaresPoolApp() {
 
               {/* Table: Standard 10 columns + Row letter column with table-fixed */}
               <div className="flex-1 min-w-0">
-                <table className="w-full table-fixed border-collapse squares-grid-table">
+                <table className="w-full table-fixed border-collapse squares-grid-table tabular-nums">
                   <colgroup>
                     {/* Row Letter column: 6% */}
                     <col className="w-[6%]" />
