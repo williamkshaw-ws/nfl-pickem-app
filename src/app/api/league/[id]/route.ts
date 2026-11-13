@@ -380,24 +380,43 @@ export async function GET(
         }
       });
 
-      try {
-        const logsSnap = await db
-          .collection("leagues")
-          .doc(leagueId)
-          .collection("overrideLogs")
-          .orderBy("timestamp", "desc")
-          .limit(25)
-          .get();
-        overrideLogs = logsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      } catch (logErr) {
-        console.warn("Error fetching override logs:", logErr);
+      if (!isPollMode) {
+        try {
+          const logsSnap = await db
+            .collection("leagues")
+            .doc(leagueId)
+            .collection("overrideLogs")
+            .orderBy("timestamp", "desc")
+            .limit(25)
+            .get();
+          overrideLogs = logsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        } catch (logErr) {
+          console.warn("Error fetching override logs:", logErr);
+        }
       }
     }
 
     const isGuest = caller.uid === "guest";
-    const responseGamesByWeek = isPollMode
-      ? { [activeWeek]: gamesForWeek }
-      : gamesByWeek;
+    const responseGamesByWeek = { [activeWeek]: gamesForWeek };
+
+    // Only send full pick records for activeWeek; for other weeks only include minimal
+    // eliminatorPick metadata on initial/full loads when Survivor is enabled.
+    const responseAllPicks = allPicks
+      .filter((p) => {
+        if (p.week === activeWeek) return true;
+        return !isPollMode && settings.eliminatorEnabled && Boolean(p.eliminatorPick);
+      })
+      .map((p) => {
+        if (p.week === activeWeek) return p;
+        return {
+          id: p.id,
+          leagueId: p.leagueId,
+          userId: p.userId,
+          week: p.week,
+          eliminatorPick: p.eliminatorPick,
+          picks: {},
+        };
+      });
 
     return NextResponse.json({
       settings: isGuest ? { ...settings, venmoHandle: "" } : settings,
@@ -405,7 +424,7 @@ export async function GET(
       gamesByWeek: responseGamesByWeek,
       activeWeek,
       currentUserId: caller.uid,
-      allPicks,
+      allPicks: responseAllPicks,
       activeUserPicks,
       weeklyResults: sanitizedWeeklyResults,
       seasonStandings,
@@ -414,7 +433,7 @@ export async function GET(
       isSeasonOver,
       isCommissioner,
       isGuest,
-      overrideLogs,
+      overrideLogs: isPollMode ? undefined : overrideLogs,
       paidMembers: isCommissioner ? paidMembers : undefined,
       payoutRecords: isCommissioner ? league.payoutRecords || {} : undefined,
       currentUserPaid: isGuest ? undefined : currentUserPaid,

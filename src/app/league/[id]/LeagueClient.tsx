@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, use } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, use } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -127,8 +127,11 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
     }
   }, [leagueId]);
 
+  const lastFetchTimeRef = useRef<number>(0);
+
   const loadLeagueData = useCallback(async (week?: number, isBackground = false) => {
     try {
+      lastFetchTimeRef.current = Date.now();
       const params = new URLSearchParams();
       if (week !== undefined) params.set("week", String(week));
       if (isBackground) params.set("mode", "poll");
@@ -140,12 +143,23 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
       const json: LeagueApiResponse = await res.json();
       setData((prev) => {
         if (!prev) return json;
+        // Merge picks: keep cached weeks while refreshing activeWeek (and any weeks returned)
+        const updatedWeeks = new Set<number>([
+          json.activeWeek,
+          ...json.allPicks.map((p) => p.week),
+        ]);
+        const mergedPicks = [
+          ...prev.allPicks.filter((p) => !updatedWeeks.has(p.week)),
+          ...json.allPicks,
+        ];
         return {
           ...json,
           gamesByWeek: {
             ...prev.gamesByWeek,
             ...json.gamesByWeek,
           },
+          allPicks: mergedPicks,
+          overrideLogs: json.overrideLogs ?? prev.overrideLogs,
         };
       });
       // Only set initial activeWeek if week was not explicitly requested
@@ -220,9 +234,10 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
       loadLeagueData(activeWeek, true);
     }, pollInterval);
 
-    // Immediately fetch latest scores when tab becomes active / device unlocked
+    // Immediately fetch latest scores when tab becomes active / device unlocked (debounced 4s)
     const handleFocusOrVisible = () => {
       if (document.visibilityState === "visible") {
+        if (Date.now() - lastFetchTimeRef.current < 4000) return;
         loadLeagueData(activeWeek, true);
       }
     };
@@ -729,8 +744,42 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
 
   if (authLoading || loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+      <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800" />
+            <div className="h-5 w-36 rounded-lg bg-slate-200 dark:bg-slate-800" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-24 rounded-xl bg-slate-200 dark:bg-slate-800" />
+            <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800" />
+          </div>
+        </div>
+        {/* Tabs Skeleton */}
+        <div className="hidden md:flex h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 items-center gap-8">
+          <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-800" />
+          <div className="h-4 w-24 rounded bg-slate-200 dark:bg-slate-800" />
+          <div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-800" />
+        </div>
+        {/* Cards Grid Skeleton */}
+        <div className="max-w-7xl mx-auto px-4 pt-6 w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-36 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 flex flex-col justify-between"
+            >
+              <div className="flex justify-between">
+                <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="h-3 w-14 rounded bg-slate-200 dark:bg-slate-800" />
+              </div>
+              <div className="space-y-2.5">
+                <div className="h-7 w-full rounded-xl bg-slate-100 dark:bg-slate-800/80" />
+                <div className="h-7 w-full rounded-xl bg-slate-100 dark:bg-slate-800/80" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
