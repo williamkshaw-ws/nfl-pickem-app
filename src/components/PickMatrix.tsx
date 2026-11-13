@@ -580,7 +580,7 @@ export function PickMatrix({
 
           <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px] font-semibold flex-wrap">
             <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <span className="w-2.5 h-2.5 rounded-xs bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 shrink-0" /> Away Pick
+              <span className="w-2.5 h-2.5 rounded-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shrink-0" /> Away Pick
             </span>
             <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Correct
@@ -867,7 +867,7 @@ export function PickMatrix({
                                         ? "bg-amber-100/40 dark:bg-amber-950/25"
                                         : "bg-amber-50/20 dark:bg-amber-950/10"
                                       : isAwayPick
-                                      ? "bg-slate-100/75 dark:bg-slate-800/50"
+                                      ? "bg-slate-50/70 dark:bg-slate-800/25"
                                       : ""
                                   }`
                             }`}
@@ -902,7 +902,7 @@ export function PickMatrix({
                                       ? "bg-blue-200/90 dark:bg-blue-900/80 border border-blue-400 dark:border-blue-500 text-blue-950 dark:text-blue-100 font-black shadow-2xs"
                                       : "bg-white/95 dark:bg-slate-800/90 border border-blue-300 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-bold shadow-2xs"
                                     : isAwayPick
-                                    ? "bg-slate-200/85 dark:bg-slate-800 border border-slate-300/85 dark:border-slate-700/80 text-slate-950 dark:text-slate-100 font-bold shadow-2xs"
+                                    ? "bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/60 text-slate-950 dark:text-slate-100 font-bold shadow-2xs"
                                     : "bg-transparent text-slate-800 dark:text-slate-200 font-semibold"
                                 }`}
                               >
