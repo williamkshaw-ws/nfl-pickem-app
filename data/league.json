@@ -2,7 +2,7 @@
   "settings": {
     "leagueName": "Gridiron Clash Pick'em League",
     "seasonYear": 2026,
-    "currentWeek": 9,
+    "currentWeek": 10,
     "lockPolicy": "game",
     "tiebreakerRuleSummary": "1. Combined Total Points -> 2. Closest to Home Score -> 3. Closest to Away Score",
     "eliminatorEnabled": true
