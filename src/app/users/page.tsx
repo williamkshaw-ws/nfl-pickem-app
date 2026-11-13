@@ -634,7 +634,7 @@ export default function AdminUsersPage() {
                     <th className="py-3.5 px-4">Enrolled Leagues</th>
                     <th className="py-3.5 px-4">Created Date</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
+                    <th className="py-3.5 px-4 sm:px-6">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-normal">
@@ -770,7 +770,7 @@ export default function AdminUsersPage() {
                         </td>
 
                         {/* Actions (Ban / Delete) */}
-                        <td className="py-4 px-4 sm:px-6 text-right">
+                        <td className="py-4 px-4 sm:px-6">
                           <div className="inline-flex items-center gap-2">
                             {/* Ban or Unban button */}
                             {isBanned ? (
