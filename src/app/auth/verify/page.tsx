@@ -55,9 +55,13 @@ function VerifyHandler() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       const pendingRedirect = typeof window !== "undefined" ? localStorage.getItem("pending_redirect_after_auth") : null;
+      const pendingJoinCode = typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null;
       if (pendingRedirect && pendingRedirect.startsWith("/")) {
         localStorage.removeItem("pending_redirect_after_auth");
         window.location.href = pendingRedirect;
+      } else if (pendingJoinCode) {
+        localStorage.removeItem("pending_join_code");
+        window.location.href = `/?join=${encodeURIComponent(pendingJoinCode)}`;
       } else {
         window.location.href = "/";
       }

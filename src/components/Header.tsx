@@ -382,14 +382,14 @@ export function Header({
             {!user ? (
               <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800">
                 <Link
-                  href="/auth/login"
+                  href={currentLeagueId ? `/auth/login?join=${encodeURIComponent(currentLeagueId)}` : "/auth/login"}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
                 </Link>
                 <Link
-                  href="/auth/register"
+                  href={currentLeagueId ? `/auth/register?join=${encodeURIComponent(currentLeagueId)}` : "/auth/register"}
                   className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings, ArrowRight } from "lucide-react";
+import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
@@ -43,87 +43,111 @@ export default function HomeClient() {
 
   const [showJoin, setShowJoin] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [joinCode, setJoinCode] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
 
+  const resolveAndJoinCode = async (rawCode: string) => {
+    const clean = extractSquaresCode(rawCode);
+    if (!clean) return;
+    setIsRedirecting(true);
+    try {
+      const r = await fetch("/api/auth/resolve-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: clean }),
+      });
+      const data = await r.json();
+      if (data.found && data.type === "squares") {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch("/api/squares/join", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ code: data.code || clean }),
+          }).catch(() => null);
+        }
+        window.location.href = `/squares?id=${encodeURIComponent(data.code || clean)}`;
+        return;
+      }
+      if (data.found && data.type === "bracket") {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch("/api/bracket/join", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ code: data.code || clean }),
+          }).catch(() => null);
+        }
+        window.location.href = `/bracket?id=${encodeURIComponent(data.code || clean)}`;
+        return;
+      }
+      if (data.found && data.type === "league") {
+        if (data.hasPassword) {
+          setJoinCode(clean);
+          setShowJoin(true);
+          setIsRedirecting(false);
+          setLeagueChecked(true);
+          return;
+        }
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          const joinRes = await fetch("/api/league/join", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ code: data.code || clean }),
+          }).catch(() => null);
+
+          if (joinRes && !joinRes.ok) {
+            const errJson = await joinRes.json().catch(() => ({}));
+            setJoinError(errJson.error || "Failed to join league.");
+            setJoinCode(clean);
+            setShowJoin(true);
+            setIsRedirecting(false);
+            setLeagueChecked(true);
+            return;
+          }
+        }
+        window.location.href = `/league/${encodeURIComponent(data.id || data.code || clean)}`;
+        return;
+      }
+      setJoinCode(clean);
+      setShowJoin(true);
+      setIsRedirecting(false);
+      setLeagueChecked(true);
+    } catch {
+      setJoinCode(clean);
+      setShowJoin(true);
+      setIsRedirecting(false);
+      setLeagueChecked(true);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const join = params.get("join");
-      if (join) {
-        const clean = extractSquaresCode(join);
-        fetch("/api/auth/resolve-code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: clean }),
-        })
-          .then((r) => r.json())
-          .then(async (data) => {
-            if (data.found && data.type === "squares") {
-              const token = await auth.currentUser?.getIdToken();
-              if (token) {
-                await fetch("/api/squares/join", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({ code: data.code || clean }),
-                }).catch(() => null);
-              }
-              window.location.href = `/squares?id=${encodeURIComponent(data.code || clean)}`;
-            } else if (data.found && data.type === "bracket") {
-              const token = await auth.currentUser?.getIdToken();
-              if (token) {
-                await fetch("/api/bracket/join", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({ code: data.code || clean }),
-                }).catch(() => null);
-              }
-              window.location.href = `/bracket?id=${encodeURIComponent(data.code || clean)}`;
-            } else if (data.found && data.type === "league") {
-              if (data.hasPassword) {
-                setJoinCode(clean);
-                setShowJoin(true);
-                return;
-              }
-              const token = await auth.currentUser?.getIdToken();
-              if (token) {
-                const joinRes = await fetch("/api/league/join", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({ code: data.code || clean }),
-                }).catch(() => null);
-
-                if (joinRes && !joinRes.ok) {
-                  const errJson = await joinRes.json().catch(() => ({}));
-                  setJoinError(errJson.error || "Failed to join league.");
-                  setJoinCode(clean);
-                  setShowJoin(true);
-                  return;
-                }
-              }
-              window.location.href = `/league/${encodeURIComponent(data.id || data.code || clean)}`;
-            } else {
-              setJoinCode(clean);
-              setShowJoin(true);
-            }
-          })
-          .catch(() => {
-            setJoinCode(clean);
-            setShowJoin(true);
-          });
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
       const create = params.get("create");
       if (create) {
         setShowCreate(true);
@@ -184,8 +208,19 @@ export default function HomeClient() {
     }
 
     const pendingJoinCode = typeof window !== "undefined" ? localStorage.getItem("pending_join_code") : null;
-    const hasJoinParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("join");
+    const hasJoinParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("join") : null;
     const hasCreateParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create");
+
+    if (hasJoinParam || pendingJoinCode) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("pending_join_code");
+        if (hasJoinParam) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+      resolveAndJoinCode((hasJoinParam || pendingJoinCode)!);
+      return;
+    }
 
     const checkLeagues = async () => {
       try {
@@ -204,7 +239,7 @@ export default function HomeClient() {
         });
 
         // If user already belongs to leagues and didn't come via a specific ?join= or ?create= invite or pending code
-        if (m.length > 0 && !hasJoinParam && !hasCreateParam && !pendingJoinCode && !pendingSquaresCode && !pendingBracketCode) {
+        if (m.length > 0 && !hasCreateParam && !pendingSquaresCode && !pendingBracketCode) {
           const lastLeagueId = typeof window !== "undefined" ? localStorage.getItem("last_active_league") : null;
           const matchingLeague = m.find((l) => l.leagueId === lastLeagueId);
           const targetLeagueId = matchingLeague ? matchingLeague.leagueId : m[0].leagueId;
@@ -215,13 +250,6 @@ export default function HomeClient() {
 
           setIsRedirecting(true);
           router.replace(`/league/${targetLeagueId}`);
-          return;
-        }
-
-        if (pendingJoinCode) {
-          localStorage.removeItem("pending_join_code");
-          setIsRedirecting(true);
-          router.replace(`/?join=${encodeURIComponent(pendingJoinCode)}`);
           return;
         }
 
@@ -346,27 +374,58 @@ export default function HomeClient() {
           <span className="font-black text-lg tracking-tight">PocketPicks</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* User Settings Button */}
+        <div ref={dropdownRef} className="relative shrink-0">
           <button
-            onClick={() => setShowSettings(true)}
-            title="Account Settings"
-            className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            type="button"
+            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+            className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            <div className={`w-5 h-5 rounded-md ${user?.avatarColor || "bg-emerald-600"} text-white font-black flex items-center justify-center text-[10px] shrink-0`}>
-              {user?.name?.charAt(0).toUpperCase() || "U"}
+            <div
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${user?.avatarColor || "bg-emerald-600"} flex items-center justify-center text-white font-black text-xs sm:text-sm flex-shrink-0 shadow-xs transition-colors`}
+            >
+              {((user?.name || user?.username || user?.email || "U").charAt(0) || "U").toUpperCase()}
             </div>
-            <span>Settings</span>
-            <Settings className="w-3.5 h-3.5 text-slate-400" />
+            <div className="hidden md:flex flex-col items-start leading-none">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px]">{user?.name || user?.username}</span>
+              <span className="text-[10px] text-slate-400 font-medium">Account</span>
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${userDropdownOpen ? "rotate-180" : ""}`} />
           </button>
 
-          <button
-            onClick={handleLogout}
-            className="px-3.5 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Sign Out
-          </button>
+          {userDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name || user?.username}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserDropdownOpen(false);
+                  setShowSettings(true);
+                }}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-slate-400" />
+                  Settings
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+              <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+              <button
+                type="button"
+                onClick={() => {
+                  setUserDropdownOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

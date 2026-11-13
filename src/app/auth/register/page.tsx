@@ -37,6 +37,9 @@ export default function Register() {
         const clean = extractSquaresCode(code);
         if (clean) {
           setJoinCode(clean);
+          try {
+            localStorage.setItem("pending_join_code", clean);
+          } catch {}
           fetch("/api/auth/resolve-code", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
