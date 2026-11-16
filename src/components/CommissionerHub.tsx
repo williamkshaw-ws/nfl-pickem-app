@@ -1769,12 +1769,12 @@ export function CommissionerHub({
 
             {/* Past Season Champions (Hall of Fame) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
-              <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-amber-500 fill-amber-400" />
-                  Past Season Champions
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
+                  <Crown className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0" />
+                  <span>Past Season Champions</span>
                 </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                   Hall of Fame
                 </span>
               </div>
