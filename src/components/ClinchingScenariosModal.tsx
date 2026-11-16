@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { X, Trophy, Zap, HelpCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import React, { useMemo, useState, useRef } from "react";
+import { X, Trophy, Zap, HelpCircle, Check, AlertCircle, Share2, Copy } from "lucide-react";
 import { Game, User, UserPicks } from "@/types/nfl";
 import { TeamLogo } from "./TeamLogo";
 import { computeClinchingAnalysis } from "@/lib/clinching-scenarios";
@@ -23,9 +23,73 @@ export function ClinchingScenariosModal({
   allPicks,
   activeWeek,
 }: ClinchingScenariosModalProps) {
+  const [showSharePopup, setShowSharePopup] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const shareTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   const analysis = useMemo(() => {
     return computeClinchingAnalysis(games, users, allPicks, activeWeek, true);
   }, [games, users, allPicks, activeWeek]);
+
+  const shareText = useMemo(() => {
+    if (!analysis.isEligible || !analysis.remainingGame || !analysis.awayTeam || !analysis.homeTeam) {
+      return "";
+    }
+    const { remainingGame, awayTeam, homeTeam, contenders } = analysis;
+    const isLive = remainingGame.status?.state === "in";
+    const isFinal = Boolean(remainingGame.status?.completed || remainingGame.status?.state === "post");
+    const awayScore = Number(remainingGame.awayScore) || 0;
+    const homeScore = Number(remainingGame.homeScore) || 0;
+
+    const scoreSuffix =
+      isLive || isFinal
+        ? ` (${awayTeam.abbreviation} ${awayScore} - ${homeTeam.abbreviation} ${homeScore}${isLive ? " LIVE" : " FINAL"})`
+        : "";
+
+    const lines: string[] = [
+      `🏈 Week ${activeWeek} Winning Scenarios — ${awayTeam.abbreviation} @ ${homeTeam.abbreviation}${scoreSuffix}`,
+      "",
+    ];
+
+    for (const c of contenders) {
+      const pickLabel = c.pickedTeam ? `Picked ${c.pickedTeam.abbreviation}` : "No pick";
+      const statusTag =
+        isLive && c.isLiveEliminated
+          ? " [Eliminated]"
+          : isFinal && c.liveStatusLabel?.includes("Winner")
+            ? " [Winner 🏆]"
+            : "";
+
+      lines.push(`• ${c.user.name} (${c.preWins} wins • ${pickLabel})${statusTag}`);
+      lines.push(`  Path: ${c.summary}`);
+      if (c.tiebreaker) {
+        const total = c.tiebreaker.totalScore ?? c.tiebreaker.homeScore + c.tiebreaker.awayScore;
+        lines.push(
+          `  Tiebreaker: ${awayTeam.abbreviation} ${c.tiebreaker.awayScore} - ${homeTeam.abbreviation} ${c.tiebreaker.homeScore} (${total} pts)`
+        );
+      }
+      lines.push("");
+    }
+
+    return lines.join("\n").trim();
+  }, [analysis, activeWeek]);
+
+  const handleCopyShareText = async () => {
+    if (!shareText) return;
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      if (shareTextareaRef.current) {
+        shareTextareaRef.current.focus();
+        shareTextareaRef.current.select();
+        document.execCommand("copy");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
+  };
 
   if (!isOpen || !analysis.isEligible || !analysis.remainingGame || !analysis.awayTeam || !analysis.homeTeam) {
     return null;
@@ -241,20 +305,111 @@ export function ClinchingScenariosModal({
         </div>
 
         {/* Footer */}
-        <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 flex items-center justify-between text-xs text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Automatically updates with live NFL scores
+        <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 flex items-center justify-between gap-2 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="truncate">Automatically updates with live NFL scores</span>
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold transition cursor-pointer"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setCopied(false);
+                setShowSharePopup(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black transition cursor-pointer shadow-xs"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold transition cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Share / Copy Scenarios Popup */}
+      {showSharePopup && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-scenarios-title"
+          onClick={() => setShowSharePopup(false)}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+          >
+            <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-amber-500" />
+                <h4 id="share-scenarios-title" className="text-sm font-black text-slate-900 dark:text-white">
+                  Share Week {activeWeek} Scenarios
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSharePopup(false)}
+                aria-label="Close share popup"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Copy and paste this summary into your group chat to share everyone&apos;s winning scenarios:
+              </p>
+              <textarea
+                ref={shareTextareaRef}
+                readOnly
+                value={shareText}
+                rows={10}
+                onClick={(e) => e.currentTarget.select()}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 p-3 text-xs font-mono text-slate-800 dark:text-slate-200 leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none"
+              />
+            </div>
+
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSharePopup(false)}
+                className="px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyShareText}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer shadow-xs ${
+                  copied
+                    ? "bg-emerald-600 text-white"
+                    : "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Text</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
