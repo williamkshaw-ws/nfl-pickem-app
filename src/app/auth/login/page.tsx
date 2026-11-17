@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Eye, EyeOff, X, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { extractSquaresCode } from "@/lib/squares-validation";
+import { prefetchLeagueIntoCache } from "@/lib/api-client";
 
 export default function Login() {
   const router = useRouter();
@@ -182,6 +183,8 @@ export default function Login() {
         if (typeof window !== "undefined") {
           localStorage.setItem("last_active_league", targetLeagueId);
         }
+        router.prefetch(`/league/${targetLeagueId}`);
+        await prefetchLeagueIntoCache(targetLeagueId);
         router.replace(`/league/${targetLeagueId}`);
         return;
       }

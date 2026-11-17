@@ -8,7 +8,7 @@ import { db, auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { PlusCircle, LogIn, Trophy, Loader2, LogOut, Settings, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
-import { authFetch } from "@/lib/api-client";
+import { authFetch, prefetchLeagueIntoCache } from "@/lib/api-client";
 import { LandingPage } from "@/components/LandingPage";
 import { UserSettingsModal } from "@/components/UserSettingsModal";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
@@ -249,6 +249,8 @@ export default function HomeClient() {
           }
 
           setIsRedirecting(true);
+          router.prefetch(`/league/${targetLeagueId}`);
+          await prefetchLeagueIntoCache(targetLeagueId);
           router.replace(`/league/${targetLeagueId}`);
           return;
         }

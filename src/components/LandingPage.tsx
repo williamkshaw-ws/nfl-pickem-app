@@ -41,6 +41,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { GameSwitcherDropdown } from "@/components/GameSwitcherDropdown";
 import { useUserAllPools } from "@/lib/useUserAllPools";
 import { extractSquaresCode } from "@/lib/squares-validation";
+import { prefetchLeagueIntoCache } from "@/lib/api-client";
 
 const UserSettingsModal = dynamic(
   () => import("@/components/UserSettingsModal").then((m) => m.UserSettingsModal),
@@ -636,7 +637,9 @@ export function LandingPage() {
           try {
             localStorage.setItem("last_active_league", targetLeagueId);
           } catch {}
-          window.location.href = `/league/${targetLeagueId}`;
+          router.prefetch(`/league/${targetLeagueId}`);
+          await prefetchLeagueIntoCache(targetLeagueId);
+          router.replace(`/league/${targetLeagueId}`);
           return;
         }
       } catch (err) {
