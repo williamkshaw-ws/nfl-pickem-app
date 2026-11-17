@@ -58,6 +58,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    agentUpgrade: "security",
+  },
   async redirects() {
     return [
       {
