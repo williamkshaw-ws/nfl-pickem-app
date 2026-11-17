@@ -32,7 +32,6 @@ import {
   Copy,
   Check,
   Trash2,
-  RefreshCw,
   UserMinus,
   Ban,
   Crown,
@@ -77,8 +76,6 @@ interface CommissionerHubProps {
   onTogglePaid?: (userId: string, newPaid: boolean) => Promise<void>;
   onTogglePayout?: (key: string, newPaidOut: boolean) => Promise<void>;
   onNudgeUnpaid?: () => Promise<void>;
-  onSyncEspn?: (week: number) => Promise<void>;
-  isSyncing?: boolean;
   onOverridePicks: (
     userId: string,
     week: number,
@@ -113,8 +110,6 @@ export function CommissionerHub({
   onDeleteLeague,
   onRemoveUser,
   onTransferCommissioner,
-  onSyncEspn,
-  isSyncing,
 }: CommissionerHubProps) {
   const [activeSubTab, setActiveSubTab] = useState<CommissionerSubTab>("roster");
   const [leagueNameInput, setLeagueNameInput] = useState(settings.leagueName);
@@ -1735,35 +1730,6 @@ export function CommissionerHub({
               >
                 <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
                 <span>View Payouts &amp; Prize Ledger &rarr;</span>
-              </button>
-            </div>
-
-            {/* Live Data Sync */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-xs">
-              <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  ESPN Live Sync
-                </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full">
-                  Automated
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Scores and game statuses automatically refresh every 45-60 seconds when games are
-                active. You can also trigger an immediate sync manually.
-              </p>
-              <button
-                onClick={() => onSyncEspn?.(activeWeek)}
-                disabled={isSyncing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 active:scale-95 text-white transition disabled:opacity-50 shadow-xs"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin text-emerald-400" : ""}`}
-                />
-                <span>
-                  {isSyncing ? "Syncing ESPN Scores..." : `Sync Week ${activeWeek} Scores Now`}
-                </span>
               </button>
             </div>
 

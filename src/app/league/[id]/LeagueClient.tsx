@@ -1159,13 +1159,11 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
               onDeleteLeague={handleDeleteLeague}
               onOverridePicks={handleOverridePicks}
               onUpdateSettings={handleUpdateSettings}
-              onSyncEspn={handleSyncToEspn}
               onRemoveUser={async () => {
                 await loadLeagueData();
                 showToast("Member removed from league.");
               }}
               onTransferCommissioner={handleTransferCommissioner}
-              isSyncing={isSyncing}
             />
           )}
           {activeTab === "commissioner" && !isCommissioner && (
