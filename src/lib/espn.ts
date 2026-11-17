@@ -50,6 +50,16 @@ interface ESPNEvent {
       overUnder?: number;
       spread?: number;
     }>;
+    broadcast?: string;
+    broadcasts?: Array<{
+      market?: string;
+      names?: string[];
+    }>;
+    geoBroadcasts?: Array<{
+      media?: {
+        shortName?: string;
+      };
+    }>;
   }>;
 }
 
@@ -155,6 +165,12 @@ export async function fetchEspnWeekGames(
           }
         : undefined;
 
+      const broadcast =
+        comp?.broadcast?.trim() ||
+        comp?.broadcasts?.[0]?.names?.[0]?.trim() ||
+        comp?.geoBroadcasts?.[0]?.media?.shortName?.trim() ||
+        undefined;
+
       return {
         id: event.id,
         week: resolvedWeek,
@@ -170,6 +186,7 @@ export async function fetchEspnWeekGames(
         winnerTeamId,
         status,
         odds,
+        broadcast,
         isTiebreakerGame: false,
       };
     });

@@ -42,6 +42,7 @@ export interface Game {
   winnerTeamId?: string;  // ID of the winning team if game finished
   status: GameStatus;
   odds?: GameOdds;
+  broadcast?: string;
   isTiebreakerGame?: boolean;
 }
 

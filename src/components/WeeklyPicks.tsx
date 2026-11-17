@@ -479,6 +479,12 @@ export function WeeklyPicks({
                 <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex-wrap min-w-0">
                   <Clock className="w-3.5 h-3.5 shrink-0" />
                   <span>{formatGameDate(game.date)}</span>
+                  {game.broadcast && (
+                    <>
+                      <span className="text-slate-300 dark:text-slate-600">|</span>
+                      <span>{game.broadcast}</span>
+                    </>
+                  )}
                   {game.odds?.details && (
                     <>
                       <span className="text-slate-300 dark:text-slate-600">|</span>
