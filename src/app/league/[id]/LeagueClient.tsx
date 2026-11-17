@@ -217,37 +217,40 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
     }
   }, [leagueId, cacheKey]);
 
+  // Hydrate cached league snapshot immediately on mount without waiting for Firebase Auth
   useEffect(() => {
-    if (authLoading) return;
     let cancelled = false;
-    // Render the last saved snapshot on the next microtask (if any), then refresh from the server
-    if (!hasFreshDataRef.current) {
-      queueMicrotask(() => {
-        if (cancelled || hasFreshDataRef.current) return;
-        try {
-          const raw = localStorage.getItem(cacheKey(user?.id));
-          if (raw) {
-            const cached = JSON.parse(raw) as { savedAt: number; data: LeagueApiResponse };
-            const cachedOk =
-              cached?.data &&
-              (!hasUrlWeek || cached.data.activeWeek === activeWeek) &&
-              Date.now() - (cached.savedAt || 0) < 7 * 24 * 60 * 60 * 1000;
-            if (cachedOk) {
-              setData(cached.data);
-              if (!hasUrlWeek) setActiveWeek(cached.data.activeWeek);
-              setLastUpdatedAt(cached.savedAt);
-              setLoading(false);
-            }
+    queueMicrotask(() => {
+      if (cancelled || hasFreshDataRef.current) return;
+      try {
+        const lastUid = localStorage.getItem("last_auth_uid") || undefined;
+        const raw = localStorage.getItem(cacheKey(lastUid));
+        if (raw) {
+          const cached = JSON.parse(raw) as { savedAt: number; data: LeagueApiResponse };
+          const cachedOk =
+            cached?.data &&
+            (!hasUrlWeek || cached.data.activeWeek === activeWeek) &&
+            Date.now() - (cached.savedAt || 0) < 7 * 24 * 60 * 60 * 1000;
+          if (cachedOk) {
+            setData(cached.data);
+            if (!hasUrlWeek) setActiveWeek(cached.data.activeWeek);
+            setLastUpdatedAt(cached.savedAt);
+            setLoading(false);
           }
-        } catch {
-          // Ignore corrupt cache
         }
-      });
-    }
-    loadLeagueData(hasUrlWeek ? activeWeek : undefined);
+      } catch {
+        // Ignore corrupt cache
+      }
+    });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    loadLeagueData(hasUrlWeek ? activeWeek : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, loadLeagueData]);
 

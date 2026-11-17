@@ -28,6 +28,7 @@ export const useAuth = () => useContext(AuthContext);
 
 const PROFILE_CACHE_PREFIX = "user_profile_v1:";
 const LEAGUE_CACHE_PREFIX = "league_cache_v1:";
+const LAST_AUTH_UID_KEY = "last_auth_uid";
 
 function readCachedProfile(uid: string): Partial<AppUser> | null {
   try {
@@ -49,6 +50,7 @@ function writeCachedProfile(profile: AppUser) {
 /** Removes cached profiles and signed-in league snapshots (keeps guest snapshots). */
 function clearSignedInCaches() {
   try {
+    localStorage.removeItem(LAST_AUTH_UID_KEY);
     const toRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -121,29 +123,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        try {
+          localStorage.setItem(LAST_AUTH_UID_KEY, firebaseUser.uid);
+        } catch {}
         const cached = readCachedProfile(firebaseUser.uid);
-        if (cached) {
-          // Returning user on this device: unblock the app immediately with the cached profile,
-          // then refresh it from Firestore in the background.
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || "",
-            name: cached.name || firebaseUser.displayName || "",
-            username: cached.username || "",
-            emailVerified: firebaseUser.emailVerified,
-            avatarColor: cached.avatarColor || "bg-emerald-600",
-            emailNotifications: cached.emailNotifications ?? false,
-            venmoHandle: cached.venmoHandle || "",
-          });
-          setLoading(false);
-          fetchUserProfile(firebaseUser);
-        } else {
-          // First sign-in on this device: load the profile once before unblocking (same as before)
-          await fetchUserProfile(firebaseUser);
-          setLoading(false);
-        }
+        // Unblock the app immediately using cached profile or auth basics,
+        // then refresh the full Firestore profile in the background.
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          name: cached?.name || firebaseUser.displayName || "",
+          username: cached?.username || "",
+          emailVerified: firebaseUser.emailVerified,
+          avatarColor: cached?.avatarColor || "bg-emerald-600",
+          emailNotifications: cached?.emailNotifications ?? false,
+          venmoHandle: cached?.venmoHandle || "",
+        });
+        setLoading(false);
+        fetchUserProfile(firebaseUser);
       } else {
         setUser(null);
         clearSignedInCaches();
