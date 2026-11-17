@@ -26,6 +26,42 @@ const AuthContext = createContext<AuthContextType>({ user: null, loading: true, 
 
 export const useAuth = () => useContext(AuthContext);
 
+const PROFILE_CACHE_PREFIX = "user_profile_v1:";
+const LEAGUE_CACHE_PREFIX = "league_cache_v1:";
+
+function readCachedProfile(uid: string): Partial<AppUser> | null {
+  try {
+    const raw = localStorage.getItem(`${PROFILE_CACHE_PREFIX}${uid}`);
+    return raw ? (JSON.parse(raw) as Partial<AppUser>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProfile(profile: AppUser) {
+  try {
+    localStorage.setItem(`${PROFILE_CACHE_PREFIX}${profile.id}`, JSON.stringify(profile));
+  } catch {
+    // Storage full or unavailable; non-critical
+  }
+}
+
+/** Removes cached profiles and signed-in league snapshots (keeps guest snapshots). */
+function clearSignedInCaches() {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key.startsWith(PROFILE_CACHE_PREFIX)) toRemove.push(key);
+      if (key.startsWith(LEAGUE_CACHE_PREFIX) && !key.endsWith(":guest")) toRemove.push(key);
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,9 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const docRef = doc(db, "users", firebaseUser.uid);
       const docSnap = await getDoc(docRef);
+      // Ignore stale results if the user signed out / switched accounts meanwhile
+      if (auth.currentUser?.uid !== firebaseUser.uid) return;
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setUser({
+        const profile: AppUser = {
           id: firebaseUser.uid,
           email: firebaseUser.email || "",
           name: data.name || firebaseUser.displayName || "",
@@ -45,23 +83,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatarColor: data.avatarColor || "bg-emerald-600",
           emailNotifications: data.emailNotifications ?? false,
           venmoHandle: data.venmoHandle || "",
+        };
+        setUser((prev) => {
+          // Keep the same object reference when nothing changed so effects depending on `user` don't re-run
+          if (prev && JSON.stringify(prev) === JSON.stringify(profile)) return prev;
+          return profile;
         });
+        writeCachedProfile(profile);
         return;
       }
     } catch (err) {
       console.error("Error fetching user profile doc:", err);
     }
 
-    setUser({
-      id: firebaseUser.uid,
-      email: firebaseUser.email || "",
-      name: firebaseUser.displayName || "",
-      username: "",
-      emailVerified: firebaseUser.emailVerified,
-      avatarColor: "bg-emerald-600",
-      emailNotifications: false,
-      venmoHandle: "",
-    });
+    // Profile doc missing or unreadable: fall back to auth basics (only if nothing set yet)
+    if (auth.currentUser?.uid !== firebaseUser.uid) return;
+    setUser((prev) =>
+      prev && prev.id === firebaseUser.uid
+        ? prev
+        : {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || "",
+            name: firebaseUser.displayName || "",
+            username: "",
+            emailVerified: firebaseUser.emailVerified,
+            avatarColor: "bg-emerald-600",
+            emailNotifications: false,
+            venmoHandle: "",
+          }
+    );
   };
 
   const refreshUser = async () => {
@@ -73,11 +123,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        await fetchUserProfile(firebaseUser);
+        const cached = readCachedProfile(firebaseUser.uid);
+        if (cached) {
+          // Returning user on this device: unblock the app immediately with the cached profile,
+          // then refresh it from Firestore in the background.
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email || "",
+            name: cached.name || firebaseUser.displayName || "",
+            username: cached.username || "",
+            emailVerified: firebaseUser.emailVerified,
+            avatarColor: cached.avatarColor || "bg-emerald-600",
+            emailNotifications: cached.emailNotifications ?? false,
+            venmoHandle: cached.venmoHandle || "",
+          });
+          setLoading(false);
+          fetchUserProfile(firebaseUser);
+        } else {
+          // First sign-in on this device: load the profile once before unblocking (same as before)
+          await fetchUserProfile(firebaseUser);
+          setLoading(false);
+        }
       } else {
         setUser(null);
+        clearSignedInCaches();
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();

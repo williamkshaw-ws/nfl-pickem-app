@@ -17,13 +17,18 @@ export function adminDb() {
 /**
  * Verifies the Firebase ID token in `Authorization: Bearer <token>`.
  * Never trust a userId sent in the request body or query string.
+ *
+ * `checkRevoked` (default true) makes an extra round-trip to Firebase Auth to confirm the
+ * session hasn't been revoked / the account disabled. Read-only, high-frequency endpoints may
+ * pass `{ checkRevoked: false }`; the token signature and expiry (max 1 hour) are still verified.
  */
-export async function requireUser(request: Request) {
+export async function requireUser(request: Request, options: { checkRevoked?: boolean } = {}) {
+  const { checkRevoked = true } = options;
   const header = request.headers.get("authorization") || "";
   const match = header.match(/^Bearer (.+)$/i);
   if (!match) throw new HttpError(401, "Not signed in");
   try {
-    const decoded = await adminAuth.verifyIdToken(match[1], true);
+    const decoded = await adminAuth.verifyIdToken(match[1], checkRevoked);
     return {
       uid: decoded.uid,
       email: decoded.email,

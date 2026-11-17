@@ -5,6 +5,22 @@ import { adminDb } from "@/lib/server-auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const METADATA_TIMEOUT_MS = 1500;
+
+/** Single direct lookup (the league API also loads leagues by exact doc ID), capped by a timeout. */
+async function loadLeagueName(id: string): Promise<string | null> {
+  const cleanId = id.trim();
+  if (!/^[A-Za-z0-9_-]{3,20}$/.test(cleanId)) return null;
+  const db = adminDb();
+  const upper = cleanId.toUpperCase();
+  const ids = cleanId === upper ? [cleanId] : [cleanId, upper];
+  const snaps = await Promise.all(ids.map((docId) => db.collection("leagues").doc(docId).get()));
+  const leagueDoc = snaps.find((s) => s.exists);
+  if (!leagueDoc) return null;
+  const data = leagueDoc.data();
+  return data?.name?.trim() || data?.settings?.leagueName?.trim() || "Pick'em League";
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -12,41 +28,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   if (id) {
-    const cleanId = id.trim();
-    const upper = cleanId.toUpperCase();
+    const upper = id.trim().toUpperCase();
     try {
-      const db = adminDb();
-      let leagueDoc = await db.collection("leagues").doc(upper).get();
-      if (!leagueDoc.exists && cleanId !== upper) {
-        leagueDoc = await db.collection("leagues").doc(cleanId).get();
-      }
-      if (!leagueDoc.exists) {
-        const qSnap = await db
-          .collection("leagues")
-          .where("id", "==", upper)
-          .limit(1)
-          .get();
-        if (!qSnap.empty) {
-          leagueDoc = qSnap.docs[0];
-        }
-      }
-      if (!leagueDoc.exists) {
-        const qSnap = await db
-          .collection("leagues")
-          .where("inviteCode", "==", upper)
-          .limit(1)
-          .get();
-        if (!qSnap.empty) {
-          leagueDoc = qSnap.docs[0];
-        }
-      }
+      const leagueName = await Promise.race([
+        loadLeagueName(id),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), METADATA_TIMEOUT_MS)),
+      ]);
 
-      if (leagueDoc && leagueDoc.exists) {
-        const data = leagueDoc.data();
-        const leagueName =
-          data?.name?.trim() ||
-          data?.settings?.leagueName?.trim() ||
-          "Pick'em League";
+      if (leagueName) {
         const title = `${leagueName} | NFL Pick'em`;
         const description = `Join ${leagueName} on PocketPicks! Make weekly NFL picks, compete with friends, and track season standings.`;
         return {

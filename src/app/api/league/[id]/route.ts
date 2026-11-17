@@ -34,6 +34,25 @@ export async function GET(
       throw new HttpError(404, "League not found");
     }
 
+    const db = adminDb();
+
+    // Start league-wide reads immediately so they run in parallel with auth/membership checks.
+    // Nothing is returned to the caller until access has been resolved below.
+    const memPicksPromise = Promise.all([
+      db.collection("memberships").where("leagueId", "==", leagueId).get(),
+      db.collection("picks").where("leagueId", "==", leagueId).get(),
+    ]);
+    // Profiles depend only on memberships, so chain them as soon as memberships arrive
+    const usersPromise = memPicksPromise.then(async ([memSnapEarly]) => {
+      const ids = memSnapEarly.docs.map((doc) => doc.data().userId).filter(Boolean);
+      const chunks: string[][] = [];
+      for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+      return Promise.all(chunks.map((chunk) => db.collection("users").where("id", "in", chunk).get()));
+    });
+    // Prevent unhandled-rejection warnings if we exit early (e.g. 404) before awaiting these
+    memPicksPromise.catch(() => {});
+    usersPromise.catch(() => {});
+
     const authHeader = request.headers.get("authorization") || "";
     let caller: { uid: string; email?: string; emailVerified?: boolean } = {
       uid: "guest",
@@ -45,7 +64,8 @@ export async function GET(
 
     if (authHeader.startsWith("Bearer ")) {
       try {
-        const authedCaller = await requireUser(request);
+        // Read-only endpoint polled frequently: skip the extra revocation round-trip
+        const authedCaller = await requireUser(request, { checkRevoked: false });
         const memberData = await requireMember(leagueId, authedCaller.uid);
         caller = authedCaller;
         league = memberData.league;
@@ -56,7 +76,6 @@ export async function GET(
     }
 
     if (!league) {
-      const db = adminDb();
       const leagueSnap = await db.collection("leagues").doc(leagueId).get();
       if (!leagueSnap.exists) throw new HttpError(404, "League not found");
       league = leagueSnap.data()!;
@@ -82,20 +101,34 @@ export async function GET(
       }).catch((err) => console.warn("Auto-update currentWeek warning:", err));
     }
 
-    let leagueVenmo = typeof rawSettings.venmoHandle === "string" ? rawSettings.venmoHandle.trim() : "";
-    if (!leagueVenmo && league.commissionerId) {
-      try {
-        const commishDoc = await adminDb().collection("users").doc(league.commissionerId).get();
-        if (commishDoc.exists) {
-          const profileVenmo = (commishDoc.data()?.venmoHandle || "").trim();
-          if (profileVenmo) {
-            leagueVenmo = profileVenmo;
-          }
-        }
-      } catch {
-        // Non-blocking
-      }
-    }
+    const leagueVenmo = typeof rawSettings.venmoHandle === "string" ? rawSettings.venmoHandle.trim() : "";
+    // Fall back to the commissioner's profile Venmo; fetched in parallel and applied before responding
+    const commishVenmoPromise: Promise<string> =
+      !leagueVenmo && league.commissionerId
+        ? db
+            .collection("users")
+            .doc(league.commissionerId)
+            .get()
+            .then((commishDoc) => (commishDoc.exists ? (commishDoc.data()?.venmoHandle || "").trim() : ""))
+            .catch(() => "")
+        : Promise.resolve("");
+
+    // Commissioner override logs (full loads only) also run in parallel with the rest
+    const overrideLogsPromise: Promise<any[]> =
+      isCommissioner && !isPollMode
+        ? db
+            .collection("leagues")
+            .doc(leagueId)
+            .collection("overrideLogs")
+            .orderBy("timestamp", "desc")
+            .limit(25)
+            .get()
+            .then((logsSnap) => logsSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+            .catch((logErr) => {
+              console.warn("Error fetching override logs:", logErr);
+              return [];
+            })
+        : Promise.resolve([]);
 
     const settings = {
       leagueName: league.name || rawSettings.leagueName || "Untitled League",
@@ -154,8 +187,6 @@ export async function GET(
       }
     }
 
-    const db = adminDb();
-
     // Ensure all completed past weeks (prior to currentWeek) have finalized games for season standings
     const stalePastWeeks: number[] = [];
     for (let w = 1; w < settings.currentWeek; w++) {
@@ -208,25 +239,15 @@ export async function GET(
       );
     }
 
-    // Fetch memberships and picks in parallel
-    const [memSnap, picksSnap] = await Promise.all([
-      db.collection("memberships").where("leagueId", "==", leagueId).get(),
-      db.collection("picks").where("leagueId", "==", leagueId).get(),
+    // Memberships, picks and profiles were started at the top of the handler and have been loading in parallel
+    const [[memSnap, picksSnap], userSnaps, commishVenmo] = await Promise.all([
+      memPicksPromise,
+      usersPromise,
+      commishVenmoPromise,
     ]);
-
-    const userIds = memSnap.docs.map((doc) => doc.data().userId).filter(Boolean);
-
-    // Fetch user profiles in parallel batches of 30
-    const userChunks: string[][] = [];
-    for (let i = 0; i < userIds.length; i += 30) {
-      userChunks.push(userIds.slice(i, i + 30));
+    if (!settings.venmoHandle && commishVenmo) {
+      settings.venmoHandle = commishVenmo;
     }
-
-    const userSnaps = await Promise.all(
-      userChunks.map((chunk) =>
-        db.collection("users").where("id", "in", chunk).get()
-      )
-    );
 
     const users: any[] = [];
     userSnaps.forEach((userSnap) => {
@@ -395,20 +416,7 @@ export async function GET(
         }
       });
 
-      if (!isPollMode) {
-        try {
-          const logsSnap = await db
-            .collection("leagues")
-            .doc(leagueId)
-            .collection("overrideLogs")
-            .orderBy("timestamp", "desc")
-            .limit(25)
-            .get();
-          overrideLogs = logsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        } catch (logErr) {
-          console.warn("Error fetching override logs:", logErr);
-        }
-      }
+      overrideLogs = await overrideLogsPromise;
     }
 
     const isGuest = caller.uid === "guest";

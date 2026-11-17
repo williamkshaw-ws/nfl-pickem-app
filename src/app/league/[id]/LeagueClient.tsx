@@ -129,6 +129,12 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
   }, [leagueId]);
 
   const lastFetchTimeRef = useRef<number>(0);
+  const hasFreshDataRef = useRef<boolean>(false);
+
+  const cacheKey = useCallback(
+    (uid: string | undefined) => `league_cache_v1:${leagueId}:${uid || "guest"}`,
+    [leagueId]
+  );
 
   const loadLeagueData = useCallback(async (week?: number, isBackground = false) => {
     try {
@@ -140,10 +146,43 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
       const url = qs ? `/api/league/${leagueId}?${qs}` : `/api/league/${leagueId}`;
 
       const res = await authFetch(url);
-      if (!res.ok) throw new Error("Failed to fetch league data");
+      if (!res.ok) {
+        if (res.status === 404 && !isBackground) {
+          // League no longer exists: drop any stale snapshot so the "unavailable" screen shows
+          try {
+            localStorage.removeItem(cacheKey(auth.currentUser?.uid));
+          } catch {}
+          hasFreshDataRef.current = true;
+          setData(null);
+        }
+        throw new Error("Failed to fetch league data");
+      }
       const json: LeagueApiResponse = await res.json();
+      const isFirstFresh = !hasFreshDataRef.current;
+      hasFreshDataRef.current = true;
+
+      // Snapshot full loads of the default (current) week so the next visit renders instantly
+      if (!isBackground && json.activeWeek === json.settings.currentWeek) {
+        try {
+          localStorage.setItem(
+            cacheKey(json.currentUserId === "guest" ? undefined : json.currentUserId),
+            JSON.stringify({ savedAt: Date.now(), data: json })
+          );
+        } catch {
+          // Storage full or unavailable; non-critical
+        }
+      }
+
       setData((prev) => {
-        if (!prev) return json;
+        // Keep the same activeUserPicks reference when unchanged so in-progress pick edits aren't reset
+        const sameUserPicks =
+          !!prev &&
+          prev.activeWeek === json.activeWeek &&
+          JSON.stringify(prev.activeUserPicks ?? null) === JSON.stringify(json.activeUserPicks ?? null);
+        const stableUserPicks = sameUserPicks ? prev!.activeUserPicks : json.activeUserPicks;
+
+        // Replace (not merge) cached snapshot data on the first fresh response
+        if (!prev || isFirstFresh) return { ...json, activeUserPicks: stableUserPicks };
         // Merge picks: keep cached weeks while refreshing activeWeek (and any weeks returned)
         const updatedWeeks = new Set<number>([
           json.activeWeek,
@@ -155,6 +194,7 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
         ];
         return {
           ...json,
+          activeUserPicks: stableUserPicks,
           gamesByWeek: {
             ...prev.gamesByWeek,
             ...json.gamesByWeek,
@@ -175,11 +215,39 @@ export default function LeagueClient({ params }: { params: Promise<{ id: string 
         setLoading(false);
       }
     }
-  }, [leagueId]);
+  }, [leagueId, cacheKey]);
 
   useEffect(() => {
     if (authLoading) return;
+    let cancelled = false;
+    // Render the last saved snapshot on the next microtask (if any), then refresh from the server
+    if (!hasFreshDataRef.current) {
+      queueMicrotask(() => {
+        if (cancelled || hasFreshDataRef.current) return;
+        try {
+          const raw = localStorage.getItem(cacheKey(user?.id));
+          if (raw) {
+            const cached = JSON.parse(raw) as { savedAt: number; data: LeagueApiResponse };
+            const cachedOk =
+              cached?.data &&
+              (!hasUrlWeek || cached.data.activeWeek === activeWeek) &&
+              Date.now() - (cached.savedAt || 0) < 7 * 24 * 60 * 60 * 1000;
+            if (cachedOk) {
+              setData(cached.data);
+              if (!hasUrlWeek) setActiveWeek(cached.data.activeWeek);
+              setLastUpdatedAt(cached.savedAt);
+              setLoading(false);
+            }
+          }
+        } catch {
+          // Ignore corrupt cache
+        }
+      });
+    }
     loadLeagueData(hasUrlWeek ? activeWeek : undefined);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, loadLeagueData]);
 
