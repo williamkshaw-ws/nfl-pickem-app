@@ -440,6 +440,7 @@ export function PickMatrix({
   // Final display list of players:
   // In-contention players (leaders, clinched, contending) listed FIRST,
   // followed by mathematically eliminated players below them.
+  // Within each group while the week is active, sort by most correct picks, then alphabetically by name.
   const displayPlayers = useMemo(() => {
     if (isWeekFinished) return rankedPlayers;
 
@@ -454,6 +455,19 @@ export function PickMatrix({
         inContention.push(p);
       }
     });
+
+    const sortByCorrectThenName = (
+      a: (typeof rankedPlayers)[number],
+      b: (typeof rankedPlayers)[number]
+    ) => {
+      if (b.correctCount !== a.correctCount) {
+        return b.correctCount - a.correctCount;
+      }
+      return a.user.name.localeCompare(b.user.name, undefined, { sensitivity: "base" });
+    };
+
+    inContention.sort(sortByCorrectThenName);
+    eliminated.sort(sortByCorrectThenName);
 
     return [...inContention, ...eliminated];
   }, [rankedPlayers, playerContentionMap, isWeekFinished]);
