@@ -79,6 +79,7 @@ export async function POST(request: Request) {
           name: cleanName,
           username: cleanUsername,
           email: caller.email || "",
+          emailNotifications: true,
           createdAt: now,
         });
       }

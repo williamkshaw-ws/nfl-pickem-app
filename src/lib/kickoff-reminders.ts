@@ -28,6 +28,7 @@ export interface ReminderResult {
   activeWeek: number;
   kickoffDate: string | null;
   dryRun: boolean;
+  skippedReason?: string;
   totalEligibleUsers: number;
   remindersSent: number;
   recipients: Array<{
@@ -92,12 +93,46 @@ export async function processKickoffReminders({
   const totalGames = weekGames.length;
   const validGameIds = new Set(weekGames.map((g: any) => String(g.id)));
 
-  // Find first kickoff (typically Thursday Night Football)
+  // Find first kickoff of the week (could be Wed, Thu, Fri, Sat, or Sun)
   const sortedGames = [...weekGames].sort(
     (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
   const firstGame = sortedGames[0];
   const kickoffDate = firstGame ? new Date(firstGame.date).toISOString() : null;
+
+  // Guard for daily cron runs: only send when within ~2 hours (0 < delta <= 2.75h)
+  // before the first game of the week, unless manually forced or dry-run.
+  if (!force && !dryRun) {
+    if (!firstGame) {
+      return {
+        success: true,
+        activeWeek,
+        kickoffDate: null,
+        dryRun,
+        skippedReason: "No games scheduled for active week",
+        totalEligibleUsers: 0,
+        remindersSent: 0,
+        recipients: [],
+      };
+    }
+    const msUntilKickoff = new Date(firstGame.date).getTime() - Date.now();
+    const maxWindowMs = 2.75 * 60 * 60 * 1000;
+    if (msUntilKickoff <= 0 || msUntilKickoff > maxWindowMs) {
+      return {
+        success: true,
+        activeWeek,
+        kickoffDate,
+        dryRun,
+        skippedReason:
+          msUntilKickoff <= 0
+            ? "First game of the week has already kicked off"
+            : `Outside 2-hour pre-kickoff window (${(msUntilKickoff / 3600000).toFixed(2)}h until kickoff)`,
+        totalEligibleUsers: 0,
+        remindersSent: 0,
+        recipients: [],
+      };
+    }
+  }
 
   // 2. Query all users who have enabled emailNotifications
   const usersSnap = await db
@@ -240,7 +275,7 @@ export async function processKickoffReminders({
               Lock In Your Week ${activeWeek} Picks! 🏈
             </h1>
             <p style="color: #94a3b8; font-size: 14px; margin: 0; font-weight: 500;">
-              Thursday Night Football kicks off in approximately 2 hours.
+              The first game of Week ${activeWeek}${firstGame?.shortName ? ` (${escapeHtml(firstGame.shortName)})` : ""} kicks off in approximately 2 hours.
             </p>
           </div>
 
@@ -275,7 +310,7 @@ export async function processKickoffReminders({
           <!-- Footer -->
           <div style="background-color: #090d16; padding: 20px 24px; text-align: center; border-top: 1px solid #1e293b;">
             <p style="color: #64748b; font-size: 11px; margin: 0 0 6px 0; line-height: 1.5;">
-              You received this email because you turned on <strong>Thursday Kickoff Reminder</strong> in your PocketPicks account settings.
+              You received this email because you turned on <strong>Weekly Kickoff Reminder</strong> in your PocketPicks account settings.
             </p>
             <p style="color: #475569; font-size: 11px; margin: 0;">
               &copy; ${new Date().getFullYear()} PocketPicks™ • <a href="${baseUrl}" style="color: #10b981; text-decoration: none; font-weight: 600;">pocketpicks.app</a>

@@ -494,10 +494,10 @@ export function UserSettingsModal({ isOpen, onClose, onProfileUpdated }: UserSet
                   </div>
                   <div>
                     <label htmlFor="emailNotifToggle" className="text-xs font-bold text-slate-900 dark:text-white block cursor-pointer">
-                      Thursday Kickoff Reminder
+                      Weekly Kickoff Reminder
                     </label>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">
-                      Receive an automated reminder email 2 hours before Thursday kickoff if your picks haven&apos;t been submitted yet.
+                      Receive an automated reminder email 2 hours before the first game of the week if your picks haven&apos;t been submitted yet.
                     </p>
                   </div>
                 </div>
